@@ -162,11 +162,21 @@ export class SophiaOS extends EventTarget {
         if (this.wakeTimer) clearTimeout(this.wakeTimer);
         this.wakeTimer = setTimeout(() => {
           if (this.state.is('wakeup')) this.state.transition('focusing', { reason: 'wake-complete' }, true);
-        }, 950);
+        }, 1400);
       } else if (s === 'ambient' && prev !== 'transforming') {
         this.maybeArmWake();
       }
       if (s === 'completed' && this.renderer && this.director.isCustomMorphActive) {
+        const baseShape = this.prefs.form === 'ring' ? 'circle' : 'organic';
+        this.director.requestTransform(baseShape, this.renderer);
+      }
+      /* States only apply to base shapes — custom morphs revert when entering
+         a new state so state animations play cleanly on sphere/ring. */
+      const stateNeedsBase: SophiaStateName[] = [
+        'idle', 'listening', 'thinking', 'speaking', 'rendering',
+        'focusing', 'wakeup', 'blocked',
+      ];
+      if (stateNeedsBase.includes(s) && this.renderer && this.director.isCustomMorphActive) {
         const baseShape = this.prefs.form === 'ring' ? 'circle' : 'organic';
         this.director.requestTransform(baseShape, this.renderer);
       }

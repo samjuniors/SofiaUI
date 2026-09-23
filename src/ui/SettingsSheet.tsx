@@ -12,11 +12,10 @@
 
 import { useEffect, useState } from 'react';
 import type { DensityPref, OSStatus, ProviderPref, SophiaOS } from '../sophia/SophiaOS';
-import { DEFAULT_TUNE, THEMES, type ShapeTune } from '../sophia/VisualDirector';
+import { DEFAULT_TUNE, type ShapeTune } from '../sophia/VisualDirector';
 import type { SophiaForm } from '../sophia/ShapeGenerator';
 import type { SophiaShape, SophiaStateName } from '../sophia/types';
 import { ALL_SHAPES } from '../sophia/control';
-import { pulse } from '../sophia/haptics';
 
 function SegRow<T extends string>({
   label,
@@ -339,39 +338,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
             ]}
           />
 
-          {/* THEME PRESETS */}
-          <div className="border-t border-white/[0.06] pt-3">
-            <p className="mb-2 text-[8.5px] font-light uppercase tracking-[0.34em] text-white/35">Looks</p>
-            <div className="grid grid-cols-1 gap-1.5">
-              {THEMES.map((theme) => (
-                <button
-                  key={theme.id}
-                  type="button"
-                  onClick={() => {
-                    os.applyTheme(theme.id);
-                    pulse('tap');
-                    rerender();
-                  }}
-                  className="flex items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-left transition hover:border-sky-300/30 hover:bg-white/[0.04]"
-                >
-                  <span>
-                    <span className="block text-[11px] font-light tracking-wide text-white/80">{theme.label}</span>
-                    <span className="block text-[9px] font-light text-white/35">{theme.hint}</span>
-                  </span>
-                  <span
-                    className={`size-2.5 rounded-full ${
-                      theme.id === 'deepgram'
-                        ? 'bg-sky-300'
-                        : theme.id === 'studio'
-                          ? 'bg-cyan-400'
-                          : 'bg-emerald-400'
-                    }`}
-                    aria-hidden="true"
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
+
 
           {/* INTERACTIVE STATE ANIMATION CONTROLLER */}
           <div className="border-t border-white/[0.06] pt-3">
@@ -485,6 +452,42 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
             </div>
             <p className="text-[9px] font-light leading-relaxed text-white/25">
               The aura changes by state but stays intentionally softer than the shape.
+            </p>
+          </div>
+
+          {/* BACKGROUND DUST PARTICLES — separate controls */}
+          <div className="space-y-3 border-t border-white/[0.06] pt-3">
+            <p className="text-[8.5px] font-light uppercase tracking-[0.34em] text-white/35">Dust Particles</p>
+            <ToggleRow
+              label="Dust visible"
+              hint="scattered ambient dust motes"
+              on={p.tune.dustVisible}
+              onChange={(dustVisible) => setTune({ dustVisible })}
+            />
+            <div className={p.tune.dustVisible ? '' : 'pointer-events-none opacity-30'}>
+              <div className="space-y-3">
+                <Slider
+                  label="Dust speed"
+                  value={p.tune.dustSpeed}
+                  min={0}
+                  max={2.0}
+                  step={0.05}
+                  format={(v) => `${Math.round(v * 100)}%`}
+                  onChange={(dustSpeed) => setTune({ dustSpeed })}
+                />
+                <Slider
+                  label="Dust amount"
+                  value={p.tune.dustAmount}
+                  min={0}
+                  max={2.0}
+                  step={0.05}
+                  format={(v) => `${Math.round(v * 100)}%`}
+                  onChange={(dustAmount) => setTune({ dustAmount })}
+                />
+              </div>
+            </div>
+            <p className="text-[9px] font-light leading-relaxed text-white/25">
+              Fine scattered particles that float across the scene independently of Sophia.
             </p>
           </div>
 

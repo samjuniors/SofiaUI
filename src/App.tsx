@@ -55,6 +55,7 @@ export default function App() {
      Settings, Terminal, and Chat all leave Sophia in the center stage. */
   const docked = browserOpen;
   const paused = state === 'paused';
+  const voiceUnavailable = micError || status === 'denied' || status === 'error';
 
   useEffect(() => {
     os.setDocked(docked);

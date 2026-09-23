@@ -60,6 +60,7 @@ export interface FrameParams {
   shapeGlow: number;
   /* ---- cross-cutting states ---- */
   wake: number;
+  wakeShockwave: number;
   paused: number;
   /** 0 = centre stage … 1 = docked mini-orb at bottom centre */
   dock: number;
@@ -74,6 +75,10 @@ export interface FrameParams {
   waveAmp: number;
   particleScale: number;
   sparkle: number;
+  /* ---- ambient dust particles ---- */
+  dustVisible: number; // 0 hidden, 1 visible
+  dustSpeed: number;
+  dustAmount: number;
 }
 
 export type Vec3 = [number, number, number];
@@ -381,10 +386,15 @@ export class ParticleRenderer {
     gl.uniform1f(this.u(b, 'uShapeGlow'), p.shapeGlow);
     /* wake + pause + dock */
     gl.uniform1f(this.u(b, 'uWake'), p.wake);
+    gl.uniform1f(this.u(b, 'uWakeShock'), p.wakeShockwave);
     gl.uniform1f(this.u(b, 'uPaused'), p.paused);
     gl.uniform1f(this.u(b, 'uDock'), p.dock);
     gl.uniform1f(this.u(b, 'uBow'), p.bow);
     gl.uniform2f(this.u(b, 'uHang'), p.hang[0], p.hang[1]);
+    /* dust particles */
+    gl.uniform1f(this.u(b, 'uDustVisible'), p.dustVisible);
+    gl.uniform1f(this.u(b, 'uDustSpeed'), p.dustSpeed);
+    gl.uniform1f(this.u(b, 'uDustAmount'), p.dustAmount);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     /* scene: particle mesh pass (additive) */
@@ -425,6 +435,7 @@ export class ParticleRenderer {
     gl.uniform1f(this.u(q, 'uShapeTintAmt'), p.shapeTintAmt);
     gl.uniform1f(this.u(q, 'uShapeGlow'), p.shapeGlow);
     gl.uniform1f(this.u(q, 'uWake'), p.wake);
+    gl.uniform1f(this.u(q, 'uWakeShock'), p.wakeShockwave);
     gl.uniform1f(this.u(q, 'uPaused'), p.paused);
     gl.uniform1f(this.u(q, 'uDock'), p.dock);
     gl.uniform1f(this.u(q, 'uBow'), p.bow);

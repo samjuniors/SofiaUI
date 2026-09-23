@@ -80,8 +80,13 @@ uniform float uBgPulseSpd;  // breathing rate
 uniform float uBgVig;       // vignette strength
 uniform float uBgLevel;     // live audio reactivity 0..1
 uniform float uWake;        // 0..1 wake-up expansion (background side)
+uniform float uWakeShock;   // 0..1 shockwave ring intensity
 uniform float uPaused;      // 0..1 freeze + desaturate
 uniform float uMotion;
+/* dust particles */
+uniform float uDustVisible;
+uniform float uDustSpeed;
+uniform float uDustAmount;
 vec3 atmosphere(vec2 q, float vq){
   float t = uTime * uBgSpeed * uMotion * 0.42;
 
@@ -114,8 +119,36 @@ vec3 atmosphere(vec2 q, float vq){
   col += (uBgAuraA * 0.58 + uBgAuraB * 0.42) * (uBgPulse * breath * 0.62 + uBgLevel * 0.10) * centerHalo;
 
   // Wake-up: soft radiant expansion (annular ring for ring form, central aura for sphere)
+  // Enhanced: form-aware shockwave ring + central bloom pulse
   float wakeHalo = mix(centerHalo, gauss(vq - 0.48, 0.18), uForm);
   col += mix(uBgAuraA, vec3(0.7, 0.9, 1.0), 0.35) * uWake * (1.0 - uWake) * 2.2 * wakeHalo;
+  // Shockwave ring: expands outward from centre
+  float shockR = uWake * 1.8 + uForm * 0.4;
+  float shockRing = gauss(vq - shockR, 0.06 + uWake * 0.08);
+  col += mix(vec3(0.5, 0.85, 1.0), vec3(0.8, 0.95, 1.0), uForm) * uWakeShock * shockRing * 1.8;
+  // Central bloom pulse during wake
+  col += vec3(0.6, 0.88, 1.0) * uWakeShock * centerHalo * 0.55;
+
+  // Ambient dust particles — tiny scattered motes
+  if (uDustVisible > 0.001 && uDustAmount > 0.001) {
+    float dustT = uTime * uDustSpeed * 0.12;
+    float dustCellSize = mix(80.0, 50.0, min(uDustAmount, 1.0));
+    vec2 dustUv = (q * vec2(uAspect, 1.0) + 0.5) * dustCellSize;
+    dustUv += vec2(dustT * 0.6, dustT * 0.35);
+    vec2 dustCell = floor(dustUv);
+    vec2 dustFrac = fract(dustUv) - 0.5;
+    float dh = hash21(dustCell);
+    float dh2 = hash21(dustCell + 77.0);
+    if (dh < 0.32 * uDustAmount) {
+      vec2 dustOff = vec2(dh2 - 0.5, hash21(dustCell + 33.0) - 0.5) * 0.65;
+      float dustDist = length(dustFrac - dustOff);
+      float dustSz = 0.018 + dh * 0.015;
+      float dustDot = exp(-dustDist * dustDist / (dustSz * dustSz));
+      float dustTwinkle = 0.6 + 0.4 * sin(uTime * (1.5 + dh2 * 3.0) + dh * 40.0);
+      float dustFade = smoothstep(1.2, 0.6, vq) * 0.7;
+      col += vec3(0.55, 0.72, 1.0) * dustDot * dustTwinkle * dustFade * uDustVisible * 0.45;
+    }
+  }
 
   // Vignette: gentle and soft
   col *= 1.0 - uBgVig * smoothstep(0.35, 1.45, vq) * 0.58;
@@ -400,11 +433,16 @@ void main(){
 
   col += (rim + inner + interior + light + waves + pool) * uBody;
 
-  // wake-up shockwave rides the body layer too
+  // wake-up shockwave rides the body layer too — enhanced with form-aware ring + bloom
   if (uWake > 0.001 && uWake < 1.0) {
     float wr = uWake * 2.3;
     col += mix(uShapeTint, vec3(0.7, 0.9, 1.0), 0.4) * gauss(dS - wr, 0.05 + uWake*0.07) * (1.0 - uWake) * 1.2;
     col += uShapeTint * (1.0 - uWake) * exp(-dS*dS*2.0) * 0.45;
+    // Enhanced ring-form shockwave: expanding ring of light
+    float ringShock = gauss(dS - uWake * 1.6, 0.04 + uWake * 0.06) * uForm;
+    col += vec3(0.7, 0.92, 1.0) * ringShock * uWakeShock * 2.2;
+    // Central bloom during wake
+    col += mix(uShapeTint, vec3(0.85, 0.95, 1.0), 0.55) * uWakeShock * exp(-dS*dS*3.5) * 0.65;
   }
 
   // pause: frosted diamond & sapphire crystal body tone with standby pulse
@@ -457,6 +495,7 @@ uniform vec3  uShapeTint;
 uniform float uShapeTintAmt;
 uniform float uShapeGlow;
 uniform float uWake;
+uniform float uWakeShock;
 uniform float uPaused;
 out vec4 vCol;
 ${COMMON}
@@ -570,11 +609,17 @@ void main(){
 
   // WAKE-UP : converge from a scattered shell into the form
   float wakeK = 1.0;
+  float wakeGlow = 0.0;
   if (uWake > 0.001 && uWake < 1.0) {
     wakeK = smoothstep(0.0, 1.0, uWake * 1.35 - aSeed.w * 0.35);
     float sa = aSeed.x * TAU + uTime * 0.15 * mo;
-    vec2 scatter = vec2(cos(sa), sin(sa)) * (2.0 + aSeed.z * 1.6) + (aSeed.ww - 0.5) * 0.5;
+    // Enhanced scatter: wider for ring form, with radial burst
+    float scatterR = (2.0 + aSeed.z * 1.6) * (1.0 + uForm * 0.5);
+    vec2 scatter = vec2(cos(sa), sin(sa)) * scatterR + (aSeed.ww - 0.5) * 0.5;
     pos = mix(scatter, pos, wakeK);
+    // Shockwave glow: particles near the shockwave front brighten
+    float shockDist = abs(length(pos) - uWake * 1.8);
+    wakeGlow = uWakeShock * exp(-shockDist * shockDist * 25.0) * 1.5;
   }
 
   // Idle / pause posture: deep U-bow only if explicitly non-zero
@@ -626,6 +671,7 @@ void main(){
     a *= mix(1.0, 0.80, uPause);
   }
   a *= 0.35 + 0.65 * wakeK;              // wake-up brightens as she lands
+  a += wakeGlow;                          // shockwave front glow
 
   float baseSize = 1.35 + 1.2*limb*(1.0-uForm) + 1.0*uForm + 1.5*mt;
   float size = baseSize * uDpr * uParticleScale * mix(1.0, 1.45, uOnlyParticles)

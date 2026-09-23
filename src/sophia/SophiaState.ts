@@ -48,7 +48,7 @@ const FLOW: Record<SophiaStateName, SophiaStateName[]> = {
 const MIN_HOLD: Partial<Record<SophiaStateName, number>> = {
   focusing: 320,
   thinking: 200,
-  wakeup: 560,
+  wakeup: 900,
   completed: 900,
 };
 

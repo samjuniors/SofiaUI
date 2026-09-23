@@ -351,6 +351,7 @@ export class VisualDirector {
   private hangPhase = 0;
   private wantDock = false;
   private dock = 0;
+  private wakeShockwave = 0;
 
   /* ------------------------------ inputs ------------------------------ */
 
@@ -386,10 +387,12 @@ export class VisualDirector {
     this.focusAng = a;
   }
 
-  /** Trigger the wake-up sequence (scattered → converged). */
+  /** Trigger the wake-up sequence (scattered → converged).
+   *  Enhanced: longer timeline with shockwave ring + bloom pulse for both forms. */
   playWake() {
     this.wakeTimer = 0;
     this.wake = 0;
+    this.wakeShockwave = 0;
   }
 
   /** Content wants the centre stage → orb travels to the bottom dock. */
@@ -493,11 +496,19 @@ export class VisualDirector {
     this.outputAudio += (rawPlay - this.outputAudio) * (rawPlay > this.outputAudio ? k(18) : k(6));
     this.level = this.speak * this.outputAudio + this.listen * this.inputAudio;
 
-    /* wake-up timeline */
+    /* wake-up timeline — extended to 1.5s with form-aware shockwave + bloom */
     if (this.wakeTimer >= 0) {
       this.wakeTimer += dt;
-      this.wake = Math.min(1, this.wakeTimer / 1.05);
-      if (this.wake >= 1) this.wakeTimer = -1;
+      this.wake = Math.min(1, this.wakeTimer / 1.5);
+      /* shockwave ring: peaks at t=0.4s then fades */
+      const shockT = this.wakeTimer / 1.5;
+      this.wakeShockwave = shockT < 0.35
+        ? shockT / 0.35
+        : Math.max(0, 1 - (shockT - 0.35) / 0.65);
+      if (this.wake >= 1) {
+        this.wakeTimer = -1;
+        this.wakeShockwave = 0;
+      }
     }
 
     /* slow-motion suspended float while paused; minimal-motion keeps a slow breath */
@@ -652,10 +663,15 @@ export class VisualDirector {
       shapeGlow,
       /* cross-cutting */
       wake: this.wake,
+      wakeShockwave: this.wakeShockwave,
       paused: this.paused,
       dock: this.dock,
       bow: this.bow,
       hang,
+      /* ambient dust particles */
+      dustVisible: this.tune.dustVisible ? 1.0 : 0.0,
+      dustSpeed: this.tune.dustSpeed,
+      dustAmount: this.tune.dustAmount,
     };
   }
 }
