@@ -37,6 +37,9 @@ export interface ShapeTune {
   backgroundEnabled: boolean;
   backgroundIntensity: number;
   backgroundMotion: number;
+  dustVisible: boolean;
+  dustSpeed: number;
+  dustAmount: number;
 }
 
 export const DEFAULT_TUNE: ShapeTune = {
@@ -54,6 +57,9 @@ export const DEFAULT_TUNE: ShapeTune = {
   // Keep the atmosphere present but subordinate to Sophia.
   backgroundIntensity: 0.46,
   backgroundMotion: 0.72,
+  dustVisible: true,
+  dustSpeed: 0.8,
+  dustAmount: 1.0,
 };
 
 export type DensityTier = 'low' | 'medium' | 'high';

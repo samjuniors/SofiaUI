@@ -39,7 +39,7 @@ export function StatusCluster({
 }) {
   const meta = HEALTH_META[health];
   return (
-    <div className="absolute right-7 top-[26px] z-10 flex items-center gap-[30px] sm:right-11 sm:top-[30px]">
+    <div className="absolute right-7 top-[26px] z-10 flex items-center gap-[24px] sm:right-11 sm:top-[30px]">
       <span
         title={meta.label}
         role="status"
@@ -52,9 +52,9 @@ export function StatusCluster({
         aria-label="Settings"
         aria-expanded={settingsOpen}
         onClick={onSettings}
-        className="grid size-[36px] place-items-center rounded-full border border-white/[0.16] text-white/70 transition-all duration-300 hover:border-white/35 hover:bg-white/[0.03] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300/70"
+        className="grid size-[32px] place-items-center text-white/60 transition-all duration-300 hover:text-white hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.45)] focus-visible:outline-none focus-visible:text-white"
       >
-        <Settings size={16} strokeWidth={1.4} />
+        <Settings size={18} strokeWidth={1.5} />
       </button>
     </div>
   );
@@ -161,6 +161,7 @@ export function Dock({
   chatOpen,
   paused,
   micError,
+  audioAvailable,
   browserOpen,
   onToggleBrowser,
 }: {
@@ -171,6 +172,7 @@ export function Dock({
   chatOpen: boolean;
   paused: boolean;
   micError?: boolean;
+  audioAvailable?: boolean;
   browserOpen?: boolean;
   onToggleBrowser?: () => void;
 }) {
@@ -184,8 +186,11 @@ export function Dock({
         : state === 'speaking' || state === 'thinking'
           ? 'Interrupt Sophia'
           : 'Stop listening';
+
+  const showChat = audioAvailable === false || micError === true;
+
   return (
-    <div className="absolute bottom-[44px] right-7 z-10 flex items-center gap-[18px] sm:bottom-[52px] sm:right-11">
+    <div className="absolute bottom-[44px] right-7 z-10 flex items-center gap-[20px] sm:bottom-[52px] sm:right-11">
       {/* Fullscreen Browser/Workspace launcher */}
       {onToggleBrowser && (
         <button
@@ -193,11 +198,11 @@ export function Dock({
           aria-label={browserOpen ? 'Minimize workspace' : 'Open fullscreen workspace'}
           title="Fullscreen Workspace (Docks Sophia)"
           onClick={onToggleBrowser}
-          className={`dock-btn ${browserOpen ? 'border-sky-400/40 text-sky-200 shadow-[0_0_15px_rgba(56,189,248,0.2)]' : ''}`}
+          className={`dock-btn ${browserOpen ? 'text-sky-300 drop-shadow-[0_0_12px_rgba(56,189,248,0.5)]' : ''}`}
         >
           <svg
-            width="18"
-            height="18"
+            width="20"
+            height="20"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -213,33 +218,35 @@ export function Dock({
         </button>
       )}
 
-      {/* Text fallback chat */}
-      <button
-        type="button"
-        aria-label="Type to Sophia"
-        aria-expanded={chatOpen}
-        onClick={onChat}
-        className="dock-btn"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+      {/* Text fallback chat — ONLY visible when there is no audio available */}
+      {showChat && (
+        <button
+          type="button"
+          aria-label="Type to Sophia"
+          aria-expanded={chatOpen}
+          onClick={onChat}
+          className={`dock-btn ${chatOpen ? 'text-sky-300 drop-shadow-[0_0_10px_rgba(56,189,248,0.5)]' : ''}`}
         >
-          <path d="M20 14.5a2 2 0 0 1-2 2H9l-4.5 3.5V16.5H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
-          <circle cx="8.6" cy="10.5" r="0.55" fill="currentColor" />
-          <circle cx="12" cy="10.5" r="0.55" fill="currentColor" />
-          <circle cx="15.4" cy="10.5" r="0.55" fill="currentColor" />
-        </svg>
-      </button>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M20 14.5a2 2 0 0 1-2 2H9l-4.5 3.5V16.5H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
+            <circle cx="8.6" cy="10.5" r="0.55" fill="currentColor" />
+            <circle cx="12" cy="10.5" r="0.55" fill="currentColor" />
+            <circle cx="15.4" cy="10.5" r="0.55" fill="currentColor" />
+          </svg>
+        </button>
+      )}
 
-      {/* Main Microphone Button */}
+      {/* Main Microphone Button — pure icon without circular border or background ring */}
       <button
         ref={micRef}
         type="button"
@@ -249,17 +256,18 @@ export function Dock({
         disabled={paused || micError}
         title={micLabel}
         onClick={onMic}
-        className={`mic-ring relative grid size-[60px] place-items-center rounded-full border border-transparent text-white/90 transition-all duration-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300/70 ${
+        className={`mic-ring relative grid size-[44px] place-items-center text-white/85 transition-all duration-300 focus-visible:outline-none ${
           paused || micError ? 'mic-disabled' : 'hover:text-white'
-        } ${micError ? 'mic-error border-rose-500/40 text-rose-300' : ''} ${on && !paused && !micError ? 'mic-on' : ''}`}
+        } ${micError ? 'mic-error text-rose-300' : ''} ${on && !paused && !micError ? 'mic-on' : ''}`}
       >
         {/* Red color dot indicator on mic icon when disabled/missing key */}
         {micError && (
           <span
             title="Missing key or code error"
-            className="status-alert absolute right-2.5 top-2.5 block size-[7px] rounded-full bg-rose-500 shadow-[0_0_8px_2px_rgba(244,63,94,0.7)]"
+            className="status-alert absolute right-1 top-1 block size-[6px] rounded-full bg-rose-500 shadow-[0_0_8px_2px_rgba(244,63,94,0.7)]"
           />
         )}
+
 
         {paused ? (
           <svg

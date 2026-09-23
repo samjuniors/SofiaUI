@@ -250,7 +250,7 @@ export function Terminal({ os, open, onToggle }: { os: SophiaOS; open: boolean; 
         onClick={onToggle}
         title="Terminal"
         className={`dock-btn absolute bottom-[44px] left-7 z-10 sm:bottom-[52px] sm:left-11 ${
-          open ? 'border-sky-300/40 text-sky-200' : ''
+          open ? 'text-sky-300 drop-shadow-[0_0_12px_rgba(56,189,248,0.5)]' : ''
         }`}
       >
         <svg

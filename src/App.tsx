@@ -149,8 +149,10 @@ export default function App() {
         else os.pause();
       }
       if (e.key === 't' || e.key === 'T' || e.key === '/') {
-        e.preventDefault();
-        setChatOpen(true);
+        if (voiceUnavailable) {
+          e.preventDefault();
+          setChatOpen(true);
+        }
       }
       if (e.key === '`' || e.key === '~') {
         e.preventDefault();
@@ -159,10 +161,15 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onMic, browserOpen, chatOpen, settingsOpen, terminalOpen, os]);
+  }, [onMic, browserOpen, chatOpen, settingsOpen, terminalOpen, os, voiceUnavailable]);
+
+  useEffect(() => {
+    if (!voiceUnavailable && chatOpen) {
+      setChatOpen(false);
+    }
+  }, [voiceUnavailable, chatOpen]);
 
   const health = glFailed ? 'error' : os.health;
-  const voiceUnavailable = micError || glFailed || status === 'denied' || status === 'error';
 
   const stageStyle = {
     left: layout.cx - layout.R,
@@ -206,7 +213,9 @@ export default function App() {
       <Identity layout={layout} state={state} docked={docked} />
       <OrbDock visible={docked && !glFailed} state={state} />
 
-      {chatOpen && <ChatPanel status={status} onClose={() => setChatOpen(false)} onSend={(t) => os.sendText(t)} />}
+      {chatOpen && voiceUnavailable && (
+        <ChatPanel status={status} onClose={() => setChatOpen(false)} onSend={(t) => os.sendText(t)} />
+      )}
       {settingsOpen && <SettingsSheet os={os} status={status} onClose={() => setSettingsOpen(false)} />}
       <Terminal os={os} open={terminalOpen} onToggle={() => setTerminalOpen((v) => !v)} />
       {browserOpen && <BrowserPanel onClose={() => setBrowserOpen(false)} />}
@@ -220,6 +229,7 @@ export default function App() {
         chatOpen={chatOpen}
         paused={paused}
         micError={voiceUnavailable}
+        audioAvailable={!voiceUnavailable}
         browserOpen={browserOpen}
         onToggleBrowser={() => setBrowserOpen((v) => !v)}
       />
