@@ -32,7 +32,7 @@ export class DeepgramVoiceProvider extends VoiceProvider {
   }
 
   async start(): Promise<void> {
-    const res = await fetch('/api/dg/session', { method: 'POST' });
+    const res = await fetch('/api/sophia/dg/session', { method: 'POST' });
     if (!res.ok) throw new Error(`dg-session:${res.status}`);
     const { key } = (await res.json()) as { key: string };
 
@@ -136,7 +136,7 @@ export class DeepgramVoiceProvider extends VoiceProvider {
     const ctl = new AbortController();
     this.speakCtl = ctl;
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch('/api/sophia/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         signal: ctl.signal,
@@ -167,7 +167,7 @@ export class DeepgramVoiceProvider extends VoiceProvider {
 
   private async speak(text: string, signal: AbortSignal) {
     this.emit('response_started', { source: this.id });
-    const res = await fetch('/api/dg/speak', {
+    const res = await fetch('/api/sophia/dg/speak', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       signal,

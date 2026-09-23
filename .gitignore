@@ -3,3 +3,9 @@ node_modules/
 .github_repo
 .env
 .env.*
+sofia/
+.vercel/
+.output/
+dist/
+artifacts/
+screenshots/*.png

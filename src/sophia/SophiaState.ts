@@ -13,32 +13,36 @@ import type { SophiaEventDetail, SophiaEventType, SophiaStateName } from './type
 type Listener = (state: SophiaStateName, prev: SophiaStateName, meta: Record<string, unknown>) => void;
 
 const ALL_STATES: SophiaStateName[] = [
-  'ambient',
   'idle',
-  'wakeup',
-  'focusing',
   'listening',
   'thinking',
-  'speaking',
   'rendering',
-  'transforming',
+  'speaking',
+  'pause',
   'paused',
   'completed',
+  'blocked',
+  'ambient',
+  'wakeup',
+  'focusing',
+  'transforming',
 ];
 
 /** Any state may move to any other; the gate is MIN_HOLD + real signals. */
 const FLOW: Record<SophiaStateName, SophiaStateName[]> = {
-  ambient: ALL_STATES.filter((s) => s !== 'ambient'),
   idle: ALL_STATES.filter((s) => s !== 'idle'),
-  wakeup: ALL_STATES.filter((s) => s !== 'wakeup'),
-  focusing: ALL_STATES.filter((s) => s !== 'focusing'),
   listening: ALL_STATES.filter((s) => s !== 'listening'),
   thinking: ALL_STATES.filter((s) => s !== 'thinking'),
-  speaking: ALL_STATES.filter((s) => s !== 'speaking'),
   rendering: ALL_STATES.filter((s) => s !== 'rendering'),
-  transforming: ALL_STATES.filter((s) => s !== 'transforming'),
+  speaking: ALL_STATES.filter((s) => s !== 'speaking'),
+  pause: ALL_STATES.filter((s) => s !== 'pause'),
   paused: ALL_STATES.filter((s) => s !== 'paused'),
   completed: ALL_STATES.filter((s) => s !== 'completed'),
+  blocked: ALL_STATES.filter((s) => s !== 'blocked'),
+  ambient: ALL_STATES.filter((s) => s !== 'ambient'),
+  wakeup: ALL_STATES.filter((s) => s !== 'wakeup'),
+  focusing: ALL_STATES.filter((s) => s !== 'focusing'),
+  transforming: ALL_STATES.filter((s) => s !== 'transforming'),
 };
 
 const MIN_HOLD: Partial<Record<SophiaStateName, number>> = {
@@ -97,10 +101,10 @@ export class SophiaState {
     }
     const prev = this._state;
     if (to === 'transforming' || to === 'rendering') {
-      if (prev !== 'transforming' && prev !== 'rendering' && prev !== 'paused') this.resumeAs = prev;
+      if (prev !== 'transforming' && prev !== 'rendering' && prev !== 'paused' && prev !== 'pause') this.resumeAs = prev;
     }
-    if (to === 'paused' && prev !== 'paused') this.pausedAs = prev;
-    if (to === 'wakeup' && prev !== 'wakeup') this.resumeAs = prev === 'paused' ? this.resumeAs : prev;
+    if ((to === 'paused' || to === 'pause') && prev !== 'paused' && prev !== 'pause') this.pausedAs = prev;
+    if (to === 'wakeup' && prev !== 'wakeup') this.resumeAs = (prev === 'paused' || prev === 'pause') ? this.resumeAs : prev;
     this._state = to;
     this._since = performance.now();
     if (to === 'ambient' || to === 'idle') this.clearTimers();
@@ -122,16 +126,16 @@ export class SophiaState {
 
   /** Hold everything still. */
   pause(reason = 'user') {
-    if (this._state !== 'paused') this.transition('paused', { reason }, true);
+    if (this._state !== 'pause' && this._state !== 'paused') this.transition('pause', { reason }, true);
   }
 
   /** Pick back up exactly where she was. */
   resume(reason = 'user') {
-    if (this._state === 'paused') this.transition(this.pausedAs, { reason }, true);
+    if (this._state === 'pause' || this._state === 'paused') this.transition(this.pausedAs, { reason }, true);
   }
 
   get paused(): boolean {
-    return this._state === 'paused';
+    return this._state === 'pause' || this._state === 'paused';
   }
 
   /** Map a normalized provider event onto the lifecycle. */

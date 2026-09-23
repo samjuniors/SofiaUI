@@ -6,17 +6,19 @@
 /** Lifecycle: AMBIENT / IDLE → WAKEUP → FOCUSING → LISTENING → THINKING → SPEAKING → (RENDERING / TRANSFORMING) → AMBIENT
  *  PAUSED is an overlay state that can wrap any of the above. */
 export type SophiaStateName =
-  | 'ambient'
   | 'idle'
-  | 'wakeup'
-  | 'focusing'
   | 'listening'
   | 'thinking'
-  | 'speaking'
   | 'rendering'
-  | 'transforming'
+  | 'speaking'
+  | 'pause'
   | 'paused'
-  | 'completed';
+  | 'completed'
+  | 'blocked'
+  | 'ambient'
+  | 'wakeup'
+  | 'focusing'
+  | 'transforming';
 
 /** Normalized events every VoiceProvider must emit. */
 export type SophiaEventType =

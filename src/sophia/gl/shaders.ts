@@ -67,6 +67,7 @@ vec2 rot2(vec2 p, float a){ float c = cos(a), s = sin(a); return mat2(c, -s, s, 
  * velvety, atmospheric, and deeply calming.
  */
 const ATMOSPHERE = `
+uniform float uAspect;
 uniform float uTime;
 uniform vec3  uBgDeep;      // deepest vignette navy
 uniform vec3  uBgCore;      // near-centre field colour
@@ -112,15 +113,16 @@ vec3 atmosphere(vec2 q, float vq){
   float breath = 0.5 + 0.5 * sin(uTime * uBgPulseSpd * uMotion);
   col += (uBgAuraA * 0.58 + uBgAuraB * 0.42) * (uBgPulse * breath * 0.62 + uBgLevel * 0.10) * centerHalo;
 
-  // Wake-up: soft radiant expansion
-  col += mix(uBgAuraA, vec3(0.7, 0.9, 1.0), 0.35) * uWake * (1.0 - uWake) * 2.2 * centerHalo;
+  // Wake-up: soft radiant expansion (annular ring for ring form, central aura for sphere)
+  float wakeHalo = mix(centerHalo, gauss(vq - 0.48, 0.18), uForm);
+  col += mix(uBgAuraA, vec3(0.7, 0.9, 1.0), 0.35) * uWake * (1.0 - uWake) * 2.2 * wakeHalo;
 
   // Vignette: gentle and soft
   col *= 1.0 - uBgVig * smoothstep(0.35, 1.45, vq) * 0.58;
 
-  // Pause desaturation
-  float lum = dot(col, vec3(0.299, 0.587, 0.114));
-  col = mix(col, vec3(lum) * vec3(0.82, 0.86, 1.0), uPaused * 0.55);
+  // Pause atmosphere: serene frosted twilight wash
+  vec3 frostAtmo = mix(col, vec3(0.10, 0.22, 0.42), 0.4);
+  col = mix(col, frostAtmo, uPaused * 0.4);
   return col;
 }
 `;
@@ -142,6 +144,13 @@ uniform float uThink;
 uniform float uSpeak;
 uniform float uListen;
 uniform float uRender;
+uniform float uIdle;
+uniform float uPause;
+uniform float uCompleted;
+uniform float uCompletedProgress;
+uniform float uBlocked;
+uniform float uInputAudio;
+uniform float uOutputAudio;
 uniform vec2 uFocusDir;
 uniform float uFocusAmt;
 uniform float uOrbitPhase;
@@ -185,7 +194,7 @@ void main(){
   vec2 fc = gl_FragCoord.xy;
   vec2 p = (fc - uCenter) / uR - uHang;
   float aspect = uVP.x / uVP.y;
-  vec2 q = (vUv - vec2(0.5, 0.52)) * vec2(aspect, 1.0);
+  vec2 q = (vUv - vec2(0.5, 0.52)) * vec2(uAspect, 1.0);
   float vq = length(q);
 
   /* ============ LAYER 1 : ATMOSPHERE (background only) ============ */
@@ -251,6 +260,8 @@ void main(){
   pb /= uBodyScale;
   float ang = atan(pb.y, pb.x);
   float wob = 1.0 + uMotion * (0.006*sin(ang*3.0 + uWavePhase*0.9) + 0.004*sin(ang*5.0 - uWavePhase*0.6)) * (1.0 + 2.0*uLevel*uSpeak);
+  // Idle: serene undulating harmonic surface wave
+  wob += (0.008 * sin(ang * 4.0 + uTime * 0.8) + 0.005 * cos(ang * 2.0 - uTime * 0.6)) * uIdle * uMotion;
   float d = length(pb) / wob;
   float e = d - 1.0;
   float focusAng = atan(uFocusDir.y, uFocusDir.x);
@@ -286,6 +297,75 @@ void main(){
   float cres = gauss(d - 0.905, 0.045) * facing * facing * inside;
   vec3 light = (mix(vec3(0.55, 0.76, 1.0), uShapeTint, uShapeTintAmt*0.5) * spec * 0.20
              +  mix(vec3(0.70, 0.86, 1.0), uShapeTint, uShapeTintAmt*0.5) * cres * 0.30) * (1.0 - uForm);
+
+  // ================= 8-STATE SHADER EXTENSIONS ON BODY =================
+  // 1. LISTENING — INWARD ABSORPTION from left and right
+  if (uListen > 0.01) {
+    float waveDistL = abs(pb.x + 0.92);
+    float waveDistR = abs(pb.x - 0.92);
+    float inWaveL = gauss(waveDistL - mod(uTime * 1.8, 1.3), 0.08) * smoothstep(-1.3, -0.3, pb.x);
+    float inWaveR = gauss(waveDistR - mod(uTime * 1.8, 1.3), 0.08) * smoothstep(1.3, 0.3, pb.x);
+    float inAbsorb = (inWaveL + inWaveR) * (0.6 + 0.8 * uInputAudio) * uListen;
+    rim += vec3(0.35, 0.85, 1.0) * inAbsorb * 1.6;
+    float flankImpact = smoothstep(0.4, 0.95, abs(pb.x)) * (0.3 + 0.7 * uInputAudio) * uListen;
+    rim += vec3(0.4, 0.9, 1.0) * flankImpact * 0.85;
+  }
+
+  // 2. THINKING — INTERNAL REORGANIZATION
+  if (uThink > 0.01) {
+    vec2 tp = rot2(pb, 0.35 + sin(uTime * 0.22) * 0.08) * 5.2;
+    vec2 cell = floor(tp);
+    vec2 f = fract(tp) - 0.5;
+    float nd = exp(-dot(f, f) * 16.0);
+    float h = hash21(cell + floor(uTime * 0.45));
+    float thinkNode = nd * step(0.66, h);
+    interior += vec3(0.55, 0.45, 1.0) * thinkNode * 2.2 * inside * uThink * (1.0 - uForm);
+  }
+
+  // 3. RENDERING — CONSTRUCTIVE SCAN PASSES
+  if (uRender > 0.01) {
+    float scanY = mod(uTime * 0.9, 2.4) - 1.2;
+    float scanPass = gauss(pb.y - scanY, 0.075) * 2.2;
+    float diagPass = gauss(pb.x * 0.55 + pb.y - mod(uTime * 1.25, 2.6) + 1.3, 0.065) * 0.9;
+    float renderConstruct = (scanPass + diagPass) * uRender;
+    rim += vec3(0.32, 1.0, 0.88) * renderConstruct * 1.6;
+    interior += vec3(0.22, 0.92, 0.78) * renderConstruct * 0.7 * inside * (1.0 - uForm);
+  }
+
+  // 4. SPEAKING — OUTWARD EMISSION
+  if (uSpeak > 0.01) {
+    float rad = length(pb);
+    float outWave = sin(rad * 9.0 - uTime * 8.5) * (0.35 + 0.65 * uOutputAudio) * uSpeak;
+    float ribbonL = gauss(pb.y - 0.22 * sin(pb.x * 4.2 - uTime * 6.0), 0.08) * smoothstep(-0.6, -1.6, pb.x);
+    float ribbonR = gauss(pb.y - 0.22 * sin(pb.x * 4.2 - uTime * 6.0), 0.08) * smoothstep(0.6, 1.6, pb.x);
+    vec3 emitCol = mix(vec3(0.32, 0.78, 1.0), vec3(0.85, 0.45, 1.0), 0.35);
+    col += emitCol * (ribbonL + ribbonR) * (0.5 + 0.9 * uOutputAudio) * uSpeak * 0.85;
+    rim += vec3(0.40, 0.82, 1.0) * max(0.0, outWave) * 0.85;
+  }
+
+  // 5. PAUSE — TRANQUIL SETTLING
+  if (uPause > 0.01) {
+    rim *= mix(1.0, 0.72, uPause);
+    interior *= mix(1.0, 0.55, uPause);
+  }
+
+  // 6. COMPLETED — GREEN SUCCESS EVENT (CYAN -> CONVERGE -> GREEN -> CALM)
+  if (uCompleted > 0.01) {
+    float cp = uCompletedProgress;
+    float greenFlash = smoothstep(0.20, 0.42, cp) * (1.0 - smoothstep(0.65, 0.92, cp)) * uCompleted;
+    vec3 greenCol = vec3(0.25, 0.98, 0.55);
+    rim = mix(rim, greenCol * (band * 2.2 + core * 1.6), greenFlash * 0.90);
+    interior += greenCol * greenFlash * 0.6 * inside * (1.0 - uForm);
+  }
+
+  // 7. BLOCKED — RESTRAINED RESISTANCE
+  if (uBlocked > 0.01) {
+    vec3 roseCol = vec3(0.95, 0.28, 0.38);
+    float resistNotch = 1.0 - 0.10 * sin(ang * 14.0) * uBlocked;
+    float resistPulse = 1.0 + 0.08 * sin(uTime * 12.0) * uBlocked;
+    rim = mix(rim * resistNotch * resistPulse, roseCol * (band * 1.8 + core * 1.2), uBlocked * 0.65);
+    interior += roseCol * 0.25 * inside * uBlocked * (1.0 - uForm);
+  }
 
   // membrane waves — state-tinted
   vec3 waves = vec3(0.0);
@@ -327,9 +407,12 @@ void main(){
     col += uShapeTint * (1.0 - uWake) * exp(-dS*dS*2.0) * 0.45;
   }
 
-  // pause: dim + desaturate the body layer as well
-  float lumB = dot(col, vec3(0.299, 0.587, 0.114));
-  col = mix(col, vec3(lumB) * vec3(0.82, 0.86, 1.0), uPaused * 0.55) * (1.0 - 0.35 * uPaused);
+  // pause: frosted diamond & sapphire crystal body tone with standby pulse
+  if (uPaused > 0.01) {
+    float pauseGlow = 0.5 + 0.5 * sin(uTime * 1.6);
+    vec3 frostRim = mix(vec3(0.62, 0.82, 1.0), vec3(0.85, 0.94, 1.0), pauseGlow * 0.35);
+    col = mix(col, frostRim, uPaused * 0.35);
+  }
 
   frag = vec4(col, 1.0);
 }
@@ -343,6 +426,7 @@ uniform vec2 uVP;
 uniform vec2 uCenter;
 uniform float uR;
 uniform float uDpr;
+uniform float uAspect;
 uniform float uTime;
 uniform float uForm;
 uniform float uMorph;
@@ -362,6 +446,13 @@ uniform float uVisualState;
 uniform float uDock;
 uniform float uBow;
 uniform vec2  uHang;
+uniform float uIdle;
+uniform float uPause;
+uniform float uCompleted;
+uniform float uCompletedProgress;
+uniform float uBlocked;
+uniform float uInputAudio;
+uniform float uOutputAudio;
 uniform vec3  uShapeTint;
 uniform float uShapeTintAmt;
 uniform float uShapeGlow;
@@ -391,57 +482,93 @@ void main(){
   vec2 mid = (formPos + aTarget) * 0.5 + bulge;
   vec2 pos = mix(mix(formPos, mid, mt), mix(mid, aTarget, mt), mt);
 
-  float mo = uMotion * (1.0 - 0.92 * uPaused);
+  float mo = uMotion * (1.0 - 0.65 * uPaused);
   float dockDisp = mix(1.0, 0.42, uDock);
 
   // 1. Ambient / Idle breathing (calibrated for dock scale)
-  pos += vec2(sin(uTime*1.1 + aSeed.x*63.0), cos(uTime*0.9 + aSeed.y*57.0)) * (0.004 + 0.008*uLevel) * mo * dockDisp;
+  pos += vec2(sin(uTime*1.1 + aSeed.x*63.0), cos(uTime*0.9 + aSeed.y*57.0)) * (0.003 + 0.006*uLevel) * mo * dockDisp;
 
-  // 2. Listening: radial acoustic ripple
-  float radDist = length(pos);
-  pos += normalize(pos + vec2(1e-4)) * sin(radDist*8.0 - uTime*6.0 + aSeed.x*TAU) * (0.015 + 0.045*uLevel) * uListen * mo * dockDisp;
+  // 1b. IDLE — BREATHE (calm cyan/blue presence, gentle continuous drift)
+  if (uIdle > 0.01) {
+    float idleK = uIdle * mo * dockDisp;
+    float idleFloat = sin(pos.y * 3.2 + uTime * 0.95 + aSeed.x * 4.0) * 0.012 * idleK;
+    pos += normalize(pos + 1e-4) * idleFloat;
+    pos.y += sin(uTime * 0.75 + aSeed.x * 2.0) * 0.008 * idleK;
+  }
 
-  // 3. Thinking: boiling particle rim + calm crystalline core.
-  //    Edge particles scatter, jitter and occasionally fling beyond the
-  //    silhouette; interior dots snap into a quiet tilted lattice with a
-  //    slow whole-form swirl — energy at the boundary, structure inside.
-  float tEdge = smoothstep(0.58, 0.97, length(pos));
+  // 2. LISTENING — INWARD ABSORPTION (from left & right, reactive to uInputAudio)
+  if (uListen > 0.01) {
+    float inDirX = -sign(pos.x);
+    float waveDist = abs(pos.x);
+    float inWave = sin(waveDist * 14.0 + uTime * 9.5 + aSeed.y * 3.14);
+    float absorbAmt = (0.022 + 0.065 * uInputAudio) * uListen * smoothstep(0.18, 1.15, waveDist);
+    pos.x += inDirX * absorbAmt * (0.65 + 0.35 * inWave);
+    pos.y += sin(pos.y * 7.5 + uTime * 5.5) * 0.012 * (0.4 + 0.6 * uInputAudio) * uListen;
+  }
+
+  // 3. THINKING — INTERNAL REORGANIZATION (nodes connect, information paths drift, sphere stable)
+  float tEdge = smoothstep(0.55, 0.95, length(pos));
   if (uThink > 0.01) {
     float k = uThink * mo * dockDisp;
-    // crystalline lattice snap for the core (tilted so it never reads gridded)
-    float gs = 0.088;
-    vec2 rp = rot2(pos, 0.26);
+    float interiorK = (1.0 - tEdge) * k;
+    float gs = 0.092;
+    vec2 rp = rot2(pos, 0.32 + sin(uTime * 0.18) * 0.08);
     vec2 snapped = (floor(rp / gs) + 0.5) * gs;
-    pos = mix(pos, rot2(snapped, -0.26), 0.44 * k * (1.0 - tEdge));
-    // gentle slow swirl of the whole form
-    pos = rot2(pos, 0.12 * k * sin(uTime * 0.32));
-    // faint interior wave texture
-    pos += vec2(sin(pos.y * 6.0 + uTime * 0.6), cos(pos.x * 5.0 - uTime * 0.5)) * 0.008 * k * (1.0 - tEdge);
-    // edge turbulence: noise-driven boil + tangential agitation
-    float n1 = fbm(pos * 3.4 + uTime * 0.5);
-    float n2 = fbm(pos * 5.6 - uTime * 0.42 + 7.7);
-    vec2 dir = normalize(pos + 1e-4);
-    vec2 tang = vec2(-dir.y, dir.x);
-    pos += dir  * (n1 - 0.5) * 0.34 * k * tEdge;
-    pos += tang * (n2 - 0.5) * 0.18 * k * tEdge;
-    // a few sparks flung just beyond the rim
-    float fling = step(0.955, aSeed.z);
-    pos += dir * fling * (0.10 + 0.30 * n1) * k * tEdge;
+    float snapCycle = sin(uTime * 1.5 + aSeed.x * 6.28) * 0.5 + 0.5;
+    pos = mix(pos, rot2(snapped, -0.32), 0.32 * interiorK * snapCycle);
+    float regionShift = sin(pos.x * 4.2 + uTime * 0.75) * cos(pos.y * 4.0 - uTime * 0.65);
+    pos += normalize(pos + 1e-4) * regionShift * 0.014 * interiorK;
+    pos += vec2(sin(pos.y * 5.0 + uTime * 0.5), cos(pos.x * 5.0 - uTime * 0.4)) * 0.006 * interiorK;
   }
 
-  // 4. Speaking: vocal soundwave
+  // 4. RENDERING — CONSTRUCTIVE SCAN/ASSEMBLY PASSES (building, assembling)
+  float scanEffect = 0.0;
+  if (uRender > 0.01) {
+    float sY = mod(uTime * 0.85, 2.4) - 1.2;
+    float sDist = abs(pos.y - sY);
+    float sBand = gauss(sDist, 0.11) * uRender;
+    pos.y += (sY - pos.y) * 0.20 * sBand;
+    float diagScan = gauss(pos.x * 0.55 + pos.y - mod(uTime * 1.2, 2.6) + 1.3, 0.08) * uRender;
+    scanEffect = clamp(sBand + diagScan * 0.55, 0.0, 2.0);
+    pos += vec2(sin(aSeed.z * TAU), cos(aSeed.w * TAU)) * scanEffect * 0.04 * mo * dockDisp;
+  }
+
+  // 5. SPEAKING — OUTWARD EMISSION (flowing ribbons, radiating outward, reactive to uOutputAudio)
   if (uSpeak > 0.01) {
-    float vocWave = sin(pos.x * 14.0 + uTime * 12.0 + aSeed.z * 6.28) * (0.02 + 0.09 * uLevel) * uSpeak * mo * dockDisp;
-    pos.y += vocWave;
-    pos.x += cos(pos.y * 10.0 - uTime * 8.0) * (0.01 + 0.03 * uLevel) * uSpeak * mo * dockDisp;
+    vec2 outDir = normalize(pos + 1e-4);
+    float rad = length(pos);
+    float stream = sin(pos.x * 6.5 + pos.y * 4.8 - uTime * 7.5 + aSeed.z * 6.28);
+    float emitWave = (0.035 + 0.095 * uOutputAudio) * (1.0 + 0.35 * stream) * uSpeak;
+    pos += outDir * emitWave * smoothstep(0.32, 1.0, rad);
+    pos.y += sin(pos.x * 7.2 - uTime * 6.2) * 0.026 * (0.35 + 0.65 * uOutputAudio) * uSpeak;
   }
 
-  // 5. Rendering: quantum scanline
-  float scanY = mod(uTime * 1.5, 2.8) - 1.4;
-  float scanWave = gauss(abs(pos.y - scanY), 0.14) * uRender;
-  pos += vec2(sin(aSeed.z * TAU), cos(aSeed.w * TAU)) * scanWave * 0.06 * mo * dockDisp;
+  // 6. PAUSE — TRANQUIL SETTLING (motion reduced by 85%, settled presence)
+  if (uPause > 0.01) {
+    pos *= 1.0 - 0.018 * uPause;
+    vec2 pauseDrift = vec2(sin(uTime * 0.4 + aSeed.x * 6.28), cos(uTime * 0.35 + aSeed.y * 6.28)) * 0.005 * uPause;
+    pos += pauseDrift;
+  }
 
-  // 6. WAKE-UP : converge from a scattered shell into the form
+  // 7. COMPLETED — CONVERGE / RESOLVE (cyan -> converge -> green flash -> expand -> calm)
+  if (uCompleted > 0.01) {
+    float cp = uCompletedProgress;
+    float conv = smoothstep(0.0, 0.22, cp) * (1.0 - smoothstep(0.28, 0.45, cp));
+    pos -= normalize(pos + 1e-4) * conv * 0.065 * uCompleted;
+    float expand = smoothstep(0.40, 0.60, cp) * (1.0 - smoothstep(0.75, 0.95, cp));
+    pos += normalize(pos + 1e-4) * expand * 0.045 * uCompleted;
+  }
+
+  // 8. BLOCKED — RESTRAINED RESISTANCE (tension, interrupted flow, rose accents)
+  if (uBlocked > 0.01) {
+    float stutter = sin(uTime * 16.0 + aSeed.x * 24.0);
+    pos += vec2(stutter * 0.006, 0.0) * uBlocked;
+    float edgeTension = smoothstep(0.72, 1.05, length(pos));
+    float fragNoise = hash21(aSeed.xy);
+    pos += normalize(pos + 1e-4) * (fragNoise - 0.5) * 0.032 * edgeTension * uBlocked;
+  }
+
+  // WAKE-UP : converge from a scattered shell into the form
   float wakeK = 1.0;
   if (uWake > 0.001 && uWake < 1.0) {
     wakeK = smoothstep(0.0, 1.0, uWake * 1.35 - aSeed.w * 0.35);
@@ -450,27 +577,25 @@ void main(){
     pos = mix(scatter, pos, wakeK);
   }
 
-  // Idle / pause posture: deep U-bow (reference ribbon). Stronger foreshortening
-  // + vertical settle so the form reads as a hanging multi-layer arc.
-  // Extra transverse wave gives the Deepgram-style soft oscillation.
-  float bowK = uBow;
-  pos.y = pos.y * mix(1.0, 0.68, bowK) - 0.14 * bowK;
-  pos.x *= mix(1.0, 0.94, bowK);
-  // pull sides upward into a smile/U while compressing the center
-  float sideLift = pow(abs(pos.x), 1.55) * 0.22 * bowK;
-  pos.y += sideLift;
-  pos.x *= 1.0 + 0.10 * bowK * clamp(-pos.y + 0.15, 0.0, 1.0);
-  // soft traveling wave along the arc (Deepgram idle feel)
-  float arcWave = sin(pos.x * 3.2 + uTime * 1.65) * 0.018 * bowK * mo
-                + sin(pos.x * 6.8 - uTime * 2.1) * 0.008 * bowK * mo;
-  pos.y += arcWave;
+  // Idle / pause posture: deep U-bow only if explicitly non-zero
+  if (uBow > 0.001) {
+    float bowK = uBow;
+    pos.y = pos.y * mix(1.0, 0.68, bowK) - 0.14 * bowK;
+    pos.x *= mix(1.0, 0.94, bowK);
+    float sideLift = pow(abs(pos.x), 1.55) * 0.22 * bowK;
+    pos.y += sideLift;
+    pos.x *= 1.0 + 0.10 * bowK * clamp(-pos.y + 0.15, 0.0, 1.0);
+    float arcWave = sin(pos.x * 3.2 + uTime * 1.65) * 0.018 * bowK * mo
+                  + sin(pos.x * 6.8 - uTime * 2.1) * 0.008 * bowK * mo;
+    pos.y += arcWave;
+  }
   pos += uHang;
 
   // ---- per-state colour + glow of the shape ----
   float pang = atan(pos.y, pos.x);
   vec3 c = mix(rimColor(pang), uShapeTint, uShapeTintAmt);
   c = mix(c, vec3(0.85, 0.95, 1.0), limb*0.5*(1.0-uForm)*(1.0-mt));
-  c = mix(c, vec3(0.4, 0.95, 1.0) * 1.5, scanWave * 0.85);
+  c = mix(c, vec3(0.35, 1.0, 0.88), scanEffect * 0.70);
 
   float spark = step(mix(0.992, 0.980, uSparkle), aSeed.z);
   float tw = 0.75 + 0.25 * sin(uTime * (2.0 + aSeed.x * 4.0) + aSeed.y * 20.0);
@@ -479,38 +604,90 @@ void main(){
   float onlyPartAlpha = mix(baseAlpha, baseAlpha * 1.85 + 0.25, uOnlyParticles);
   float a = onlyPartAlpha * uGain * tw * uShapeGlow * mix(1.0, 1.25, uDock);
   a *= 1.0 + spark * 1.8 * uSparkle;
-  a += scanWave * 0.45;
-  // thinking rim: bright, dense, alive; core: dim lattice with sparse lit nodes
-  a *= 1.0 + uThink * tEdge * 1.75;
-  float coreNode = step(0.958, aSeed.w);            // a few interior dots stay lit
-  a *= mix(1.0, mix(0.22, 1.55, coreNode), uThink * (1.0 - tEdge));
-  a *= mix(1.0, 0.45, uPaused);          // pause fades her back
+  a += scanEffect * 0.55;
+
+  // Listening: flank impact brightening
+  if (uListen > 0.01) {
+    float flank = smoothstep(0.40, 0.95, abs(pos.x));
+    a *= 1.0 + flank * (0.45 + 1.15 * uInputAudio) * uListen;
+  }
+  // Speaking: vocal radiance
+  if (uSpeak > 0.01) {
+    a *= 1.0 + (0.35 + 1.05 * uOutputAudio) * uSpeak;
+  }
+  // Thinking: interior lit nodes
+  if (uThink > 0.01) {
+    float litNode = step(0.91, fract(aSeed.z * 6.0 + uTime * 0.32));
+    float interiorK = (1.0 - tEdge) * uThink;
+    a *= mix(1.0, mix(0.35, 2.1, litNode), interiorK);
+  }
+  // Pause: dimmed, quiet
+  if (uPause > 0.01) {
+    a *= mix(1.0, 0.80, uPause);
+  }
   a *= 0.35 + 0.65 * wakeK;              // wake-up brightens as she lands
 
   float baseSize = 1.35 + 1.2*limb*(1.0-uForm) + 1.0*uForm + 1.5*mt;
   float size = baseSize * uDpr * uParticleScale * mix(1.0, 1.45, uOnlyParticles)
-             * (1.0 + spark * 1.4 * uSparkle + scanWave * 0.8) * mix(1.0, 0.9, uPaused)
-             * mix(1.0, 0.58, uDock);
-  size *= 1.0 + uThink * tEdge * 0.7;               // rim particles swell
-  size *= mix(1.0, 0.8, uThink * (1.0 - tEdge));    // core dots tighten to lattice points
+             * (1.0 + spark * 1.4 * uSparkle + scanEffect * 0.8) * mix(1.0, 0.58, uDock);
+  // Idle: gentle soft swell
+  size *= 1.0 + 0.12 * uIdle * sin(uTime * 1.5 + aSeed.x * 8.0);
+  // Listening: impact swell
+  if (uListen > 0.01) {
+    float flank = smoothstep(0.40, 0.95, abs(pos.x));
+    size *= 1.0 + flank * (0.2 + 0.45 * uInputAudio) * uListen;
+  }
+  // Speaking: output audio swell
+  if (uSpeak > 0.01) {
+    size *= 1.0 + (0.18 + 0.45 * uOutputAudio) * uSpeak;
+  }
+  // Thinking: node sizing
+  if (uThink > 0.01) {
+    float litNode = step(0.91, fract(aSeed.z * 6.0 + uTime * 0.32));
+    size *= mix(1.0, mix(0.75, 1.35, litNode), (1.0 - tEdge) * uThink);
+  }
+  // Pause: diamond settling
+  if (uPause > 0.01) {
+    float pauseSpark = step(0.970, aSeed.z) * (0.5 + 0.5 * sin(uTime * 3.0 + aSeed.w * 24.0));
+    size *= mix(1.0, 0.88 + 0.25 * pauseSpark, uPause);
+  }
   size *= mix(1.6, 1.0, wakeK);          // wake-up: points arrive large then settle
 
-  // thinking: push the boiling rim toward hot white-cyan energy
-  c = mix(c, vec3(1.0), uThink * tEdge * 0.3);
-  // completed (visualState 7): soft emerald success wash + gentle sparkle
-  if (uVisualState > 6.5) {
-    c = mix(c, vec3(0.35, 0.98, 0.62), 0.55);
-    a *= 1.0 + 0.25 * sin(uTime * 3.2 + aSeed.x * 12.0);
+  // Completed: emerald success event
+  if (uCompleted > 0.01) {
+    float cp = uCompletedProgress;
+    float greenPulse = smoothstep(0.22, 0.40, cp) * (1.0 - smoothstep(0.65, 0.88, cp)) * uCompleted;
+    vec3 greenCol = vec3(0.25, 0.98, 0.55);
+    c = mix(c, greenCol, greenPulse * 0.85);
+    a *= 1.0 + greenPulse * 0.85;
+    size *= 1.0 + greenPulse * 0.45;
   }
 
-  // pause desaturation
-  float lumP = dot(c, vec3(0.299, 0.587, 0.114));
-  c = mix(c, vec3(lumP) * vec3(0.82, 0.86, 1.0), uPaused * 0.55);
+  // Blocked: restrained rose/red tension
+  if (uBlocked > 0.01) {
+    float edgeTension = smoothstep(0.72, 1.05, length(pos));
+    vec3 roseCol = vec3(0.95, 0.26, 0.36);
+    c = mix(c, roseCol, uBlocked * (0.42 + 0.38 * edgeTension));
+    a *= 1.0 + 0.22 * sin(uTime * 11.0) * uBlocked;
+  }
+
+  // pause: frosted sapphire & starlight crystal wash
+  if (uPaused > 0.01) {
+    vec3 frostCol = vec3(0.68, 0.88, 1.0);
+    float prism = 0.5 + 0.5 * sin(pang * 4.0 + uTime * 0.7);
+    frostCol = mix(frostCol, vec3(0.84, 0.76, 1.0), prism * 0.35); // iridescent lilac prism
+    c = mix(c, frostCol, uPaused * 0.60);
+  }
+  // idle: deep cosmic serenity wash
+  if (uIdle > 0.01) {
+    vec3 idleGlow = mix(vec3(0.36, 0.72, 1.0), vec3(0.62, 0.48, 1.0), 0.35 + 0.35 * sin(pang + uTime * 0.5));
+    c = mix(c, idleGlow, uIdle * 0.35);
+  }
 
   vCol = vec4(c, clamp(a, 0.0, 1.0));
   gl_PointSize = max(1.0, size);
   vec2 scr = uCenter + pos * uR * uBodyScale;
-  gl_Position = vec4(scr / uVP * 2.0 - 1.0, 0.0, 1.0);
+  gl_Position = vec4(vec2(scr.x / uVP.x, scr.y / uVP.y) * 2.0 - 1.0, 0.0, 1.0);
 }
 `;
 

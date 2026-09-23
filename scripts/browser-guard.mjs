@@ -34,7 +34,10 @@ export function checkedUrl(url) {
 export function checkedOutputPath(target, allowedDirs, label = "screenshot") {
   // Resolve first so `..` cannot slip past the prefix check.
   const abs = resolve(target);
-  const allowed = allowedDirs.some((dir) => abs.startsWith(dir.endsWith(sep) ? dir : dir + sep));
+const allowed = allowedDirs.some((dir) => {
+    const absDir = resolve(dir);
+    return abs.startsWith(absDir.endsWith(sep) ? absDir : absDir + sep);
+  });
   if (!allowed) {
     fail(`${label} path must be under ${allowedDirs.join(" or ")}, got ${abs}`);
   }

@@ -85,11 +85,11 @@ export function ChatPanel({
         )}
         {turns.slice(-24).map((t, i) =>
           t.role === 'system' ? (
-            <p key={i} className="text-center text-[10px] font-light tracking-wide text-white/28">
+            <p key={`turn-${t.ts}-${i}`} className="text-center text-[10px] font-light tracking-wide text-white/28">
               {t.text}
             </p>
           ) : (
-            <div key={i} className={t.role === 'user' ? 'text-right' : 'text-left'}>
+            <div key={`turn-${t.ts}-${i}`} className={t.role === 'user' ? 'text-right' : 'text-left'}>
               <p className="mb-[3px] text-[8px] font-light uppercase tracking-[0.3em] text-white/25">
                 {t.role === 'user' ? 'you' : 'sophia'}
               </p>

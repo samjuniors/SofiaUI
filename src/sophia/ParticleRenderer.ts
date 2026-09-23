@@ -19,11 +19,18 @@ export interface FrameParams {
   showBody: number; // 1 = full body/rim enabled, 0 = only particles
   onlyParticles: number; // 1 = only particles mode active
   level: number; // smoothed audio level 0..1
+  inputAudio: number; // mic/input amplitude 0..1
+  outputAudio: number; // speaker/output amplitude 0..1
   energy: number;
   think: number;
   speak: number;
   listen: number;
   render: number;
+  idle: number;
+  pause: number;
+  completed: number;
+  completedProgress: number;
+  blocked: number;
   focusDir: [number, number];
   focusAmt: number;
   motion: number; // 1 full … 0 reduced
@@ -325,6 +332,7 @@ export class ParticleRenderer {
     gl.uniform2f(this.u(b, 'uCenter'), cx, cy);
     gl.uniform1f(this.u(b, 'uR'), R);
     gl.uniform1f(this.u(b, 'uDpr'), this.dpr);
+    gl.uniform1f(this.u(b, 'uAspect'), W / H);
     gl.uniform1f(this.u(b, 'uTime'), p.time);
     gl.uniform1f(this.u(b, 'uForm'), p.form);
     gl.uniform1f(this.u(b, 'uBody'), p.body * vis);
@@ -336,6 +344,13 @@ export class ParticleRenderer {
     gl.uniform1f(this.u(b, 'uSpeak'), p.speak);
     gl.uniform1f(this.u(b, 'uListen'), p.listen);
     gl.uniform1f(this.u(b, 'uRender'), p.render);
+    gl.uniform1f(this.u(b, 'uIdle'), p.idle);
+    gl.uniform1f(this.u(b, 'uPause'), p.pause);
+    gl.uniform1f(this.u(b, 'uCompleted'), p.completed);
+    gl.uniform1f(this.u(b, 'uCompletedProgress'), p.completedProgress);
+    gl.uniform1f(this.u(b, 'uBlocked'), p.blocked);
+    gl.uniform1f(this.u(b, 'uInputAudio'), p.inputAudio);
+    gl.uniform1f(this.u(b, 'uOutputAudio'), p.outputAudio);
     gl.uniform2f(this.u(b, 'uFocusDir'), p.focusDir[0], p.focusDir[1]);
     gl.uniform1f(this.u(b, 'uFocusAmt'), p.focusAmt);
     gl.uniform1f(this.u(b, 'uMotion'), p.motion);
@@ -381,6 +396,7 @@ export class ParticleRenderer {
     gl.uniform2f(this.u(q, 'uCenter'), cx, cy);
     gl.uniform1f(this.u(q, 'uR'), R);
     gl.uniform1f(this.u(q, 'uDpr'), this.dpr);
+    gl.uniform1f(this.u(q, 'uAspect'), W / H);
     gl.uniform1f(this.u(q, 'uTime'), p.time);
     gl.uniform1f(this.u(q, 'uForm'), p.form);
     gl.uniform1f(this.u(q, 'uMorph'), p.morph);
@@ -394,6 +410,13 @@ export class ParticleRenderer {
     gl.uniform1f(this.u(q, 'uSpeak'), p.speak);
     gl.uniform1f(this.u(q, 'uListen'), p.listen);
     gl.uniform1f(this.u(q, 'uRender'), p.render);
+    gl.uniform1f(this.u(q, 'uIdle'), p.idle);
+    gl.uniform1f(this.u(q, 'uPause'), p.pause);
+    gl.uniform1f(this.u(q, 'uCompleted'), p.completed);
+    gl.uniform1f(this.u(q, 'uCompletedProgress'), p.completedProgress);
+    gl.uniform1f(this.u(q, 'uBlocked'), p.blocked);
+    gl.uniform1f(this.u(q, 'uInputAudio'), p.inputAudio);
+    gl.uniform1f(this.u(q, 'uOutputAudio'), p.outputAudio);
     gl.uniform1f(this.u(q, 'uOnlyParticles'), p.onlyParticles);
     gl.uniform1f(this.u(q, 'uParticleScale'), p.particleScale);
     gl.uniform1f(this.u(q, 'uSparkle'), p.sparkle);

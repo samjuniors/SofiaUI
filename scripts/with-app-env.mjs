@@ -20,9 +20,9 @@
  * `process.env`, which is why the merge has to happen before Vite starts.
  */
 import { spawn } from "node:child_process";
-import { readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { constants as osConstants } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const APP_ENV_REL_PATH = ".grok/app-env.json";
@@ -104,20 +104,62 @@ export function isMainModule(moduleUrl) {
   }
 }
 
+/**
+ * Resolve a command to a full path if it exists in node_modules/.bin.
+ * On Windows, spawn can't execute .cmd files directly, so we resolve
+ * the underlying .js entry point and prepend `process.execPath` (node).
+ */
+function resolveCommand(command) {
+  // If the command contains a path separator, use it as-is
+  if (command.includes(sep) || command.includes("/")) return { cmd: command, args: [] };
+  const root = projectRoot();
+  const binDir = join(root, "node_modules", ".bin");
+  if (process.platform === "win32") {
+    // Try .exe
+    const exePath = join(binDir, command + ".exe");
+    if (existsSync(exePath)) return { cmd: exePath, args: [] };
+
+    // On Windows, read the .cmd shim to find the real script, or fall back to .cmd
+    const cmdPath = join(binDir, command + ".cmd");
+    if (existsSync(cmdPath)) {
+      // .cmd shims contain a node path reference like: node "%~dp0\..\vite\bin\vite.js" or "%dp0%\..\vite\bin\vite.js"
+      // Just use process.execPath and resolve the package's bin directly
+      try {
+        const shimContent = readFileSync(cmdPath, "utf8");
+        const match = shimContent.match(/"%(?:~dp0|dp0%)\\(\.\.[^"\r\n]+)"/);
+        if (match) {
+          const scriptRel = match[1].replace(/\\/g, "/");
+          const scriptPath = join(binDir, scriptRel);
+          if (existsSync(scriptPath)) {
+            return { cmd: process.execPath, args: [scriptPath] };
+          }
+        }
+      } catch { /* fall through */ }
+      return { cmd: cmdPath, args: [], shell: true };
+    }
+  } else {
+    const candidate = join(binDir, command);
+    if (existsSync(candidate)) return { cmd: candidate, args: [] };
+  }
+  return { cmd: command, args: [] };
+}
+
 function main(argv) {
-  const [command, ...args] = argv;
-  if (!command) {
+  const [rawCommand, ...args] = argv;
+  if (!rawCommand) {
     console.error("usage: node scripts/with-app-env.mjs <command> [args…]");
     process.exit(2);
   }
+  const { cmd, args: resolvedArgs, shell } = resolveCommand(rawCommand);
+  const allArgs = [...resolvedArgs, ...args];
   const env = mergeAppEnv(readAppEnv(projectRoot()), process.env);
-  const child = spawn(command, args, { stdio: "inherit", env });
+  const child = spawn(cmd, allArgs, { stdio: "inherit", env, ...(shell ? { shell: true } : {}) });
   // The dev server is long-running and is stopped by signalling this wrapper.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
     process.on(signal, () => child.kill(signal));
   }
   child.on("error", (err) => {
-    console.error(`[with-app-env] failed to run ${command}:`, err?.message || err);
+    console.error(`[with-app-env] failed to run ${cmd}:`, err?.message || err);
     process.exit(127);
   });
   child.on("exit", (code, signal) => {

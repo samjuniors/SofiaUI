@@ -39,7 +39,7 @@ export class GeminiLiveProvider extends VoiceProvider {
   }
 
   async start(): Promise<void> {
-    const res = await fetch('/api/live/session', {
+    const res = await fetch('/api/sophia/live/session', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ voice: controlLayer.voiceName }),

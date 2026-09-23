@@ -223,7 +223,7 @@ export function Terminal({ os, open, onToggle }: { os: SophiaOS; open: boolean; 
                 </p>
               )}
               {chatTurns.slice(-40).map((t, i) => (
-                <div key={i} className={t.role === 'user' ? 'text-right' : 'text-left'}>
+                <div key={`chat-${t.ts}-${i}`} className={t.role === 'user' ? 'text-right' : 'text-left'}>
                   <p className="mb-[3px] flex items-baseline gap-2 text-[8px] font-light uppercase tracking-[0.3em] text-white/25"
                      style={{ justifyContent: t.role === 'user' ? 'flex-end' : 'flex-start' }}>
                     <span>{t.role === 'user' ? 'you' : 'sophia'}</span>

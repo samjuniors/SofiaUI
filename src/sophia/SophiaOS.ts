@@ -166,17 +166,9 @@ export class SophiaOS extends EventTarget {
       } else if (s === 'ambient' && prev !== 'transforming') {
         this.maybeArmWake();
       }
-      if ((s === 'idle' || s === 'paused') && this.renderer) {
-        this.director.requestTransform('bow', this.renderer);
-      } else if (
-        (prev === 'idle' || prev === 'paused') &&
-        s !== 'idle' &&
-        s !== 'paused' &&
-        this.renderer
-      ) {
-        this.director.requestTransform('organic', this.renderer);
-      } else if (s === 'completed' && this.renderer) {
-        this.director.requestTransform('organic', this.renderer);
+      if (s === 'completed' && this.renderer && this.director.isCustomMorphActive) {
+        const baseShape = this.prefs.form === 'ring' ? 'circle' : 'organic';
+        this.director.requestTransform(baseShape, this.renderer);
       }
       if (s === 'completed' && meta?.reason === 'turn-complete') {
         this.armCompletedHold();
@@ -222,7 +214,7 @@ export class SophiaOS extends EventTarget {
     this.director.setTune(this.prefs.tune);
     setHapticsEnabled(this.prefs.haptics);
     if (patch.density) this.applyDensity();
-    if (patch.form && patch.form !== this.director.currentForm) {
+    if (patch.form) {
       this.handleTransform(patch.form === 'ring' ? 'circle' : 'organic');
     }
     if (!this.prefs.wake) this.spotter?.stop();
@@ -695,6 +687,11 @@ export class SophiaOS extends EventTarget {
 
 let os: SophiaOS | null = null;
 export function getSophiaOS(): SophiaOS {
-  if (!os) os = new SophiaOS();
+  if (!os) {
+    os = new SophiaOS();
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __SOPHIA_OS__?: SophiaOS }).__SOPHIA_OS__ = os;
+    }
+  }
   return os;
 }

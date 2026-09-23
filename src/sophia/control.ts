@@ -165,7 +165,19 @@ export class ControlLayer extends EventTarget {
       this.dispatchEvent(new CustomEvent('command:state', { detail: { state: 'wakeup' as SophiaStateName } }));
       return true;
     }
-    if (has(/^(pause|hold|freeze|stop motion|rest)$/) || has(/^state\s+paused$/)) {
+    if (has(/^state\s+completed$/) || t === 'completed' || t === 'complete' || t === 'success') {
+      this.dispatchEvent(new CustomEvent('command:state', { detail: { state: 'completed' as SophiaStateName } }));
+      return true;
+    }
+    if (has(/^state\s+blocked$/) || t === 'blocked' || t === 'block') {
+      this.dispatchEvent(new CustomEvent('command:state', { detail: { state: 'blocked' as SophiaStateName } }));
+      return true;
+    }
+    if (has(/^state\s+focus(ing)?$/) || t === 'focus' || t === 'focusing') {
+      this.dispatchEvent(new CustomEvent('command:state', { detail: { state: 'focusing' as SophiaStateName } }));
+      return true;
+    }
+    if (has(/^(pause|hold|freeze|stop motion|rest)$/) || has(/^state\s+(pause|paused)$/)) {
       this.dispatchEvent(new CustomEvent('command:state', { detail: { state: 'paused' as SophiaStateName } }));
       return true;
     }

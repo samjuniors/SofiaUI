@@ -137,7 +137,7 @@ export const THEMES: ThemePreset[] = [
 
 const ENERGY: Record<SophiaStateName, number> = {
   ambient: 0.15,
-  idle: 0.10,
+  idle: 0.18,
   wakeup: 0.55,
   focusing: 0.45,
   listening: 0.6,
@@ -145,8 +145,10 @@ const ENERGY: Record<SophiaStateName, number> = {
   speaking: 0.85,
   rendering: 0.9,
   transforming: 0.75,
-  paused: 0.02,
+  pause: 0.12,
+  paused: 0.12,
   completed: 0.55,
+  blocked: 0.40,
 };
 
 interface Palette {
@@ -181,13 +183,13 @@ const PALETTES: Record<SophiaStateName, Palette> = {
     bgAuraAmt: 0.42, bgSpeed: 0.55, bgPulse: 0.05, bgPulseSpd: 0.42, bgVig: 0.9,
     tint: [0.30, 0.68, 1.0], tintAmt: 0.0, glow: 1.0,
   },
-  // dormant: darker, slower, cooler — she is present but not attending
+  // idle: deep cosmic serenity — rich indigo/navy cosmos, gentle violet mist, luminous celestial cyan core
   idle: {
     code: 0,
-    bgDeep: [0.003, 0.006, 0.018], bgCore: [0.008, 0.016, 0.044],
-    bgAuraA: [0.08, 0.16, 0.46], bgAuraB: [0.20, 0.12, 0.44],
-    bgAuraAmt: 0.30, bgSpeed: 0.30, bgPulse: 0.03, bgPulseSpd: 0.28, bgVig: 1.05,
-    tint: [0.28, 0.60, 0.95], tintAmt: 0.05, glow: 0.85,
+    bgDeep: [0.004, 0.008, 0.026], bgCore: [0.012, 0.025, 0.068],
+    bgAuraA: [0.14, 0.30, 0.72], bgAuraB: [0.34, 0.18, 0.66],
+    bgAuraAmt: 0.48, bgSpeed: 0.42, bgPulse: 0.07, bgPulseSpd: 0.35, bgVig: 0.90,
+    tint: [0.38, 0.75, 1.0], tintAmt: 0.15, glow: 1.12,
   },
   // wake-up: the aura blooms bright, the body flares white-cyan
   wakeup: {
@@ -245,13 +247,20 @@ const PALETTES: Record<SophiaStateName, Palette> = {
     bgAuraAmt: 0.74, bgSpeed: 2.8, bgPulse: 0.14, bgPulseSpd: 2.4, bgVig: 0.55,
     tint: [0.78, 0.36, 1.0], tintAmt: 0.34, glow: 1.24,
   },
-  // paused: everything cools to slate and nearly stops — body keeps soft multi-hue bow
+  // pause / paused: serene frosted twilight, lower energy, slightly dimmer glow, settled
+  pause: {
+    code: 0,
+    bgDeep: [0.005, 0.009, 0.024], bgCore: [0.014, 0.026, 0.058],
+    bgAuraA: [0.20, 0.44, 0.75], bgAuraB: [0.28, 0.22, 0.60],
+    bgAuraAmt: 0.40, bgSpeed: 0.20, bgPulse: 0.04, bgPulseSpd: 0.22, bgVig: 0.94,
+    tint: [0.55, 0.78, 0.95], tintAmt: 0.28, glow: 0.95,
+  },
   paused: {
     code: 0,
-    bgDeep: [0.006, 0.008, 0.014], bgCore: [0.014, 0.018, 0.028],
-    bgAuraA: [0.14, 0.17, 0.28], bgAuraB: [0.10, 0.12, 0.24],
-    bgAuraAmt: 0.28, bgSpeed: 0.12, bgPulse: 0.02, bgPulseSpd: 0.18, bgVig: 1.1,
-    tint: [0.55, 0.72, 0.95], tintAmt: 0.18, glow: 0.72,
+    bgDeep: [0.005, 0.009, 0.024], bgCore: [0.014, 0.026, 0.058],
+    bgAuraA: [0.20, 0.44, 0.75], bgAuraB: [0.28, 0.22, 0.60],
+    bgAuraAmt: 0.40, bgSpeed: 0.20, bgPulse: 0.04, bgPulseSpd: 0.22, bgVig: 0.94,
+    tint: [0.55, 0.78, 0.95], tintAmt: 0.28, glow: 0.95,
   },
   // completed: soft emerald success — calm, resolved, warm green body
   completed: {
@@ -260,6 +269,14 @@ const PALETTES: Record<SophiaStateName, Palette> = {
     bgAuraA: [0.18, 0.72, 0.42], bgAuraB: [0.10, 0.48, 0.58],
     bgAuraAmt: 0.58, bgSpeed: 0.75, bgPulse: 0.12, bgPulseSpd: 0.9, bgVig: 0.72,
     tint: [0.32, 0.95, 0.58], tintAmt: 0.48, glow: 1.32,
+  },
+  // blocked: restrained resistance — obsidian navy with restrained rose/red tension accents
+  blocked: {
+    code: 8,
+    bgDeep: [0.012, 0.005, 0.014], bgCore: [0.038, 0.014, 0.030],
+    bgAuraA: [0.72, 0.16, 0.32], bgAuraB: [0.28, 0.08, 0.35],
+    bgAuraAmt: 0.55, bgSpeed: 0.35, bgPulse: 0.14, bgPulseSpd: 0.55, bgVig: 0.88,
+    tint: [0.95, 0.28, 0.38], tintAmt: 0.55, glow: 1.15,
   },
 };
 
@@ -316,6 +333,14 @@ export class VisualDirector {
   private wake = 1; // 1 = fully formed
   private wakeTimer = -1;
   private paused = 0;
+  private idle = 1;
+  private pause = 0;
+  private completed = 0;
+  private completedTimer = 0;
+  private completedProgress = 0;
+  private blocked = 0;
+  private inputAudio = 0;
+  private outputAudio = 0;
   private bow = 0;
   private hangPhase = 0;
   private wantDock = false;
@@ -341,6 +366,14 @@ export class VisualDirector {
 
   get currentForm(): SophiaForm {
     return this.form;
+  }
+
+  get formMixValue(): number {
+    return this.formMix;
+  }
+
+  get isCustomMorphActive(): boolean {
+    return this.morphPhase !== null;
   }
 
   setFocusAngle(a: number) {
@@ -375,6 +408,10 @@ export class VisualDirector {
       else if (!this.morphPhase) this.formTimer = 0.7;
       return;
     }
+    if (this.morphPhase === 'hold') {
+      this.beginMorph(shape, renderer);
+      return;
+    }
     if (this.morphPhase) {
       this.pending = { shape, renderer };
       this.morphPhase = 'out';
@@ -388,9 +425,9 @@ export class VisualDirector {
     this.morphShape = shape;
     this.morphPhase = 'in';
     this.morphTimer = 0;
-    // Bow is the idle/pause resident shape — hold indefinitely until another transform.
-    // Dissolve is brief; everything else lingers for a few seconds.
-    this.holdFor = shape === 'bow' ? 1e9 : shape === 'dissolve' ? 2.6 : 4.2;
+    // Keep custom shapes indefinitely so all state animations apply onto them.
+    // Dissolve is brief; all other shapes remain active until another shape is chosen.
+    this.holdFor = shape === 'dissolve' ? 2.6 : 1e9;
   }
 
   /* ------------------------------ frame ------------------------------ */
@@ -409,30 +446,46 @@ export class VisualDirector {
     this.speak += ((st === 'speaking' ? 1 : 0) - this.speak) * k(4);
     this.listen += ((st === 'listening' ? 1 : 0) - this.listen) * k(4);
     this.render += ((st === 'rendering' ? 1 : 0) - this.render) * k(5);
-    this.energy += (ENERGY[st] - this.energy) * k(3);
+    this.idle += ((st === 'idle' || st === 'ambient' ? 1 : 0) - this.idle) * k(3.5);
+    this.pause += ((st === 'pause' || st === 'paused' ? 1 : 0) - this.pause) * k(3.5);
+    this.completed += ((st === 'completed' ? 1 : 0) - this.completed) * k(3.5);
+    this.blocked += ((st === 'blocked' ? 1 : 0) - this.blocked) * k(3.5);
+    this.energy += ((ENERGY[st] ?? 0.3) - this.energy) * k(3);
     this.focusAmt += ((focused ? 1 : 0) - this.focusAmt) * k(st === 'focusing' ? 7 : 2.5);
-    this.paused += ((st === 'paused' ? 1 : 0) - this.paused) * k(3.5);
+    this.paused += ((st === 'paused' || st === 'pause' ? 1 : 0) - this.paused) * k(3.5);
     this.dock += ((this.wantDock ? 1 : 0) - this.dock) * k(3.2);
 
-    // Idle / paused: deep forward bow + subtle hang so the form reads as the
-    // multi-ribbon U-curve (Deepgram-style). Active states stand upright.
-    // Completed keeps a soft proud posture rather than collapsing.
-    const bowTarget =
-      st === 'paused' ? 0.98 :
-      st === 'idle' ? 0.88 :
-      st === 'ambient' ? 0.62 :
-      st === 'completed' ? 0.22 : 0;
-    this.bow += (bowTarget - this.bow) * k(st === 'wakeup' ? 5.2 : st === 'completed' ? 3.4 : 2.3);
+    const bowTarget = 0;
+    this.bow = 0;
 
-    /* real audio: mic while she listens, playback while she speaks */
-    const raw =
-      st === 'speaking'
-        ? levels.play
-        : st === 'listening' || st === 'focusing' || st === 'thinking'
-          ? levels.mic
-          : 0;
-    const lvl = Math.min(1, raw);
-    this.level += (lvl - this.level) * (lvl > this.level ? k(18) : k(6));
+    /* completed cycle: cyan -> converge -> green -> calm */
+    if (st === 'completed') {
+      this.completedTimer += dt;
+      this.completedProgress = Math.min(1.0, this.completedTimer / 2.6);
+    } else {
+      this.completedTimer = 0;
+      this.completedProgress = 0;
+    }
+
+    /* audio: real mic/play + procedural mock envelope when testing */
+    let rawMic = levels.mic;
+    if ((st === 'listening' || st === 'focusing') && rawMic < 0.02) {
+      // Mock voice amplitude so listening state is immediately interactive without hardware
+      const t = this.time;
+      rawMic = 0.38 + 0.32 * Math.sin(t * 3.8) * Math.cos(t * 2.2 + 0.7) + 0.16 * Math.sin(t * 7.1);
+      rawMic = Math.max(0, Math.min(1, rawMic));
+    }
+    let rawPlay = levels.play;
+    if (st === 'speaking' && rawPlay < 0.02) {
+      // Mock speech envelope so speaking state visibly pulses and radiates
+      const t = this.time;
+      rawPlay = 0.44 + 0.36 * Math.sin(t * 4.6) * Math.sin(t * 1.9 + 1.1) + 0.16 * Math.cos(t * 8.4);
+      rawPlay = Math.max(0, Math.min(1, rawPlay));
+    }
+
+    this.inputAudio += (rawMic - this.inputAudio) * (rawMic > this.inputAudio ? k(18) : k(6));
+    this.outputAudio += (rawPlay - this.outputAudio) * (rawPlay > this.outputAudio ? k(18) : k(6));
+    this.level = this.speak * this.outputAudio + this.listen * this.inputAudio;
 
     /* wake-up timeline */
     if (this.wakeTimer >= 0) {
@@ -441,9 +494,9 @@ export class VisualDirector {
       if (this.wake >= 1) this.wakeTimer = -1;
     }
 
-    /* freeze almost everything while paused; minimal-motion keeps a slow breath */
-    const motion = m * (1 - 0.94 * this.paused);
-    this.time += dt * (1 - 0.9 * this.paused);
+    /* slow-motion suspended float while paused; minimal-motion keeps a slow breath */
+    const motion = m * (1 - 0.72 * this.paused);
+    this.time += dt * (1 - 0.65 * this.paused);
     this.breathT += dt * (this.wantReduced ? 0.55 * (1 - 0.4 * this.paused) : motion);
     this.hangPhase += dt * 0.62 * (this.wantReduced ? 0 : motion);
     this.spin += dt * (this.tune.spin ? (focused ? 0.015 : 0.11) : 0.0) * motion;
@@ -470,6 +523,7 @@ export class VisualDirector {
         if (this.morph >= 1) {
           this.morphPhase = 'hold';
           this.morphTimer = 0;
+          this.onTransformEnd?.();
         }
       } else if (this.morphPhase === 'hold') {
         this.morphTimer += dt;
@@ -526,10 +580,8 @@ export class VisualDirector {
     const bgLevel = this.speak * this.level + this.listen * this.level;
     /* shape glow breathes with the voice too */
     const shapeGlow = p.glow * (1 + 0.35 * this.level * (this.speak + this.listen));
-    // Deepgram-like soft oscillation on the bowed ribbon (idle + ambient + paused)
-    // Minimal-motion keeps the bow static — only the breath remains.
-    const hangAmt =
-      this.wantReduced ? 0 : st === 'idle' || st === 'ambient' ? 1 : st === 'paused' ? 0.55 : 0;
+    // Idle and paused stay centered in full spherical majesty
+    const hangAmt = 0;
     const hang: [number, number] = [
       Math.sin(this.hangPhase * 0.78) * 0.022 * hangAmt + Math.sin(this.hangPhase * 1.35) * 0.008 * hangAmt,
       Math.cos(this.hangPhase * 0.58) * 0.032 * hangAmt + Math.sin(this.hangPhase * 0.94) * 0.012 * hangAmt,
@@ -546,11 +598,18 @@ export class VisualDirector {
       showBody,
       onlyParticles,
       level: this.level,
+      inputAudio: this.inputAudio,
+      outputAudio: this.outputAudio,
       energy: this.energy,
       think: this.think,
       speak: this.speak,
       listen: this.listen,
       render: this.render,
+      idle: this.idle,
+      pause: this.pause,
+      completed: this.completed,
+      completedProgress: this.completedProgress,
+      blocked: this.blocked,
       visualState: p.code,
       focusDir: [Math.cos(this.focusAng), Math.sin(this.focusAng)],
       focusAmt: this.focusAmt,

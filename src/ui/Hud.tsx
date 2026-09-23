@@ -68,10 +68,12 @@ const STATE_WORD: Record<SophiaStateName, string> = {
   listening: 'LISTENING',
   thinking: 'THINKING',
   speaking: 'SPEAKING',
-  rendering: 'RENDERING / PROCESSING',
+  rendering: 'RENDERING',
   transforming: 'TRANSFORMING',
-  paused: 'PAUSED',
+  pause: 'PAUSE',
+  paused: 'PAUSE',
   completed: 'COMPLETED',
+  blocked: 'BLOCKED',
 };
 
 function useLatestLine(state: SophiaStateName): string {

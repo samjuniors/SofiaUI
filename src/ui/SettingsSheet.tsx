@@ -153,17 +153,16 @@ const SHAPE_LABELS: Record<SophiaShape, string> = {
 };
 
 const STATE_OPTIONS: Array<{ id: SophiaStateName; label: string }> = [
-  { id: 'wakeup', label: '✦ Wake Up' },
+  { id: 'idle', label: 'Idle' },
   { id: 'listening', label: 'Listening' },
   { id: 'thinking', label: 'Thinking' },
-  { id: 'speaking', label: 'Speaking' },
   { id: 'rendering', label: 'Rendering' },
-  { id: 'completed', label: '✓ Completed' },
-  { id: 'paused', label: '⏸ Pause' },
-  { id: 'idle', label: 'Idle' },
-  { id: 'ambient', label: 'Ambient' },
+  { id: 'speaking', label: 'Speaking' },
+  { id: 'pause', label: 'Pause' },
+  { id: 'completed', label: 'Completed' },
+  { id: 'blocked', label: 'Blocked' },
+  { id: 'wakeup', label: '✦ Wake Up' },
   { id: 'focusing', label: 'Focusing' },
-  { id: 'transforming', label: 'Transform' },
 ];
 
 function ShapeThumb({ shape }: { shape: SophiaShape }) {
@@ -276,7 +275,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
 
   const triggerState = (st: SophiaStateName) => {
     if (st === 'wakeup') os.wakeUp('settings');
-    else if (st === 'paused') os.pause();
+    else if (st === 'paused' || st === 'pause') os.pause();
     else {
       os.resume();
       os.state.setState(st, { reason: 'settings-trigger' });
@@ -379,8 +378,9 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
             <p className="mb-2 text-[8.5px] font-light uppercase tracking-[0.34em] text-white/35">Shape Animation State</p>
             <div className="grid grid-cols-3 gap-1.5">
               {STATE_OPTIONS.map((opt) => {
-                const active = state === opt.id;
+                const active = state === opt.id || (opt.id === 'pause' && state === 'paused') || (opt.id === 'paused' && state === 'pause');
                 const isDone = opt.id === 'completed';
+                const isBlocked = opt.id === 'blocked';
                 return (
                   <button
                     key={opt.id}
@@ -390,7 +390,9 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                       active
                         ? isDone
                           ? 'border-emerald-400/55 bg-emerald-500/[0.22] font-normal text-emerald-100 shadow-[0_0_12px_rgba(52,211,153,0.28)]'
-                          : 'border-sky-300/45 bg-sky-400/[0.18] font-normal text-sky-100 shadow-[0_0_10px_rgba(56,189,248,0.2)]'
+                          : isBlocked
+                            ? 'border-rose-400/55 bg-rose-500/[0.22] font-normal text-rose-100 shadow-[0_0_12px_rgba(244,63,94,0.28)]'
+                            : 'border-sky-300/45 bg-sky-400/[0.18] font-normal text-sky-100 shadow-[0_0_10px_rgba(56,189,248,0.2)]'
                         : 'border-white/[0.07] bg-white/[0.02] text-white/45 hover:border-white/20 hover:text-white/80'
                     }`}
                   >

@@ -21,17 +21,19 @@ function isTyping(): boolean {
 }
 
 const STATE_ANNOUNCE: Record<SophiaStateName, string> = {
-  ambient: 'Sophia is ambient and waiting.',
-  idle: 'Sophia is idle. The bowed ribbon is at rest.',
+  idle: 'Sophia is here. Calm and stable presence.',
+  listening: 'Sophia is listening. Receiving your voice.',
+  thinking: 'Sophia is thinking. Reorganizing information.',
+  rendering: 'Sophia is rendering. Assembling and building.',
+  speaking: 'Sophia is speaking. Sharing voice with you.',
+  pause: 'Sophia is paused. Taking a moment.',
+  paused: 'Sophia is paused. Taking a moment.',
+  completed: 'Task completed successfully. Returning to calm.',
+  blocked: 'Sophia needs your help or permission to continue.',
+  ambient: 'Sophia is present.',
   wakeup: 'Sophia is waking up.',
   focusing: 'Sophia is focusing.',
-  listening: 'Sophia is listening.',
-  thinking: 'Sophia is thinking.',
-  speaking: 'Sophia is speaking.',
-  rendering: 'Sophia is rendering.',
   transforming: 'Sophia is transforming.',
-  paused: 'Sophia is paused.',
-  completed: 'Task completed.',
 };
 
 
