@@ -1,1 +1,0 @@
-- Sofia/Sophia voice UI: particle WebGL orb with states ambient/idle/wakeup/focusing/listening/thinking/speaking/rendering/transforming/paused/completed. Idle+paused auto-morph to multi-ribbon "bow" U-arc with Deepgram-style oscillation; completed uses emerald green palette. Shape "bow" added to gallery. [2026-09-23]
