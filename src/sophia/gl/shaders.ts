@@ -614,8 +614,8 @@ void main(){
     wakeK = smoothstep(0.0, 1.0, uWake * 1.35 - aSeed.w * 0.35);
     float sa = aSeed.x * TAU + uTime * 0.15 * mo;
     // Enhanced scatter: wider for ring form, with radial burst
-    float scatterR = (2.0 + aSeed.z * 1.6) * (1.0 + uForm * 0.5);
-    vec2 scatter = vec2(cos(sa), sin(sa)) * scatterR + (aSeed.ww - 0.5) * 0.5;
+    float scatterR = (2.6 + aSeed.z * 2.2) * (1.0 + uForm * 0.55);
+    vec2 scatter = vec2(cos(sa), sin(sa)) * scatterR + (aSeed.ww - 0.5) * 0.65;
     pos = mix(scatter, pos, wakeK);
     // Shockwave glow: particles near the shockwave front brighten
     float shockDist = abs(length(pos) - uWake * 1.8);

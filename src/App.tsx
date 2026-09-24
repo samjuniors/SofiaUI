@@ -9,8 +9,8 @@ import { getSophiaOS, type OSStatus } from './sophia/SophiaOS';
 import type { SophiaStateName } from './sophia/types';
 import { ChatPanel } from './ui/ChatPanel';
 import { Brand, Dock, Identity, OrbDock, StatusCluster } from './ui/Hud';
+import { BootScreen } from './ui/BootScreen';
 import { BrowserPanel } from './ui/BrowserPanel';
-import { Onboarding } from './ui/Onboarding';
 import { SettingsSheet } from './ui/SettingsSheet';
 import { Terminal } from './ui/Terminal';
 import { controlLayer } from './sophia/control';
@@ -49,6 +49,7 @@ export default function App() {
   const [browserOpen, setBrowserOpen] = useState(false);
   const [micError, setMicError] = useState(os.isMicDisabledError);
   const [glFailed, setGlFailed] = useState(false);
+  const [booted, setBooted] = useState(false);
   const [layout, setLayout] = useState<StageLayout>(() => stageLayout(window.innerWidth, window.innerHeight));
 
   /* ONLY full screen space like Browser / Workspace causes Sophia to dock at the bottom!
@@ -80,14 +81,15 @@ export default function App() {
     };
     const onMicErr = () => {
       setMicError(true);
-      // When mic is disabled due to missing keys or server offline, automatically open terminal so user sees the reason
-      setTerminalOpen(true);
+      setBooted(true);
     };
     const onFail = () => setGlFailed(true);
+    const onEntered = () => setBooted(true);
     os.addEventListener('state', onState);
     os.addEventListener('status', onStatus);
     os.addEventListener('mic-error', onMicErr);
     os.addEventListener('renderer-failed', onFail);
+    os.addEventListener('entered', onEntered);
 
     const measure = () => {
       const w = canvas?.clientWidth || window.innerWidth;
@@ -107,19 +109,28 @@ export default function App() {
       os.removeEventListener('status', onStatus);
       os.removeEventListener('mic-error', onMicErr);
       os.removeEventListener('renderer-failed', onFail);
+      os.removeEventListener('entered', onEntered);
       os.detach();
     };
   }, [os]);
 
   const onMic = useCallback(() => {
-    if (os.isPaused || os.isMicDisabledError || os.rendererFailed) return;
+    if (os.rendererFailed) return;
+    if (os.isPaused) {
+      void os.enterSession('mic-button');
+      return;
+    }
+    if (os.isMicDisabledError) {
+      os.resetMicError();
+      void os.enterSession('mic-button');
+      return;
+    }
     const s = os.state.current;
-    if (s === 'ambient' || s === 'idle') {
-      void os.activate('mic-button');
+    if (s === 'ambient' || s === 'idle' || s === 'completed' || s === 'blocked') {
+      void os.enterSession('mic-button');
     } else if (s === 'transforming' || s === 'wakeup') {
-      return; // let the moment finish
+      return;
     } else {
-      // Clicking an active mic means PAUSE. It is not a degraded/error state.
       os.pause();
     }
   }, [os]);
@@ -217,10 +228,10 @@ export default function App() {
       {chatOpen && voiceUnavailable && (
         <ChatPanel status={status} onClose={() => setChatOpen(false)} onSend={(t) => os.sendText(t)} />
       )}
-      {settingsOpen && <SettingsSheet os={os} status={status} onClose={() => setSettingsOpen(false)} />}
-      <Terminal os={os} open={terminalOpen} onToggle={() => setTerminalOpen((v) => !v)} />
+      {!booted && <BootScreen os={os} onEnter={() => setBooted(true)} />}
+      {booted && settingsOpen && <SettingsSheet os={os} status={status} onClose={() => setSettingsOpen(false)} />}
+      {booted && <Terminal os={os} open={terminalOpen} onToggle={() => setTerminalOpen((v) => !v)} />}
       {browserOpen && <BrowserPanel onClose={() => setBrowserOpen(false)} />}
-      {!settingsOpen && !chatOpen && !terminalOpen && !browserOpen && <Onboarding />}
 
       <Dock
         state={state}

@@ -119,6 +119,7 @@ export class SophiaOS extends EventTarget {
 
     this.audio.onMicLevel((l) => (this.micLvl = l));
     this.audio.onPlaybackLevel((l) => (this.playLvl = l));
+    this.audio.onClap(() => this.handleClap());
 
     controlLayer.addEventListener('command:transform', (e) => {
       const { shape } = (e as CustomEvent).detail;
@@ -162,7 +163,7 @@ export class SophiaOS extends EventTarget {
         if (this.wakeTimer) clearTimeout(this.wakeTimer);
         this.wakeTimer = setTimeout(() => {
           if (this.state.is('wakeup')) this.state.transition('focusing', { reason: 'wake-complete' }, true);
-        }, 1400);
+        }, 1850);
       } else if (s === 'ambient' && prev !== 'transforming') {
         this.maybeArmWake();
       }
@@ -420,27 +421,50 @@ export class SophiaOS extends EventTarget {
 
   pause() {
     if (this.state.paused) return;
-    this.pausedHadCapture = this.audio.capturing;
+    this.pausedHadCapture = Boolean(this.activeProvider?.isActive());
     this.state.pause('user');
     this.audio.interruptPlayback();
-    this.audio.stopCapture();
-    this.pushLog('event', 'paused');
+    const p = this.activeProvider;
+    this.activeProvider = null;
+    void p?.stop().catch(() => undefined);
+    this.setStatus(this.status === 'denied' || this.status === 'error' ? this.status : 'idle');
+    this.pushLog('event', 'paused — say hey sophia, clap, or tap the mic to wake');
+    this.maybeArmWake();
   }
 
   resume() {
     if (this.state.paused) {
       this.state.resume('user');
       this.pushLog('event', 'resumed');
-      if (this.pausedHadCapture) {
-        this.pausedHadCapture = false;
-        void this.audio.startCapture().catch((error) => {
-          this.micDisabledError = true;
-          this.setStatus('denied');
-          this.pushLog('error', `microphone could not resume: ${error instanceof Error ? error.message : 'permission denied'}`);
-          this.dispatchEvent(new CustomEvent('mic-error'));
-        });
-      }
     }
+  }
+
+  /** Boot / clap / hey Sophia — open a live session in focusing. */
+  async enterSession(source: ActivationSource): Promise<void> {
+    if (this.state.paused) this.resume();
+    if (this.status === 'live' && this.activeProvider?.isActive()) {
+      this.director.playWake();
+      this.state.transition('focusing', { source }, true);
+      this.dispatchEvent(new CustomEvent('entered', { detail: { source } }));
+      return;
+    }
+    await this.activate(source);
+  }
+
+  async prepareListen(): Promise<boolean> {
+    try {
+      await this.audio.startCapture();
+      this.maybeArmWake();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private handleClap() {
+    if (this.status === 'live' && !this.state.paused && !this.state.is('ambient', 'idle')) return;
+    this.pushLog('event', 'clap detected');
+    void this.enterSession('clap');
   }
 
   get isPaused(): boolean {
@@ -471,15 +495,10 @@ export class SophiaOS extends EventTarget {
   }
 
   async activate(source: ActivationSource): Promise<void> {
-    if (this.state.paused) {
-      this.pushLog('info', 'mic is disabled while paused — resume first');
-      return;
-    }
+    if (this.state.paused) this.resume();
 
     if (this.micDisabledError) {
-      this.pushLog('error', '❌ MIC DISABLED: Voice backend credentials missing.');
-      this.pushLog('error', 'Check server/sophia-server.ts or set GOOGLE_API_KEY.');
-      this.pushLog('info', 'Type "retry" in Terminal or clear the error in Settings after fixing the server configuration.');
+      this.pushLog('info', 'retrying voice backends…');
       this.micDisabledError = false;
     }
 
@@ -487,7 +506,10 @@ export class SophiaOS extends EventTarget {
       this.interrupt();
       return;
     }
-    if (!this.state.is('ambient', 'focusing', 'idle', 'completed')) return;
+    if (this.status === 'live' && this.activeProvider?.isActive()) {
+      this.state.transition('focusing', { source }, true);
+      return;
+    }
     this.spotter?.suspend();
     this.pushLog('info', `waking sophia (${source})`);
     this.director.playWake();
@@ -519,6 +541,8 @@ export class SophiaOS extends EventTarget {
         this.micDisabledError = false;
         this.pushLog('event', `${id} session live`);
         started = true;
+        this.state.transition('focusing', { source, transport: id }, true);
+        this.dispatchEvent(new CustomEvent('entered', { detail: { source, transport: id } }));
         break;
       } catch (err) {
         this.activeProvider = null;
@@ -528,16 +552,9 @@ export class SophiaOS extends EventTarget {
     if (!started) {
       this.micDisabledError = true;
       this.setStatus('error');
-      this.pushLog('error', '════════════════════════════════════════════════');
-      this.pushLog('error', '❌ VOICE BACKEND DISABLED · KEYS MISSING');
-      this.pushLog('error', 'Reason: No voice backend credentials detected.');
-      this.pushLog('error', '• Realtime Gemini Live requires: GOOGLE_API_KEY');
-      this.pushLog('error', '• Fallback STT/TTS requires: DEEPGRAM_API_KEY');
-      this.pushLog('error', '• Mic is now disabled with a red indicator dot.');
-      this.pushLog('error', '• See server/sophia-server.ts for environment setup.');
-      this.pushLog('error', '════════════════════════════════════════════════');
-      this.audio.stopCapture();
-      this.state.standDown('backend-keys-missing');
+      this.pushLog('error', 'Voice backends unavailable. Set DEEPGRAM_API_KEY and/or GOOGLE_API_KEY in .env.local');
+      this.pushLog('error', 'Gemini Live is primary; Deepgram nova-3 + Aura is the fallback. Chat uses Grok when XAI_API_KEY is present.');
+      this.state.transition('blocked', { reason: 'backend-keys-missing' }, true);
       this.dispatchEvent(new CustomEvent('mic-error'));
     }
   }
@@ -584,8 +601,12 @@ export class SophiaOS extends EventTarget {
   }
 
   private maybeArmWake() {
-    if (!this.prefs.wake || this.audio.capturing || this.status === 'live') return;
-    if (!this.spotter) this.spotter = new WakeWordSpotter(() => void this.activate('wake-word'));
+    if (!this.prefs.wake || this.status === 'live') return;
+    if (!this.spotter) {
+      this.spotter = new WakeWordSpotter(() => {
+        void this.enterSession('wake-word');
+      });
+    }
     this.spotter.start();
   }
 

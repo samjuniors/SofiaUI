@@ -178,14 +178,14 @@ export function Dock({
 }) {
   const on = state !== 'ambient' && state !== 'paused' && state !== 'idle' && state !== 'completed';
   const micLabel = paused
-    ? 'Microphone disabled while paused'
+    ? 'Sophia is paused — tap to wake'
     : micError
-      ? 'Voice disabled: Missing server API credentials (check Terminal)'
+      ? 'Voice offline — tap to retry'
       : state === 'ambient' || state === 'idle'
         ? 'Talk to Sophia'
         : state === 'speaking' || state === 'thinking'
           ? 'Interrupt Sophia'
-          : 'Stop listening';
+          : 'Listening — tap to pause';
 
   const showChat = audioAvailable === false || micError === true;
 
@@ -246,84 +246,49 @@ export function Dock({
         </button>
       )}
 
-      {/* Main Microphone Button — pure icon without circular border or background ring */}
+      {/* Main Microphone — enabled / live / paused / error, all clickable */}
       <button
         ref={micRef}
         type="button"
         aria-label={micLabel}
         aria-pressed={on}
-        aria-disabled={paused || micError}
-        disabled={paused || micError}
         title={micLabel}
         onClick={onMic}
-        className={`mic-ring relative grid size-[44px] place-items-center text-white/85 transition-all duration-300 focus-visible:outline-none ${
-          paused || micError ? 'mic-disabled' : 'hover:text-white'
-        } ${micError ? 'mic-error text-rose-300' : ''} ${on && !paused && !micError ? 'mic-on' : ''}`}
+        className={`mic-ring relative grid size-[48px] place-items-center transition-transform duration-150 ease-out active:scale-[0.96] focus-visible:outline-none ${
+          micError ? 'mic-error' : paused ? 'mic-paused' : on ? 'mic-on' : 'mic-off'
+        }`}
       >
-        {/* Red color dot indicator on mic icon when disabled/missing key */}
+        {on && !paused && !micError && <span className="mic-pulse" aria-hidden="true" />}
+        <span className="relative grid size-[22px] place-items-center">
+          <span className={`mic-glyph ${paused || micError ? 'opacity-0 scale-[0.25] blur-[4px]' : 'opacity-100 scale-100'}`}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="9" y="3" width="6" height="11" rx="3" />
+              <path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0" />
+              <path d="M12 18v3M9 21h6" />
+            </svg>
+          </span>
+          <span className={`mic-glyph absolute inset-0 ${paused && !micError ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.25] blur-[4px]'}`}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="9" y="3" width="6" height="11" rx="3" />
+              <path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0" />
+              <path d="M12 18v3M9 21h6" />
+              <line x1="4" y1="4" x2="20" y2="20" />
+            </svg>
+          </span>
+          <span className={`mic-glyph absolute inset-0 ${micError ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.25] blur-[4px]'}`}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="9" y="3" width="6" height="11" rx="3" />
+              <path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0" />
+              <path d="M12 18v3M9 21h6" />
+              <line x1="4" y1="4" x2="20" y2="20" />
+            </svg>
+          </span>
+        </span>
         {micError && (
-          <span
-            title="Missing key or code error"
-            className="status-alert absolute right-1 top-1 block size-[6px] rounded-full bg-rose-500 shadow-[0_0_8px_2px_rgba(244,63,94,0.7)]"
-          />
+          <span className="status-alert absolute right-0.5 top-0.5 block size-[7px] rounded-full bg-rose-500 shadow-[0_0_8px_2px_rgba(244,63,94,0.7)]" />
         )}
-
-
-        {paused ? (
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M9 3.6A3 3 0 0 1 15 6v5" />
-            <path d="M9 9v3a3 3 0 0 0 4.6 2.5" />
-            <path d="M5.5 11.5a6.5 6.5 0 0 0 10.6 5" />
-            <path d="M18.5 11.5a6.4 6.4 0 0 1-.6 2.7" />
-            <path d="M12 18v3M9 21h6" />
-            <line x1="3.5" y1="3.5" x2="20.5" y2="20.5" />
-          </svg>
-        ) : micError ? (
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-rose-300/80"
-            aria-hidden="true"
-          >
-            <line x1="2" y1="2" x2="22" y2="22" />
-            <path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2" />
-            <path d="M5 10v2a7 7 0 0 0 12 5" />
-            <path d="M15 9.34V5a3 3 0 0 0-5.68-1.33" />
-            <path d="M9 9v3a3 3 0 0 0 5.12 2.12" />
-            <line x1="12" y1="19" x2="12" y2="22" />
-          </svg>
-        ) : (
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="9" y="3" width="6" height="11" rx="3" />
-            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" />
-            <path d="M12 18v3M9 21h6" />
-          </svg>
+        {paused && !micError && (
+          <span className="absolute right-0.5 top-0.5 block size-[7px] rounded-full bg-amber-400/90 shadow-[0_0_8px_2px_rgba(251,191,36,0.55)]" />
         )}
       </button>
     </div>

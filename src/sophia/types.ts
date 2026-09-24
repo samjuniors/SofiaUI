@@ -74,7 +74,7 @@ export type SophiaShape =
   | 'letter-o';
 
 /** What actually wakes Sophia. */
-export type ActivationSource = 'wake-word' | 'mic-button' | 'chat';
+export type ActivationSource = 'wake-word' | 'mic-button' | 'chat' | 'clap' | 'boot';
 
 export interface Turn {
   role: 'user' | 'sophia' | 'system';

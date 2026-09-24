@@ -496,15 +496,14 @@ export class VisualDirector {
     this.outputAudio += (rawPlay - this.outputAudio) * (rawPlay > this.outputAudio ? k(18) : k(6));
     this.level = this.speak * this.outputAudio + this.listen * this.inputAudio;
 
-    /* wake-up timeline — extended to 1.5s with form-aware shockwave + bloom */
+    /* wake-up timeline — 1.85s scatter → shockwave → land */
     if (this.wakeTimer >= 0) {
       this.wakeTimer += dt;
-      this.wake = Math.min(1, this.wakeTimer / 1.5);
-      /* shockwave ring: peaks at t=0.4s then fades */
-      const shockT = this.wakeTimer / 1.5;
-      this.wakeShockwave = shockT < 0.35
-        ? shockT / 0.35
-        : Math.max(0, 1 - (shockT - 0.35) / 0.65);
+      this.wake = Math.min(1, this.wakeTimer / 1.85);
+      const shockT = this.wakeTimer / 1.85;
+      this.wakeShockwave = shockT < 0.28
+        ? shockT / 0.28
+        : Math.max(0, 1 - (shockT - 0.28) / 0.72);
       if (this.wake >= 1) {
         this.wakeTimer = -1;
         this.wakeShockwave = 0;

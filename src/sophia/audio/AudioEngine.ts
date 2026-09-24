@@ -24,15 +24,27 @@ class SophiCapture extends AudioWorkletProcessor {
     this.ratio = sampleRate / 16000;
     this.pos = 0;
     this.frames = 0;
+    this.prevRms = 0;
   }
   process(inputs) {
     const ch = inputs[0] && inputs[0][0];
     if (!ch || ch.length === 0) return true;
-    // RMS for the visual layer
     let sum = 0;
-    for (let i = 0; i < ch.length; i += 4) { const s = ch[i]; sum += s * s; }
-    const rms = Math.sqrt(sum / Math.max(1, ch.length / 4));
-    if ((this.frames++ & 3) === 0) this.port.postMessage({ type: 'level', rms });
+    let peak = 0;
+    for (let i = 0; i < ch.length; i += 2) {
+      const s = ch[i];
+      const a = s * s;
+      sum += a;
+      const abs = Math.abs(s);
+      if (abs > peak) peak = abs;
+    }
+    const rms = Math.sqrt(sum / Math.max(1, ch.length / 2));
+    if ((this.frames++ & 3) === 0) this.port.postMessage({ type: 'level', rms, peak });
+    // Clap: sharp transient — high peak, low previous energy, high crest factor
+    if (peak > 0.55 && this.prevRms < 0.045 && peak / Math.max(rms, 0.001) > 5.5) {
+      this.port.postMessage({ type: 'clap', peak, rms });
+    }
+    this.prevRms = this.prevRms * 0.6 + rms * 0.4;
     // downsample to 16k
     const nOut = Math.floor(ch.length / this.ratio);
     for (let i = 0; i < nOut; i++) {
@@ -66,6 +78,8 @@ export class AudioEngine {
   private levelHandlers = new Set<LevelHandler>();
   private playbackLevelHandlers = new Set<LevelHandler>();
   private playbackHandlers = new Set<() => void>();
+  private clapHandlers = new Set<() => void>();
+  private lastClap = 0;
   private playCtx: AudioContext | null = null;
   private nextStart = 0;
   private active: AudioBufferSourceNode[] = [];
@@ -88,6 +102,10 @@ export class AudioEngine {
   onPlaybackEnd(fn: () => void): () => void {
     this.playbackHandlers.add(fn);
     return () => this.playbackHandlers.delete(fn);
+  }
+  onClap(fn: () => void): () => void {
+    this.clapHandlers.add(fn);
+    return () => this.clapHandlers.delete(fn);
   }
 
   get micLevel(): number {
@@ -127,6 +145,12 @@ export class AudioEngine {
       } else if (d.type === 'level') {
         this._mic = this._mic * 0.72 + Math.min(1, d.rms * 5.5) * 0.28;
         this.levelHandlers.forEach((fn) => fn(this._mic));
+      } else if (d.type === 'clap') {
+        const now = performance.now();
+        if (now - this.lastClap > 1400) {
+          this.lastClap = now;
+          this.clapHandlers.forEach((fn) => fn());
+        }
       }
     };
     src.connect(this.captureNode);
