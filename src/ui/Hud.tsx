@@ -5,7 +5,7 @@
  * that receives the mini-orb when content owns the centre stage.
  */
 
-import { Settings } from 'lucide-react';
+import { Mic, MicOff, Settings } from 'lucide-react';
 import { useEffect, useState, type RefObject } from 'react';
 import { controlLayer } from '../sophia/control';
 import type { StageLayout } from '../sophia/layout';
@@ -286,44 +286,9 @@ export function Dock({
         )}
 
         {paused ? (
-          <svg
-            width="21"
-            height="21"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="transition-colors group-hover:text-white"
-            aria-hidden="true"
-          >
-            <line x1="2" y1="2" x2="22" y2="22" strokeWidth="1.8" />
-            <path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2" />
-            <path d="M5 10v2a7 7 0 0 0 12 5" />
-            <path d="M15 9.34V5a3 3 0 0 0-5.68-1.33" />
-            <path d="M9 9v3a3 3 0 0 0 5.12 2.12" />
-            <line x1="12" y1="19" x2="12" y2="22" />
-          </svg>
+          <MicOff size={20} strokeWidth={1.8} className="text-white/40 transition-colors group-hover:text-white" />
         ) : (
-          <svg
-            width="21"
-            height="21"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-sky-200 transition-all group-hover:scale-105"
-            aria-hidden="true"
-          >
-            <rect x="9" y="2.5" width="6" height="11.5" rx="3" fill="currentColor" fillOpacity="0.18" />
-            <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
-            <path d="M12 17.5v3.5M8.5 21h7" />
-            <path d="M3.2 8.5a10 10 0 0 0 0 7" opacity="0.6" strokeWidth="1.4" />
-            <path d="M20.8 8.5a10 10 0 0 1 0 7" opacity="0.6" strokeWidth="1.4" />
-          </svg>
+          <Mic size={20} strokeWidth={1.8} className="text-sky-200 transition-all group-hover:scale-105" />
         )}
       </button>
     </div>
