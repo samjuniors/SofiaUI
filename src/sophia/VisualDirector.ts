@@ -28,6 +28,7 @@ export interface ShapeTune {
   rim: number;
   glow: number;
   hue: number;
+  saturation: number;
   orbits: boolean;
   waves: boolean;
   spin: boolean;
@@ -47,6 +48,7 @@ export const DEFAULT_TUNE: ShapeTune = {
   rim: 1,
   glow: 1,
   hue: 0,
+  saturation: 1.0,
   orbits: true,
   waves: true,
   spin: true,
@@ -595,7 +597,7 @@ export class VisualDirector {
     /* audio-reactive aura lift: listening follows mic, speaking follows playback */
     const bgLevel = this.speak * this.level + this.listen * this.level;
     /* shape glow breathes with the voice too */
-    const shapeGlow = p.glow * (1 + 0.35 * this.level * (this.speak + this.listen));
+    const shapeGlow = p.glow * (1 + 0.35 * this.level * (this.speak + this.listen)) * this.tune.glow;
     // Idle and paused stay centered in full spherical majesty
     const hangAmt = 0;
     const hang: [number, number] = [
@@ -637,8 +639,9 @@ export class VisualDirector {
       starT: this.starT,
       morph: this.morph,
       gain,
-      exposure: (1.0 + 0.06 * this.energy) * this.tune.glow,
+      exposure: 1.0 + 0.06 * this.energy,
       hue: this.tune.hue,
+      saturation: this.tune.saturation ?? 1.0,
       rimWidth: this.tune.rim,
       glow: this.tune.glow,
       orbits,

@@ -3,7 +3,7 @@
  * The window always preserves a small bottom strip for Sophia's live mini-orb.
  */
 
-import { ArrowLeft, ArrowRight, Globe, Maximize2, Minus, RotateCw, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Globe, Maximize2, Minus, RotateCw, X } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 
 interface BrowserTab {
@@ -137,69 +137,78 @@ export function BrowserPanel({ onClose }: { onClose: () => void }) {
   return (
     <section
       aria-label="SamJuniors OS Browser"
-      className="panel-in fixed z-30 flex select-none flex-col overflow-hidden rounded-2xl border border-white/[0.14] bg-[#050713]/97 shadow-[0_30px_100px_rgba(0,0,0,0.85)] backdrop-blur-2xl"
+      className="glass-panel panel-in fixed z-30 flex select-none flex-col overflow-hidden rounded-2xl shadow-[0_30px_100px_rgba(0,0,0,0.85)]"
       style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
       onPointerMove={moveWindow}
       onPointerUp={endGesture}
       onPointerCancel={endGesture}
     >
       <header
-        className="flex h-9 shrink-0 cursor-move items-center justify-between border-b border-white/[0.07] bg-white/[0.025] px-3"
+        className="flex h-10 shrink-0 cursor-move items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-3.5"
         onPointerDown={beginDrag}
         onDoubleClick={toggleMaximize}
       >
         <div className="pointer-events-none flex items-center gap-2">
-          <Globe size={12} className="text-sky-300/65" />
-          <span className="font-mono text-[9px] uppercase tracking-[0.28em] text-white/42">OS Workspace</span>
-          <span className="hidden font-mono text-[8px] text-white/20 sm:inline">drag · resize edges</span>
+          <Globe size={13} className="text-sky-400/80" />
+          <span className="font-mono text-[9.5px] uppercase tracking-[0.24em] text-white/50">Workspace Environment</span>
+          <span className="hidden font-mono text-[8.5px] text-white/25 sm:inline">drag · resize</span>
         </div>
         <div className="flex items-center gap-1">
-          <button type="button" onClick={onClose} aria-label="Minimize workspace" className="grid size-7 cursor-pointer place-items-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white">
+          <button type="button" onClick={onClose} aria-label="Minimize workspace" className="grid size-7 cursor-pointer place-items-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white transition-colors">
             <Minus size={13} strokeWidth={1.75} />
           </button>
-          <button type="button" onClick={toggleMaximize} aria-label={maximized ? 'Restore workspace' : 'Maximize workspace'} className="grid size-7 cursor-pointer place-items-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white">
+          <button type="button" onClick={toggleMaximize} aria-label={maximized ? 'Restore workspace' : 'Maximize workspace'} className="grid size-7 cursor-pointer place-items-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white transition-colors">
             <Maximize2 size={12} strokeWidth={1.6} />
           </button>
-          <button type="button" onClick={onClose} aria-label="Close workspace" className="grid size-7 cursor-pointer place-items-center rounded-lg text-white/40 hover:bg-rose-500/20 hover:text-rose-200">
+          <button type="button" onClick={onClose} aria-label="Close workspace" className="grid size-7 cursor-pointer place-items-center rounded-lg text-white/40 hover:bg-rose-500/20 hover:text-rose-200 transition-colors">
             <X size={13} strokeWidth={1.75} />
           </button>
         </div>
       </header>
 
-      <div className="flex h-10 shrink-0 items-center gap-1.5 overflow-x-auto border-b border-white/[0.06] px-3">
+      <div className="flex h-10 shrink-0 items-center gap-1.5 overflow-x-auto border-b border-white/[0.06] px-3.5">
         {TABS.map((tab) => (
-          <button key={tab.id} type="button" onClick={() => switchTab(tab)} className={`flex h-7 shrink-0 items-center gap-2 rounded-lg px-3 font-mono text-[9.5px] tracking-wide transition-all ${activeTab === tab.id ? 'border border-white/[0.12] bg-white/[0.08] text-white' : 'text-white/45 hover:bg-white/[0.03] hover:text-white/80'}`}>
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => switchTab(tab)}
+            className={`flex h-7 shrink-0 items-center gap-2 rounded-xl px-3 font-mono text-[9.5px] tracking-wide transition-all ${
+              activeTab === tab.id
+                ? 'border border-white/[0.12] bg-white/[0.08] text-white shadow-[0_2px_8px_rgba(0,0,0,0.3)]'
+                : 'text-white/40 hover:bg-white/[0.03] hover:text-white/80'
+            }`}
+          >
             <Globe size={10} className={activeTab === tab.id ? 'text-sky-300' : 'text-white/35'} />
             <span className="max-w-[150px] truncate">{tab.title}</span>
           </button>
         ))}
       </div>
 
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-white/[0.06] bg-black/30 px-3.5">
+      <div className="flex h-11 shrink-0 items-center gap-2.5 border-b border-white/[0.06] bg-black/25 px-3.5">
         <div className="flex items-center gap-1 text-white/40">
-          <button type="button" aria-label="Back" className="p-1 hover:text-white/80"><ArrowLeft size={13} /></button>
-          <button type="button" aria-label="Forward" className="p-1 hover:text-white/80"><ArrowRight size={13} /></button>
-          <button type="button" aria-label="Reload" onClick={() => { setIsSearching(true); window.setTimeout(() => setIsSearching(false), 250); }} className="p-1 hover:text-white/80">
+          <button type="button" aria-label="Back" className="grid size-7 place-items-center rounded-lg hover:bg-white/[0.06] hover:text-white transition-colors"><ArrowLeft size={13} /></button>
+          <button type="button" aria-label="Forward" className="grid size-7 place-items-center rounded-lg hover:bg-white/[0.06] hover:text-white transition-colors"><ArrowRight size={13} /></button>
+          <button type="button" aria-label="Reload" onClick={() => { setIsSearching(true); window.setTimeout(() => setIsSearching(false), 250); }} className="grid size-7 place-items-center rounded-lg hover:bg-white/[0.06] hover:text-white transition-colors">
             <RotateCw size={13} className={isSearching ? 'animate-spin' : ''} />
           </button>
         </div>
-        <form onSubmit={handleNavigate} className="flex flex-1 items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1">
-          <Globe size={12} className="text-sky-300/60" />
-          <input value={urlInput} onChange={(event) => setUrlInput(event.target.value)} spellCheck={false} aria-label="Web address" className="h-5 flex-1 select-text bg-transparent font-mono text-[11px] text-white/80 focus:outline-none" />
+        <form onSubmit={handleNavigate} className="flex flex-1 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-1 transition-all focus-within:border-sky-400/40 focus-within:bg-white/[0.05]">
+          <Globe size={12} className="text-sky-400/60" />
+          <input value={urlInput} onChange={(event) => setUrlInput(event.target.value)} spellCheck={false} aria-label="Web address" className="h-5 flex-1 select-text bg-transparent font-mono text-[11px] text-white/85 focus:outline-none" />
         </form>
-        <span className="hidden items-center gap-1.5 rounded-full border border-sky-400/20 bg-sky-400/10 px-2.5 py-0.5 font-mono text-[8px] text-sky-200 md:flex">
-          <Sparkles size={9} /> Sophia docked
+        <span className="hidden items-center gap-1.5 rounded-full border border-sky-400/25 bg-sky-400/10 px-2.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wider text-sky-200 md:flex">
+          <span className="block size-1.5 rounded-full bg-sky-400 animate-pulse" /> Sophia Docked
         </span>
       </div>
 
-      <div className="chat-scroll relative flex-1 select-text overflow-y-auto p-5">
+      <div className="chat-scroll relative flex-1 select-text overflow-y-auto p-6">
         {activeTab === 'home' && (
           <div className="mx-auto max-w-4xl space-y-5">
             <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent p-6">
-              <span className="inline-block rounded-full border border-sky-300/30 bg-sky-400/10 px-3 py-1 text-[9px] uppercase tracking-widest text-sky-200">Dedicated workspace</span>
+              <span className="inline-block rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-[9px] uppercase tracking-widest text-sky-200">Dedicated workspace</span>
               <h2 className="mt-3 text-2xl font-extralight tracking-wide text-white">The centre stage is available.</h2>
-              <p className="mt-2 max-w-2xl text-sm font-light leading-relaxed text-white/58">Sophia remains alive in the reserved dock below. Drag this title bar, resize any edge or corner, or double-click the bar to maximize without covering her dock.</p>
-              <button type="button" onClick={onClose} className="mt-5 rounded-xl border border-sky-400/40 bg-sky-400/15 px-4 py-2 text-xs font-light tracking-wider text-sky-100 transition hover:bg-sky-400/25">Return Sophia to Center</button>
+              <p className="mt-2 max-w-2xl text-sm font-light leading-relaxed text-white/60">Sophia remains alive in the reserved dock below. Drag this title bar, resize any edge or corner, or double-click the bar to maximize without covering her dock.</p>
+              <button type="button" onClick={onClose} className="mt-5 rounded-xl border border-sky-400/40 bg-sky-400/15 px-4 py-2 text-xs font-normal tracking-wider text-sky-100 transition-all hover:bg-sky-400/25 active:scale-95">Return Sophia to Center</button>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {[
@@ -208,9 +217,9 @@ export function BrowserPanel({ onClose }: { onClose: () => void }) {
                 ['Window', 'Drag and resize', 'This behaves like a true OS window, not a fixed overlay.'],
               ].map(([label, title, body]) => (
                 <div key={label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
-                  <p className="text-[9px] font-mono uppercase tracking-wider text-sky-300/65">{label}</p>
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-sky-400/70">{label}</p>
                   <h3 className="mt-1 text-sm font-normal text-white">{title}</h3>
-                  <p className="mt-2 text-xs font-light leading-relaxed text-white/42">{body}</p>
+                  <p className="mt-2 text-xs font-light leading-relaxed text-white/45">{body}</p>
                 </div>
               ))}
             </div>

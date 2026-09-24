@@ -26,8 +26,13 @@ void main(){
 const COMMON = `
 const float TAU = 6.28318530718;
 uniform float uHue;
+uniform float uSaturation;
 float gauss(float x, float s){ return exp(-x*x/(2.0*s*s)); }
 float angDiff(float a, float b){ float d = a - b; return abs(mod(d + 3.14159265, TAU) - 3.14159265); }
+vec3 adjustSat(vec3 color, float sat){
+  float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+  return mix(vec3(luma), color, sat);
+}
 vec3 rimColor(float ang){
   // Multi-ribbon palette inspired by the reference: cyan → mint → violet → magenta
   vec3 c = vec3(0.18, 0.55, 1.0);
@@ -38,7 +43,8 @@ vec3 rimColor(float ang){
   c = mix(c, vec3(0.55, 0.38, 1.0),  gauss(angDiff(ang, 2.40), 0.65) * 0.9);  // violet
   c = mix(c, vec3(0.22, 0.88, 1.0),  gauss(angDiff(ang, 3.85), 0.70) * cw);   // cyan
   c = mix(c, vec3(0.70, 0.55, 1.0),  gauss(angDiff(ang, 5.20), 0.60) * 0.7);  // soft lilac
-  return max(c, vec3(0.05, 0.14, 0.38));
+  c = adjustSat(c, uSaturation);
+  return max(c, vec3(0.02, 0.05, 0.12));
 }
 float hash21(vec2 p){
   p = fract(p * vec2(123.34, 456.21));
@@ -118,16 +124,15 @@ vec3 atmosphere(vec2 q, float vq){
   float breath = 0.5 + 0.5 * sin(uTime * uBgPulseSpd * uMotion);
   col += (uBgAuraA * 0.58 + uBgAuraB * 0.42) * (uBgPulse * breath * 0.62 + uBgLevel * 0.10) * centerHalo;
 
-  // Wake-up: soft radiant expansion (annular ring for ring form, central aura for sphere)
-  // Enhanced: form-aware shockwave ring + central bloom pulse
+  // Wake-up: refined radiant expansion without blinding wash
   float wakeHalo = mix(centerHalo, gauss(vq - 0.48, 0.18), uForm);
-  col += mix(uBgAuraA, vec3(0.7, 0.9, 1.0), 0.35) * uWake * (1.0 - uWake) * 2.2 * wakeHalo;
-  // Shockwave ring: expands outward from centre
+  col += mix(uBgAuraA, vec3(0.5, 0.75, 1.0), 0.3) * uWake * (1.0 - uWake) * 0.45 * wakeHalo;
+  // Shockwave ring: expands outward from centre gently
   float shockR = uWake * 1.8 + uForm * 0.4;
-  float shockRing = gauss(vq - shockR, 0.06 + uWake * 0.08);
-  col += mix(vec3(0.5, 0.85, 1.0), vec3(0.8, 0.95, 1.0), uForm) * uWakeShock * shockRing * 1.8;
-  // Central bloom pulse during wake
-  col += vec3(0.6, 0.88, 1.0) * uWakeShock * centerHalo * 0.55;
+  float shockRing = gauss(vq - shockR, 0.05 + uWake * 0.06);
+  col += mix(vec3(0.3, 0.6, 0.9), vec3(0.5, 0.7, 1.0), uForm) * uWakeShock * shockRing * 0.35;
+  // Subtle central aura during wake
+  col += vec3(0.3, 0.55, 0.8) * uWakeShock * centerHalo * 0.15;
 
   // Ambient dust particles — tiny scattered motes
   if (uDustVisible > 0.001 && uDustAmount > 0.001) {
@@ -153,9 +158,11 @@ vec3 atmosphere(vec2 q, float vq){
   // Vignette: gentle and soft
   col *= 1.0 - uBgVig * smoothstep(0.35, 1.45, vq) * 0.58;
 
-  // Pause atmosphere: serene frosted twilight wash
-  vec3 frostAtmo = mix(col, vec3(0.10, 0.22, 0.42), 0.4);
-  col = mix(col, frostAtmo, uPaused * 0.4);
+  // Pause atmosphere: serene desaturation to deep midnight monochrome
+  if (uPaused > 0.01) {
+    float bgLuma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+    col = mix(col, vec3(bgLuma * 0.75), uPaused * 0.88);
+  }
   return col;
 }
 `;
@@ -431,25 +438,26 @@ void main(){
   float refl = gauss(fy, 0.04) * gauss(pb.x, 0.60) * 0.50 + gauss(fy - 0.08, 0.20) * gauss(pb.x, 0.95) * 0.14;
   vec3 pool = mix(vec3(0.18, 0.42, 1.0), uShapeTint, uShapeTintAmt*0.6) * refl * (1.0 - uForm) * (1.0 - uDock);
 
-  col += (rim + inner + interior + light + waves + pool) * uBody;
+  vec3 shapeCol = (rim + inner + interior + light + waves + pool) * uBody;
+  shapeCol = adjustSat(shapeCol, uSaturation);
+  if (uPaused > 0.01) {
+    float sLuma = dot(shapeCol, vec3(0.2126, 0.7152, 0.0722));
+    shapeCol = mix(shapeCol, vec3(sLuma * 0.82), uPaused * 0.90);
+  }
+  col += shapeCol;
 
-  // wake-up shockwave rides the body layer too — enhanced with form-aware ring + bloom
+  // wake-up shockwave rides the body layer — gentle and crisp
   if (uWake > 0.001 && uWake < 1.0) {
     float wr = uWake * 2.3;
-    col += mix(uShapeTint, vec3(0.7, 0.9, 1.0), 0.4) * gauss(dS - wr, 0.05 + uWake*0.07) * (1.0 - uWake) * 1.2;
-    col += uShapeTint * (1.0 - uWake) * exp(-dS*dS*2.0) * 0.45;
-    // Enhanced ring-form shockwave: expanding ring of light
+    col += mix(uShapeTint, vec3(0.5, 0.75, 1.0), 0.3) * gauss(dS - wr, 0.05 + uWake*0.06) * (1.0 - uWake) * 0.35;
     float ringShock = gauss(dS - uWake * 1.6, 0.04 + uWake * 0.06) * uForm;
-    col += vec3(0.7, 0.92, 1.0) * ringShock * uWakeShock * 2.2;
-    // Central bloom during wake
-    col += mix(uShapeTint, vec3(0.85, 0.95, 1.0), 0.55) * uWakeShock * exp(-dS*dS*3.5) * 0.65;
+    col += vec3(0.4, 0.75, 1.0) * ringShock * uWakeShock * 0.45;
   }
 
-  // pause: frosted diamond & sapphire crystal body tone with standby pulse
+  // pause: serene frosted desaturation
   if (uPaused > 0.01) {
-    float pauseGlow = 0.5 + 0.5 * sin(uTime * 1.6);
-    vec3 frostRim = mix(vec3(0.62, 0.82, 1.0), vec3(0.85, 0.94, 1.0), pauseGlow * 0.35);
-    col = mix(col, frostRim, uPaused * 0.35);
+    float cLuma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+    col = mix(col, vec3(cLuma * 0.82), uPaused * 0.90);
   }
 
   frag = vec4(col, 1.0);
@@ -617,9 +625,9 @@ void main(){
     float scatterR = (2.6 + aSeed.z * 2.2) * (1.0 + uForm * 0.55);
     vec2 scatter = vec2(cos(sa), sin(sa)) * scatterR + (aSeed.ww - 0.5) * 0.65;
     pos = mix(scatter, pos, wakeK);
-    // Shockwave glow: particles near the shockwave front brighten
+    // Shockwave glow: gentle subtle brightening near shockwave front
     float shockDist = abs(length(pos) - uWake * 1.8);
-    wakeGlow = uWakeShock * exp(-shockDist * shockDist * 25.0) * 1.5;
+    wakeGlow = uWakeShock * exp(-shockDist * shockDist * 25.0) * 0.35;
   }
 
   // Idle / pause posture: deep U-bow only if explicitly non-zero
@@ -717,18 +725,19 @@ void main(){
     a *= 1.0 + 0.22 * sin(uTime * 11.0) * uBlocked;
   }
 
-  // pause: frosted sapphire & starlight crystal wash
+  // pause: serene desaturation of shape particles into calm silver starlight
   if (uPaused > 0.01) {
-    vec3 frostCol = vec3(0.68, 0.88, 1.0);
-    float prism = 0.5 + 0.5 * sin(pang * 4.0 + uTime * 0.7);
-    frostCol = mix(frostCol, vec3(0.84, 0.76, 1.0), prism * 0.35); // iridescent lilac prism
-    c = mix(c, frostCol, uPaused * 0.60);
+    float pLuma = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    c = mix(c, vec3(pLuma * 0.88), uPaused * 0.92);
   }
   // idle: deep cosmic serenity wash
   if (uIdle > 0.01) {
     vec3 idleGlow = mix(vec3(0.36, 0.72, 1.0), vec3(0.62, 0.48, 1.0), 0.35 + 0.35 * sin(pang + uTime * 0.5));
     c = mix(c, idleGlow, uIdle * 0.35);
   }
+
+  // user color saturation control
+  c = adjustSat(c, uSaturation);
 
   vCol = vec4(c, clamp(a, 0.0, 1.0));
   gl_PointSize = max(1.0, size);
@@ -778,7 +787,7 @@ void main(){
   vec3 sc = texture(uScene, vUv).rgb;
   vec3 b1 = texture(uB1, vUv).rgb;
   vec3 b2 = texture(uB2, vUv).rgb;
-  vec3 c = sc + b1*0.62 + b2*0.42;
+  vec3 c = sc + b1*0.46 + b2*0.28;
   c *= uExposure;
   c = (c*(2.51*c+0.03))/(c*(2.43*c+0.59)+0.14);
   frag = vec4(c, 1.0);

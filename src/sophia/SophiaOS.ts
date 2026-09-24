@@ -233,6 +233,14 @@ export class SophiaOS extends EventTarget {
     this.dispatchEvent(new CustomEvent('prefs', { detail: this.prefs }));
   }
 
+  resetPrefs() {
+    this.savePrefs({
+      ...DEFAULT_PREFS,
+      tune: { ...DEFAULT_TUNE },
+    });
+    this.pushLog('info', 'settings reset to defaults');
+  }
+
   applyTheme(id: ThemeId) {
     const theme = THEMES.find((t) => t.id === id);
     if (!theme) return;

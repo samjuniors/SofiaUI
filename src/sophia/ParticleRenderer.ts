@@ -69,6 +69,7 @@ export interface FrameParams {
   hang: [number, number];
   /* ---- user correction ---- */
   hue: number; // -1 cyan … +1 violet
+  saturation: number; // 0 monochrome … 1 normal … 2 deep
   rimWidth: number;
   glow: number;
   orbits: number; // 0 hidden … 1 visible
@@ -368,6 +369,7 @@ export class ParticleRenderer {
     gl.uniform1f(this.u(b, 'uOrbits'), p.orbits * vis * (1 - dockT * 0.65));
     gl.uniform1f(this.u(b, 'uWaveAmp'), p.waveAmp);
     gl.uniform1f(this.u(b, 'uHue'), p.hue);
+    gl.uniform1f(this.u(b, 'uSaturation'), p.saturation);
     gl.uniform1f(this.u(b, 'uVisualState'), p.visualState);
     /* atmosphere — background only */
     gl.uniform3f(this.u(b, 'uBgDeep'), p.bgDeep[0], p.bgDeep[1], p.bgDeep[2]);
@@ -416,6 +418,7 @@ export class ParticleRenderer {
     gl.uniform1f(this.u(q, 'uGain'), p.gain * vis);
     gl.uniform1f(this.u(q, 'uBodyScale'), p.bodyScale);
     gl.uniform1f(this.u(q, 'uHue'), p.hue);
+    gl.uniform1f(this.u(q, 'uSaturation'), p.saturation);
     gl.uniform1f(this.u(q, 'uThink'), p.think);
     gl.uniform1f(this.u(q, 'uSpeak'), p.speak);
     gl.uniform1f(this.u(q, 'uListen'), p.listen);

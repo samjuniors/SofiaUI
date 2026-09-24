@@ -121,19 +121,19 @@ export function Terminal({ os, open, onToggle }: { os: SophiaOS; open: boolean; 
       {open && (
         <section
           aria-label="Sophia terminal"
-          className="panel-in panel-left absolute bottom-[112px] left-7 z-20 flex h-[320px] w-[420px] max-w-[calc(100vw-3.5rem)] flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#050811]/96 shadow-[0_30px_90px_rgba(0,0,0,0.7)] backdrop-blur-xl sm:left-11"
+          className="glass-panel panel-in panel-in-bottom-left fixed bottom-[98px] left-4 right-4 z-30 flex h-[340px] max-h-[calc(100vh-120px)] flex-col overflow-hidden rounded-2xl sm:right-auto sm:left-11 sm:bottom-[108px] sm:w-[440px]"
         >
-          <header className="flex items-center justify-between border-b border-white/[0.06] px-3 pb-0 pt-2">
+          <header className="flex items-center justify-between border-b border-white/[0.06] px-3 pb-0 pt-2.5">
             <div className="flex items-end gap-1" role="tablist" aria-label="Console tabs">
               <button
                 type="button"
                 role="tab"
                 aria-selected={tab === 'system'}
                 onClick={() => setTab('system')}
-                className={`flex items-center gap-1.5 rounded-t-lg border border-b-0 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.22em] transition-colors ${
+                className={`flex items-center gap-1.5 rounded-t-xl border border-b-0 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.18em] transition-all ${
                   tab === 'system'
-                    ? 'border-white/[0.1] bg-white/[0.04] text-sky-200'
-                    : 'border-transparent text-white/35 hover:text-white/65'
+                    ? 'border-white/[0.1] bg-white/[0.05] text-sky-200'
+                    : 'border-transparent text-white/40 hover:text-white/70'
                 }`}
               >
                 <TerminalSquare size={11} strokeWidth={1.6} />
@@ -144,10 +144,10 @@ export function Terminal({ os, open, onToggle }: { os: SophiaOS; open: boolean; 
                 role="tab"
                 aria-selected={tab === 'chat'}
                 onClick={() => setTab('chat')}
-                className={`flex items-center gap-1.5 rounded-t-lg border border-b-0 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.22em] transition-colors ${
+                className={`flex items-center gap-1.5 rounded-t-xl border border-b-0 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.18em] transition-all ${
                   tab === 'chat'
-                    ? 'border-white/[0.1] bg-white/[0.04] text-sky-200'
-                    : 'border-transparent text-white/35 hover:text-white/65'
+                    ? 'border-white/[0.1] bg-white/[0.05] text-sky-200'
+                    : 'border-transparent text-white/40 hover:text-white/70'
                 }`}
               >
                 <MessageSquare size={11} strokeWidth={1.6} />
@@ -161,7 +161,7 @@ export function Terminal({ os, open, onToggle }: { os: SophiaOS; open: boolean; 
                   onClick={clearChat}
                   aria-label="Clear chat history"
                   title="Clear chat history"
-                  className="grid size-6 place-items-center rounded-full text-white/40 transition hover:bg-white/[0.06] hover:text-rose-300/90"
+                  className="grid size-6 place-items-center rounded-lg text-white/40 transition hover:bg-white/[0.06] hover:text-rose-300"
                 >
                   <Trash2 size={12} strokeWidth={1.75} />
                 </button>
@@ -170,7 +170,7 @@ export function Terminal({ os, open, onToggle }: { os: SophiaOS; open: boolean; 
                 type="button"
                 onClick={onToggle}
                 aria-label="Close terminal"
-                className="grid size-6 place-items-center rounded-full text-white/40 transition hover:bg-white/[0.06] hover:text-white/80"
+                className="grid size-6 place-items-center rounded-lg text-white/40 transition hover:bg-white/[0.06] hover:text-white"
               >
                 <X size={13} strokeWidth={1.75} />
               </button>
@@ -183,18 +183,18 @@ export function Terminal({ os, open, onToggle }: { os: SophiaOS; open: boolean; 
                 ref={listRef}
                 role="tabpanel"
                 aria-label="System log"
-                className="terminal-scroll flex-1 space-y-[3px] overflow-y-auto px-4 py-3 font-mono text-[10px] leading-[1.55]"
+                className="terminal-scroll flex-1 space-y-1 overflow-y-auto px-4 py-3 font-mono text-[10px] leading-[1.6]"
               >
-                {lines.length === 0 && <p className="text-white/25">// waiting for events… (type &quot;help&quot; for commands)</p>}
+                {lines.length === 0 && <p className="text-white/30">// waiting for events… (type &quot;help&quot; for commands)</p>}
                 {lines.map((l) => (
-                  <div key={l.id} className="flex gap-2">
-                    <span className="shrink-0 text-white/20">{stamp(l.ts)}</span>
+                  <div key={l.id} className="flex gap-2.5">
+                    <span className="shrink-0 font-mono tabular-nums text-white/25">{stamp(l.ts)}</span>
                     <span className={`${LEVEL_COLOR[l.level]} whitespace-pre-wrap break-words`}>{l.text}</span>
                   </div>
                 ))}
               </div>
-              <form onSubmit={run} className="flex items-center gap-2 border-t border-white/[0.06] px-4 py-2.5">
-                <span className="font-mono text-[11px] text-sky-300/70">›</span>
+              <form onSubmit={run} className="flex items-center gap-2 border-t border-white/[0.06] bg-black/25 px-4 py-2.5">
+                <span className="font-mono text-[12px] text-sky-400">›</span>
                 <input
                   ref={inputRef}
                   value={cmd}
@@ -204,7 +204,7 @@ export function Terminal({ os, open, onToggle }: { os: SophiaOS; open: boolean; 
                   autoComplete="off"
                   aria-label="Terminal command"
                   placeholder='try "waveform", "pause", "state rendering", "help"'
-                  className="h-6 flex-1 bg-transparent font-mono text-[11px] tracking-wide text-white/85 placeholder:text-white/25 focus:outline-none"
+                  className="h-6 flex-1 bg-transparent font-mono text-[11px] tracking-wide text-white/90 placeholder:text-white/30 focus:outline-none"
                 />
               </form>
             </>
@@ -213,29 +213,33 @@ export function Terminal({ os, open, onToggle }: { os: SophiaOS; open: boolean; 
               ref={listRef}
               role="tabpanel"
               aria-label="Voice chat history"
-              className="terminal-scroll flex-1 space-y-3 overflow-y-auto px-4 py-3"
+              className="terminal-scroll flex-1 space-y-3 overflow-y-auto p-4"
             >
               {chatTurns.length === 0 && (
-                <p className="pt-6 text-center font-mono text-[10px] text-white/25">
+                <p className="pt-8 text-center font-mono text-[10px] text-white/30">
                   No conversation yet.
                   <br />
-                  <span className="text-white/18">Say “Hey Sophia” or press the mic to talk.</span>
+                  <span className="text-white/20">Say “Hey Sophia” or press the mic to talk.</span>
                 </p>
               )}
               {chatTurns.slice(-40).map((t, i) => (
                 <div key={`chat-${t.ts}-${i}`} className={t.role === 'user' ? 'text-right' : 'text-left'}>
-                  <p className="mb-[3px] flex items-baseline gap-2 text-[8px] font-light uppercase tracking-[0.3em] text-white/25"
-                     style={{ justifyContent: t.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                    <span>{t.role === 'user' ? 'you' : 'sophia'}</span>
-                    <span className="font-mono tracking-normal text-white/15">{stamp(t.ts)}</span>
-                  </p>
                   <p
-                    className={`inline-block max-w-[92%] text-left text-[12px] font-light leading-relaxed ${
-                      t.role === 'user' ? 'text-white/80' : 'text-sky-100/85'
-                    } ${t.final ? '' : 'opacity-60'}`}
+                    className="mb-1 flex items-baseline gap-2 text-[8px] font-normal uppercase tracking-[0.25em] text-white/30"
+                    style={{ justifyContent: t.role === 'user' ? 'flex-end' : 'flex-start' }}
+                  >
+                    <span>{t.role === 'user' ? 'you' : 'sophia'}</span>
+                    <span className="font-mono tabular-nums tracking-normal text-white/20">{stamp(t.ts)}</span>
+                  </p>
+                  <div
+                    className={`inline-block max-w-[90%] px-3.5 py-2 text-left text-[12px] font-normal leading-relaxed ${
+                      t.role === 'user'
+                        ? 'rounded-2xl rounded-tr-sm border border-white/[0.08] bg-white/[0.06] text-white/90'
+                        : 'rounded-2xl rounded-tl-sm border border-sky-400/25 bg-sky-400/[0.08] text-sky-100'
+                    } ${t.final ? '' : 'opacity-65'}`}
                   >
                     {t.text}
-                  </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -249,7 +253,7 @@ export function Terminal({ os, open, onToggle }: { os: SophiaOS; open: boolean; 
         aria-pressed={open}
         onClick={onToggle}
         title="Terminal"
-        className={`dock-btn absolute bottom-[44px] left-7 z-10 sm:bottom-[52px] sm:left-11 ${
+        className={`dock-btn fixed bottom-[44px] left-7 z-10 sm:bottom-[52px] sm:left-11 ${
           open ? 'text-sky-300 drop-shadow-[0_0_12px_rgba(56,189,248,0.5)]' : ''
         }`}
       >

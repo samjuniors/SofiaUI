@@ -116,29 +116,22 @@ export default function App() {
 
   const onMic = useCallback(() => {
     if (os.rendererFailed) return;
-    if (os.isPaused) {
+    if (os.isPaused || paused) {
+      os.resume();
       void os.enterSession('mic-button');
-      return;
-    }
-    if (os.isMicDisabledError) {
-      os.resetMicError();
-      void os.enterSession('mic-button');
-      return;
-    }
-    const s = os.state.current;
-    if (s === 'ambient' || s === 'idle' || s === 'completed' || s === 'blocked') {
-      void os.enterSession('mic-button');
-    } else if (s === 'transforming' || s === 'wakeup') {
-      return;
     } else {
       os.pause();
     }
-  }, [os]);
+  }, [os, paused]);
 
   const toggleShapePause = useCallback(() => {
-    if (os.isPaused) os.resume();
-    else os.pause();
-  }, [os]);
+    if (os.isPaused || paused) {
+      os.resume();
+      void os.enterSession('mic-button');
+    } else {
+      os.pause();
+    }
+  }, [os, paused]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -199,7 +192,11 @@ export default function App() {
   } as const;
 
   return (
-    <div className="font-sophia fixed inset-0 select-none overflow-hidden bg-[#04060f] text-white antialiased">
+    <div
+      className={`font-sophia fixed inset-0 select-none overflow-hidden bg-[#04060f] text-white antialiased transition-all duration-700 ease-out ${
+        paused ? 'sophia-paused' : ''
+      }`}
+    >
       <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" aria-hidden="true" />
       {glFailed && <div className="sophia-fallback" style={stageStyle} aria-hidden="true" />}
 
