@@ -27,6 +27,10 @@ function key(name: string): string | undefined {
     : undefined;
 }
 
+function geminiKey(): string | undefined {
+  return key("GEMINI_API_KEY") || key("GOOGLE_API_KEY");
+}
+
 const FUNCTION_DECLARATIONS = [
   {
     name: "transform_shape",
@@ -49,7 +53,7 @@ const json = (body: unknown, init: ResponseInit = {}) =>
   });
 
 function statusPayload() {
-  const gemini = Boolean(key("GOOGLE_API_KEY"));
+  const gemini = Boolean(geminiKey());
   const deepgram = Boolean(key("DEEPGRAM_API_KEY"));
   const elevenlabs = Boolean(key("ELEVENLABS_API_KEY"));
   const xai = Boolean(key("XAI_API_KEY"));
@@ -86,8 +90,8 @@ function statusPayload() {
 }
 
 async function liveSession(req: Request): Promise<Response> {
-  const apiKey = key("GOOGLE_API_KEY");
-  if (!apiKey) return json({ error: "GOOGLE_API_KEY not configured" }, { status: 503 });
+  const apiKey = geminiKey();
+  if (!apiKey) return json({ error: "GEMINI_API_KEY/GOOGLE_API_KEY not configured" }, { status: 503 });
   let voice = "Aoede";
   try {
     voice = ((await req.json()) as { voice?: string }).voice ?? voice;
@@ -388,12 +392,12 @@ async function chat(req: Request): Promise<Response> {
     }
   }
   if (requestedMode === "gemini") {
-    const gemini = key("GOOGLE_API_KEY");
+    const gemini = geminiKey();
     if (gemini) return chatWithGemini(body, gemini);
   }
 
   // Auto fallback priority chain
-  const gemini = key("GOOGLE_API_KEY");
+  const gemini = geminiKey();
   if (gemini) {
     const r = await chatWithGemini(body, gemini);
     if (r.ok) return r;

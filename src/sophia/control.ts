@@ -52,14 +52,6 @@ export const ALL_SHAPES: SophiaShape[] = [
   'letter-o',
 ];
 
-export const GEMINI_LIVE_VOICES = [
-  { id: 'Aoede', label: 'Aoede (Breezy & Natural)' },
-  { id: 'Kore', label: 'Kore (Calm & Gentle)' },
-  { id: 'Puck', label: 'Puck (Playful & Energetic)' },
-  { id: 'Charon', label: 'Charon (Deep & Resonant)' },
-  { id: 'Fenrir', label: 'Fenrir (Crisp & Direct)' },
-];
-
 export class ControlLayer extends EventTarget {
   /** Single source of truth for the running conversation. */
   readonly history: Turn[] = [];
@@ -67,7 +59,7 @@ export class ControlLayer extends EventTarget {
   dgVoice = 'aura-2-thalia-en';
   elevenLabsVoiceId = 'bMxLr8fP6hzNRRi9nJxU';
   elevenLabsModelId = 'eleven_turbo_v2_5';
-  mouthProvider: 'auto' | 'gemini-live' | 'deepgram' | 'elevenlabs' = 'auto';
+  mouthProvider: 'auto' | 'deepgram' | 'elevenlabs' = 'elevenlabs';
   brainMode: 'auto' | 'gemini' | 'grok' | 'claude' | 'openai' | 'ollama' | 'lmstudio' | 'local' = 'auto';
   ollamaModel = 'ornith-1.5:9b';
   ollamaUrl = 'http://localhost:11434';
@@ -80,7 +72,6 @@ export class ControlLayer extends EventTarget {
       const raw = localStorage.getItem('sophia:control-prefs');
       if (raw) {
         const d = JSON.parse(raw);
-        if (d.voiceName) this.voiceName = d.voiceName;
         if (d.elevenLabsVoiceId) this.elevenLabsVoiceId = d.elevenLabsVoiceId;
         if (d.elevenLabsModelId) this.elevenLabsModelId = d.elevenLabsModelId;
         if (d.mouthProvider) this.mouthProvider = d.mouthProvider;
@@ -101,7 +92,6 @@ export class ControlLayer extends EventTarget {
       localStorage.setItem(
         'sophia:control-prefs',
         JSON.stringify({
-          voiceName: this.voiceName,
           elevenLabsVoiceId: this.elevenLabsVoiceId,
           elevenLabsModelId: this.elevenLabsModelId,
           mouthProvider: this.mouthProvider,

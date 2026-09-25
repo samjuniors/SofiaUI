@@ -1,0 +1,7 @@
+{
+  "name": "Sophia — SamJuniors OS",
+  "description": "Sophia — the voice-first living interface of SamJuniors OS.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -195,10 +195,10 @@ export function Dock({
   const micLabel = paused
     ? 'System paused · Click to enable microphone & resume'
     : micError
-      ? 'Microphone unavailable · Click to reconnect'
-      : on
-        ? 'Voice conversation active · Click to pause'
-        : 'Click to start voice conversation';
+      ? 'Microphone disabled (missing backend keys) · Click to retry'
+      : state === 'speaking' || state === 'thinking'
+        ? 'Sophia is active · Click to pause system'
+        : 'Microphone active · Click to pause system';
 
   const showChat = audioAvailable === false || micError === true;
 
@@ -261,6 +261,7 @@ export function Dock({
 
       {/* Main Microphone Button — polished toggle for active vs paused/disabled system */}
       <button
+        ref={micRef}
         type="button"
         aria-label={micLabel}
         aria-pressed={!isMicDisabled}

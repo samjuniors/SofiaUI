@@ -182,9 +182,7 @@ export class AudioEngine {
   /** Queue a 24 kHz PCM16 chunk (Gemini Live format). Returns its RMS level. */
   playPCM24(input: ArrayBuffer): number {
     const ctx = this.ensurePlayCtx();
-    const byteLen = input.byteLength - (input.byteLength % 2);
-    if (byteLen <= 0) return 0;
-    const pcm = new Int16Array(input.slice(0, byteLen));
+    const pcm = new Int16Array(input.slice(0));
     const len = pcm.length;
     if (len === 0) return 0;
     const buf = ctx.createBuffer(1, len, 24000);

@@ -144,10 +144,10 @@ export class SophiaState {
     if (this._state === 'paused') return;
     switch (type) {
       case 'listening':
-        if (this.is('focusing', 'rendering', 'wakeup', 'ambient', 'idle')) this.transition('listening', { source: detail.source });
+        if (this.is('focusing', 'rendering', 'wakeup')) this.transition('listening', { source: detail.source });
         break;
       case 'speech_started':
-        if (this.is('speaking', 'thinking', 'rendering', 'wakeup', 'completed', 'ambient', 'idle', 'focusing')) {
+        if (this.is('speaking', 'thinking', 'rendering', 'wakeup', 'completed')) {
           this.transition('listening', { reason: 'barge-in' });
         }
         break;

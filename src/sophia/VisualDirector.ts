@@ -466,7 +466,6 @@ export class VisualDirector {
     this.paused += ((st === 'paused' || st === 'pause' ? 1 : 0) - this.paused) * k(3.5);
     this.dock += ((this.wantDock ? 1 : 0) - this.dock) * k(3.2);
 
-    const bowTarget = 0;
     this.bow = 0;
 
     /* completed cycle: cyan -> converge -> green -> calm */

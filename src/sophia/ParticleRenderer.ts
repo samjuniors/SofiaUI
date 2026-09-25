@@ -229,7 +229,7 @@ export class ParticleRenderer {
     const gl = this.gl;
     const n = this.particleCount;
     const seeds = new Float32Array(n * 4);
-    const g = 1.32471795724474602596; // plastic constant
+    const g = 1.324717957244746; // plastic constant
     const a1 = 1 / g;
     const a2 = 1 / (g * g);
     let s = 0x9e3779b9;

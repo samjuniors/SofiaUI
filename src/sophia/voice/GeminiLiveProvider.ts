@@ -127,10 +127,6 @@ export class GeminiLiveProvider extends VoiceProvider {
     }
 
     const sc = msg.serverContent;
-    if (msg.activityStart || sc?.activityStart) {
-      this.emit('speech_started', { source: this.id });
-    }
-
     if (sc) {
       // genuine user interruption of model speech
       if (sc.interrupted) {
@@ -161,18 +157,11 @@ export class GeminiLiveProvider extends VoiceProvider {
           }
         }
       }
-      const interim = sc.interimInputTranscription?.text;
-      if (typeof interim === 'string' && interim) {
-        this.emit('speech_started', { source: this.id });
-        controlLayer.addUserTurn(interim, false);
-        this.emit('transcript', { role: 'user', text: interim, final: false, source: this.id });
-      }
       const it = sc.inputTranscription?.text;
       if (typeof it === 'string' && it) {
-        this.inBuf = it;
-        controlLayer.addUserTurn(this.inBuf, true);
-        this.emit('transcript', { role: 'user', text: this.inBuf, final: true, source: this.id });
-        this.inBuf = '';
+        this.inBuf += it;
+        controlLayer.addUserTurn(this.inBuf, false);
+        this.emit('transcript', { role: 'user', text: this.inBuf, final: false, source: this.id });
       }
       const ot = sc.outputTranscription?.text;
       if (typeof ot === 'string' && ot) {
@@ -182,9 +171,15 @@ export class GeminiLiveProvider extends VoiceProvider {
       }
       if (sc.turnComplete || sc.generationComplete) {
         this.flushTranscripts(true);
-        this.responseLive = false;
-        this.emit('response_finished', { source: this.id });
-        this.emit('listening', { source: this.id });
+        if (this.responseLive && this.audioEnded()) {
+          this.responseLive = false;
+          this.emit('response_finished', { source: this.id });
+          this.emit('listening', { source: this.id });
+        } else if (!this.responseLive) {
+          // text-only / tool-call turns
+          this.emit('response_finished', { source: this.id });
+          this.emit('listening', { source: this.id });
+        }
       }
     }
 

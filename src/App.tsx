@@ -116,20 +116,13 @@ export default function App() {
 
   const onMic = useCallback(() => {
     if (os.rendererFailed) return;
-    if (voiceUnavailable) {
-      os.resetMicError();
-      void os.activate('mic-button');
-      return;
-    }
     if (os.isPaused || paused) {
       os.resume();
-      void os.enterSession('mic-button');
-    } else if (status !== 'live' || state === 'ambient' || state === 'idle' || state === 'completed') {
       void os.enterSession('mic-button');
     } else {
       os.pause();
     }
-  }, [os, paused, status, state, voiceUnavailable]);
+  }, [os, paused]);
 
   const toggleShapePause = useCallback(() => {
     if (os.isPaused || paused) {

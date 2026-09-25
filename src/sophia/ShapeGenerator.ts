@@ -420,7 +420,6 @@ const sampleFace = (count: number, rng: () => number): Float32Array => {
     const idx = Math.floor(rng() * (meshLen / 3)) * 3;
     const x = FACE_MESH[idx];
     const y = FACE_MESH[idx + 1];
-    const z = FACE_MESH[idx + 2];
     out[i * 2] = x * 1.1;
     out[i * 2 + 1] = y * 1.1;
   }

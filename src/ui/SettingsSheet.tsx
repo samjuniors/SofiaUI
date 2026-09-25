@@ -13,13 +13,13 @@
  *   - Save as Default and Reset to Factory Settings
  */
 
-import { Bookmark, Check, ChevronDown, RotateCcw, X, Mic, Brain, Sparkles, Volume2, Cpu } from 'lucide-react';
+import { Bookmark, Check, ChevronDown, RotateCcw, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { DensityPref, OSStatus, ProviderPref, SophiaOS } from '../sophia/SophiaOS';
-import { DEFAULT_TUNE, type ShapeTune } from '../sophia/VisualDirector';
+import type { ShapeTune } from '../sophia/VisualDirector';
 import type { SophiaForm } from '../sophia/ShapeGenerator';
 import type { SophiaShape, SophiaStateName } from '../sophia/types';
-import { ALL_SHAPES, GEMINI_LIVE_VOICES, controlLayer } from '../sophia/control';
+import { ALL_SHAPES, controlLayer } from '../sophia/control';
 
 function SegRow<T extends string>({
   label,
@@ -439,10 +439,9 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
 
   const handleReset = () => {
     os.resetPrefs();
-    controlLayer.voiceName = 'Aoede';
     controlLayer.elevenLabsVoiceId = 'bMxLr8fP6hzNRRi9nJxU';
     controlLayer.dgVoice = 'aura-2-thalia-en';
-    controlLayer.mouthProvider = 'auto';
+    controlLayer.mouthProvider = 'elevenlabs';
     controlLayer.brainMode = 'auto';
     controlLayer.saveControlPrefs();
     rerender();
@@ -479,7 +478,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
           {/* SENSE: EAR & MOUTH (VOICE) */}
           <AccordionSection
             title="Ear & Mouth (Voice System)"
-            badge={p.provider === 'gemini-live' ? 'Gemini Live' : controlLayer.mouthProvider === 'elevenlabs' ? 'ElevenLabs' : 'Deepgram'}
+            badge={controlLayer.mouthProvider === 'elevenlabs' ? 'ElevenLabs' : 'Deepgram'}
             isOpen={sections.voice}
             onToggle={() => toggleSection('voice')}
           >
@@ -489,46 +488,16 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
               value={p.provider}
               onChange={(provider) => os.savePrefs({ provider })}
               options={[
-                { id: 'auto', label: 'Auto (Gemini Live)' },
-                { id: 'gemini-live', label: 'Gemini Live' },
+                { id: 'auto', label: 'Auto' },
+                { id: 'gemini-live', label: 'Gemini' },
                 { id: 'deepgram', label: 'Deepgram' },
                 { id: 'elevenlabs', label: 'ElevenLabs' },
               ]}
             />
 
-            {/* Gemini Live Voice Selection */}
-            {(p.provider === 'gemini-live' || p.provider === 'auto') && (
-              <div className="space-y-2 rounded-xl border border-sky-500/20 bg-sky-950/15 p-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-sky-200/70">Gemini Live Voice</span>
-                  <span className="font-mono text-[8px] text-sky-300/60">
-                    24kHz Full-Duplex
-                  </span>
-                </div>
-                <select
-                  value={controlLayer.voiceName}
-                  onChange={(e) => {
-                    controlLayer.voiceName = e.target.value;
-                    controlLayer.saveControlPrefs();
-                    rerender();
-                  }}
-                  className="w-full rounded-lg border border-white/10 bg-[#080d1a] px-2.5 py-1.5 text-[11px] text-white/90 outline-none focus:border-sky-400"
-                >
-                  {GEMINI_LIVE_VOICES.map((v) => (
-                    <option key={v.id} value={v.id} className="bg-[#080d1a] text-white">
-                      {v.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[8px] text-white/40 leading-relaxed">
-                  Real-time native audio conversations with low latency, voice activity detection, and barge-in interruptions powered by Gemini Live.
-                </p>
-              </div>
-            )}
-
-            {/* Speaking Mouth Engine (for Deepgram/ElevenLabs fallback) */}
+            {/* Speaking Mouth Engine */}
             <div>
-              <p className="mb-2 text-[9px] font-normal uppercase tracking-[0.24em] text-white/40">Fallback Mouth TTS Engine</p>
+              <p className="mb-2 text-[9px] font-normal uppercase tracking-[0.24em] text-white/40">Mouth TTS Engine</p>
               <div className="flex overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] p-0.5">
                 <button
                   type="button"
