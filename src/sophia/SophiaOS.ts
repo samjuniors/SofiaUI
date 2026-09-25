@@ -763,19 +763,32 @@ export class SophiaOS extends EventTarget {
   async sendText(text: string): Promise<void> {
     const t = text.trim();
     if (!t) return;
+
+    if (controlLayer.tryDirectCommand(t)) {
+      return;
+    }
+
+    // Auto-connect Gemini Live WebSocket session if not already connected
+    if (!this.activeProvider || !this.activeProvider.isActive()) {
+      try {
+        this.pushLog('info', 'Opening Gemini Live WebSocket stream for text session…');
+        await this.activate('chat');
+      } catch (err: any) {
+        console.warn('[SophiaOS] Gemini Live WebSocket session connect note:', err);
+      }
+    }
+
+    // If Gemini Live WebSocket is active, send turn directly over WebSocket!
     if (this.activeProvider?.isActive()) {
+      this.pushLog('event', 'gemini-live: streaming text turn over WebSocket…');
       this.activeProvider.sendText(t);
       this.armPostTurn();
       return;
     }
 
-    // Direct turn execution with Sophia Brain and Mouth TTS
+    // Secondary fallback to HTTP chat endpoint if WebSocket is unreachable
     controlLayer.addUserTurn(t, true);
     this.dispatchEvent(new CustomEvent('transcript', { detail: { role: 'user', text: t, final: true } }));
-
-    if (controlLayer.tryDirectCommand(t)) {
-      return;
-    }
 
     this.setStatus('live');
     this.state.transition('thinking', { source: 'text' }, true);

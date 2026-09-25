@@ -73,9 +73,17 @@ export function ChatPanel({
         </button>
       </header>
 
-      {status !== 'live' && (
+      {status === 'live' ? (
+        <div className="m-3 mb-0 flex items-center justify-between rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-1.5 text-[9.5px] font-mono tracking-wide text-sky-200 shadow-[inset_0_0_8px_rgba(56,189,248,0.15)]">
+          <span className="flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse" />
+            <span>Gemini Live WebSocket Stream Active</span>
+          </span>
+          <span className="text-[8px] text-sky-300/60 font-semibold">gemini-3.8-live</span>
+        </div>
+      ) : (
         <div className="m-3 mb-0 rounded-xl border border-sky-400/20 bg-sky-400/[0.04] px-3 py-2 text-[10px] font-light leading-relaxed tracking-wide text-sky-200/70">
-          Voice is primary. Connect Gemini Live or Deepgram in Settings to enable direct real-time speech.
+          Connecting to Gemini Live stream… Type any message below to converse.
         </div>
       )}
 

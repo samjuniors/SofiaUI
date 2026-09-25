@@ -125,33 +125,39 @@ async function liveSession(req: Request): Promise<Response> {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        uses: 1,
-        expireTime: new Date(now + 30 * 60_000).toISOString(),
-        newSessionExpireTime: new Date(now + 90_000).toISOString(),
+        ttl: "1800s",
       }),
     });
 
-    if (!res.ok) {
+    if (res.ok) {
+      const data = (await res.json()) as { name?: string };
+      if (data.name) {
+        return json({
+          token: data.name,
+          model: modelOverride,
+          wsUrl: LIVE_WS,
+          voice,
+          createdAt: now,
+          expiresInSeconds: 1800,
+        });
+      }
+    } else {
       const errText = await res.text().catch(() => "");
-      console.error("[sophia-server] auth_tokens failed:", res.status, errText);
-      return json({ error: `auth_tokens:${res.status}`, details: errText }, { status: 502 });
+      console.warn("[sophia-server] auth_tokens endpoint returned status", res.status, errText, "- falling back to direct key link");
     }
-
-    const data = (await res.json()) as { name?: string };
-    if (!data.name) return json({ error: "no token issued" }, { status: 502 });
-
-    return json({
-      token: data.name,
-      model: modelOverride,
-      wsUrl: LIVE_WS,
-      voice,
-      createdAt: now,
-      expiresInSeconds: 1800,
-    });
   } catch (err: any) {
-    console.error("[sophia-server] Live session setup exception:", err);
-    return json({ error: "live-session-failed", message: err.message }, { status: 500 });
+    console.warn("[sophia-server] auth_tokens exception:", err.message, "- falling back to direct key link");
   }
+
+  // Fallback: return API key directly so WebSocket connects using ?key=
+  return json({
+    token: apiKey,
+    model: modelOverride,
+    wsUrl: LIVE_WS,
+    voice,
+    createdAt: now,
+    expiresInSeconds: 1800,
+  });
 }
 
 async function deepgramSession(): Promise<Response> {

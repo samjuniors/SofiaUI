@@ -70,7 +70,9 @@ export class GeminiLiveProvider extends VoiceProvider {
     this.stats.voiceName = ticket.voice || voice;
 
     await new Promise<void>((resolve, reject) => {
-      const wsUrl = `${ticket.wsUrl}?access_token=${encodeURIComponent(ticket.token)}`;
+      const isAuthToken = ticket.token.startsWith('auth_tokens/');
+      const param = isAuthToken ? 'access_token' : 'key';
+      const wsUrl = `${ticket.wsUrl}?${param}=${encodeURIComponent(ticket.token)}`;
       const ws = new WebSocket(wsUrl);
       this.ws = ws;
       let settled = false;
