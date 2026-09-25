@@ -225,10 +225,16 @@ export class GeminiLiveProvider extends VoiceProvider {
     if (this.detachPCM) return;
     this.detachPCM = this.audio.onPCM((pcm) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupDone) return;
+      const b64 = base64Encode(new Uint8Array(pcm));
       this.ws.send(
         JSON.stringify({
           realtimeInput: {
-            audio: { data: base64Encode(new Uint8Array(pcm)), mimeType: 'audio/pcm;rate=16000' },
+            mediaChunks: [
+              {
+                mimeType: 'audio/pcm;rate=16000',
+                data: b64,
+              },
+            ],
           },
         }),
       );
@@ -236,13 +242,23 @@ export class GeminiLiveProvider extends VoiceProvider {
   }
 
   sendText(text: string) {
-    controlLayer.addUserTurn(text, true);
-    this.emit('transcript', { role: 'user', text, final: true, source: this.id });
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    controlLayer.addUserTurn(trimmed, true);
+    this.emit('transcript', { role: 'user', text: trimmed, final: true, source: this.id });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupDone) return;
     this.emit('thinking', { source: this.id });
     this.ws.send(
       JSON.stringify({
-        realtimeInput: { text },
+        clientContent: {
+          turns: [
+            {
+              role: 'user',
+              parts: [{ text: trimmed }],
+            },
+          ],
+          turnComplete: true,
+        },
       }),
     );
   }

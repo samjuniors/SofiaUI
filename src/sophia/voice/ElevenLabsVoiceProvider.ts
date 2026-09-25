@@ -172,18 +172,22 @@ export class ElevenLabsVoiceProvider extends VoiceProvider {
     this.emit('response_started', { source: this.id });
 
     try {
-      const res = await fetch('/api/sophia/elevenlabs/speak', {
+      const res = await fetch('/api/sophia/mouth/speak', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         signal,
         body: JSON.stringify({
           text,
+          provider: controlLayer.mouthProvider,
+          voice: controlLayer.voiceName,
           voiceId: controlLayer.elevenLabsVoiceId || 'bMxLr8fP6hzNRRi9nJxU',
           modelId: controlLayer.elevenLabsModelId || 'eleven_turbo_v2_5',
         }),
       });
 
-      if (!res.ok || !res.body) throw new Error(`elevenlabs-speak:${res.status}`);
+      if (!res.ok || !res.body) {
+        throw new Error(`mouth-speak:${res.status}`);
+      }
 
       this.speaking = true;
       this.emit('audio_started', { source: this.id });
@@ -214,10 +218,34 @@ export class ElevenLabsVoiceProvider extends VoiceProvider {
       this.emit('response_finished', { source: this.id });
       this.emit('listening', { source: this.id });
     } catch (e: any) {
+      if (e.name !== 'AbortError' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          const u = new SpeechSynthesisUtterance(text);
+          u.onstart = () => {
+            this.speaking = true;
+            this.emit('audio_started', { source: this.id });
+          };
+          u.onend = () => {
+            this.speaking = false;
+            this.busy = false;
+            this.emit('response_finished', { source: this.id });
+            this.emit('listening', { source: this.id });
+          };
+          u.onerror = () => {
+            this.speaking = false;
+            this.busy = false;
+            this.emit('response_finished', { source: this.id });
+          };
+          window.speechSynthesis.speak(u);
+          return;
+        } catch {
+          /* fallback error handled below */
+        }
+      }
       this.speaking = false;
       this.busy = false;
       if (e.name !== 'AbortError') {
-        this.emit('error', { code: 'elevenlabs-error', message: e.message, source: this.id });
+        this.emit('error', { code: 'mouth-error', message: e.message, source: this.id });
       }
     }
   }

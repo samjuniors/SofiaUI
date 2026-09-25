@@ -298,6 +298,99 @@ const STATUS_LABEL: Record<OSStatus, string> = {
   error: 'Voice transport failed',
 };
 
+interface TTSVoiceProfile {
+  id: string;
+  name: string;
+  accent: string;
+  gender: 'Female' | 'Male';
+  geminiVoice: string;
+  elevenLabsVoiceId: string;
+  dgVoice: string;
+  description: string;
+}
+
+const TTS_VOICE_PROFILES: TTSVoiceProfile[] = [
+  {
+    id: 'au-female',
+    name: 'Australian Female (Aoede / Warm Friend)',
+    accent: 'Australian',
+    gender: 'Female',
+    geminiVoice: 'Aoede',
+    elevenLabsVoiceId: 'bMxLr8fP6hzNRRi9nJxU',
+    dgVoice: 'aura-2-thalia-en',
+    description: 'Upbeat, friendly Australian female tone — conversational and lively mate style.',
+  },
+  {
+    id: 'us-male',
+    name: 'US Male (Puck / Adam · Deep & Friendly)',
+    accent: 'US',
+    gender: 'Male',
+    geminiVoice: 'Puck',
+    elevenLabsVoiceId: 'pNInz6obpgSf9S9P369C',
+    dgVoice: 'aura-2-orion-en',
+    description: 'Confident, friendly US male voice with natural resonance and clarity.',
+  },
+  {
+    id: 'us-female',
+    name: 'US Female (Kore / Rachel · Calm & Natural)',
+    accent: 'US',
+    gender: 'Female',
+    geminiVoice: 'Kore',
+    elevenLabsVoiceId: '21m00Tcm4TlvDq8ikWAM',
+    dgVoice: 'aura-2-asteria-en',
+    description: 'Smooth, natural US female voice suitable for focused and relaxed presence.',
+  },
+  {
+    id: 'uk-male',
+    name: 'British Male (Charon / George · Refined)',
+    accent: 'British',
+    gender: 'Male',
+    geminiVoice: 'Charon',
+    elevenLabsVoiceId: 'JBFqnCBsd6RMkjVDRZzb',
+    dgVoice: 'aura-2-helios-en',
+    description: 'Cultured, deep British male tone with polite and resonant articulation.',
+  },
+  {
+    id: 'uk-female',
+    name: 'British Female (Zephyr / Charlotte · Elegant)',
+    accent: 'British',
+    gender: 'Female',
+    geminiVoice: 'Zephyr',
+    elevenLabsVoiceId: 'XB0fDUnXU5powFXDhCwa',
+    dgVoice: 'aura-2-stella-en',
+    description: 'Expressive British female accent with vibrant presence and warmth.',
+  },
+  {
+    id: 'us-male-calm',
+    name: 'Nordic / Calm Male (Fenrir · Authoritative)',
+    accent: 'International',
+    gender: 'Male',
+    geminiVoice: 'Fenrir',
+    elevenLabsVoiceId: 'pNInz6obpgSf9S9P369C',
+    dgVoice: 'aura-2-perseus-en',
+    description: 'Calm, grounded baritone tone with authoritative steady pace.',
+  },
+  {
+    id: 'us-female-soft',
+    name: 'Soft Whisper Female (Zephyr / Nicole · Gentle)',
+    accent: 'US',
+    gender: 'Female',
+    geminiVoice: 'Zephyr',
+    elevenLabsVoiceId: 'piTKgcLEGmPE4e6mEKli',
+    dgVoice: 'aura-2-luna-en',
+    description: 'Intimate, gentle feminine whisper voice with soft dynamics.',
+  },
+];
+
+const GEMINI_VOICES = [
+  { id: 'Aoede', label: 'Aoede (Female · Australian Friend / Warm & Engaging)' },
+  { id: 'Kore', label: 'Kore (Female · Relaxed & Natural)' },
+  { id: 'Zephyr', label: 'Zephyr (Female · Bright & Lively)' },
+  { id: 'Puck', label: 'Puck (Male · Friendly & Playful)' },
+  { id: 'Charon', label: 'Charon (Male · Deep & Resonant)' },
+  { id: 'Fenrir', label: 'Fenrir (Male · Calm & Authoritative)' },
+];
+
 const DEFAULT_ELEVENLABS_VOICES = [
   { id: 'bMxLr8fP6hzNRRi9nJxU', label: 'Sophia Custom (.env)' },
   { id: '21m00Tcm4TlvDq8ikWAM', label: 'Rachel (Calm & Clear)' },
@@ -323,7 +416,7 @@ const BRAIN_OPTIONS = [
   { id: 'auto', label: 'Auto (Smart Fallback)' },
   { id: 'ollama', label: 'Ollama (Local LLM)' },
   { id: 'lmstudio', label: 'LM Studio (Local)' },
-  { id: 'gemini', label: 'Gemini 2.5 Flash' },
+  { id: 'gemini', label: 'Gemini 3.8 Flash' },
   { id: 'grok', label: 'Grok 4.5 (xAI)' },
   { id: 'claude', label: 'Claude 3.5 Sonnet' },
   { id: 'openai', label: 'OpenAI GPT-4o' },
@@ -405,6 +498,24 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
     rerender();
   };
 
+  const handleVoiceProfileChange = (profileId: string) => {
+    const prof = TTS_VOICE_PROFILES.find((p) => p.id === profileId);
+    if (!prof) return;
+
+    // Save in OS configuration (Prefs)
+    os.savePrefs({ voiceProfile: profileId });
+
+    // Update ControlLayer runtime parameters
+    controlLayer.voiceProfile = profileId;
+    controlLayer.voiceName = prof.geminiVoice;
+    controlLayer.elevenLabsVoiceId = prof.elevenLabsVoiceId;
+    controlLayer.dgVoice = prof.dgVoice;
+    controlLayer.saveControlPrefs();
+
+    setIsCustomSelected(false);
+    rerender();
+  };
+
   const handleVoiceSelect = (id: string) => {
     if (id === 'custom') {
       setIsCustomSelected(true);
@@ -439,6 +550,8 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
 
   const handleReset = () => {
     os.resetPrefs();
+    controlLayer.voiceProfile = 'au-female';
+    controlLayer.voiceName = 'Aoede';
     controlLayer.elevenLabsVoiceId = 'bMxLr8fP6hzNRRi9nJxU';
     controlLayer.dgVoice = 'aura-2-thalia-en';
     controlLayer.mouthProvider = 'elevenlabs';
@@ -494,6 +607,65 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                 { id: 'elevenlabs', label: 'ElevenLabs' },
               ]}
             />
+
+            {/* TTS Voice Profile Selection */}
+            <div className="space-y-2 rounded-xl border border-sky-400/30 bg-sky-950/25 p-2.5 shadow-[inset_0_0_12px_rgba(56,189,248,0.12)]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="block size-1.5 rounded-full bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]" />
+                  <span className="text-[9px] uppercase tracking-[0.2em] font-medium text-sky-200">TTS Voice Profile</span>
+                </div>
+                <span className="font-mono text-[8px] text-sky-300/80">
+                  {TTS_VOICE_PROFILES.find((vp) => vp.id === (p.voiceProfile || controlLayer.voiceProfile))?.accent ?? 'Configured'}
+                </span>
+              </div>
+              <div className="relative">
+                <select
+                  value={p.voiceProfile || controlLayer.voiceProfile || 'au-female'}
+                  onChange={(e) => handleVoiceProfileChange(e.target.value)}
+                  className="w-full appearance-none rounded-lg border border-sky-500/30 bg-[#080d1a] py-2 pl-2.5 pr-8 text-[11px] font-medium text-white shadow-[0_2px_8px_rgba(0,0,0,0.5)] outline-none transition focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                >
+                  {TTS_VOICE_PROFILES.map((vp) => (
+                    <option key={vp.id} value={vp.id} className="bg-[#080d1a] text-white">
+                      {vp.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sky-300/70" />
+              </div>
+              <p className="text-[8.5px] leading-relaxed text-sky-200/70">
+                {TTS_VOICE_PROFILES.find((vp) => vp.id === (p.voiceProfile || controlLayer.voiceProfile))?.description ??
+                  'Select voice personality and accent (Australian female, US male/female, British, etc.). Persisted in OS configuration.'}
+              </p>
+            </div>
+
+            {/* Gemini Live Voice Selection */}
+            <div className="space-y-2 rounded-xl border border-sky-500/20 bg-sky-950/15 p-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] uppercase tracking-[0.2em] text-sky-200/70">Gemini Live Voice</span>
+                <span className="font-mono text-[8px] text-sky-300/60">
+                  {controlLayer.voiceName}
+                </span>
+              </div>
+              <select
+                value={controlLayer.voiceName}
+                onChange={(e) => {
+                  controlLayer.voiceName = e.target.value;
+                  controlLayer.saveControlPrefs();
+                  rerender();
+                }}
+                className="w-full rounded-lg border border-white/10 bg-[#080d1a] px-2.5 py-1.5 text-[11px] text-white/90 outline-none focus:border-sky-400"
+              >
+                {GEMINI_VOICES.map((v) => (
+                  <option key={v.id} value={v.id} className="bg-[#080d1a] text-white">
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[8.5px] text-white/40">
+                Primary voice used for real-time live conversations with Gemini Live.
+              </p>
+            </div>
 
             {/* Speaking Mouth Engine */}
             <div>

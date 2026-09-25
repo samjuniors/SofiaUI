@@ -12,8 +12,8 @@
 
 import { ALL_SHAPES, SOPHIA_SYSTEM } from "../sophia/control";
 
-const GEMINI_MODEL = process.env.GEMINI_LIVE_MODEL?.trim() || "models/gemini-2.5-flash-native-audio-preview-12-2025";
-const GEMINI_TEXT_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_LIVE_MODEL?.trim() || "models/gemini-3.8-live";
+const GEMINI_TEXT_MODEL = "gemini-3.8-flash";
 const LIVE_WS =
   "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained";
 const GROK_MODEL = "grok-4.5";
@@ -63,11 +63,13 @@ function statusPayload() {
 
   return {
     gemini,
+    geminiTts: gemini,
     deepgram,
     elevenlabs,
     xai,
     anthropic,
     openai,
+    activeMouthEngine: gemini ? "gemini" : elevenlabs ? "elevenlabs" : deepgram ? "deepgram" : "browser",
     ollama: {
       configured: true,
       baseUrl: process.env.OLLAMA_BASE_URL?.trim() || "http://localhost:11434",
@@ -542,6 +544,143 @@ async function elevenLabsVoices(): Promise<Response> {
   }
 }
 
+async function geminiSpeak(req: Request): Promise<Response> {
+  const apiKey = geminiKey();
+  if (!apiKey) return json({ error: "GEMINI_API_KEY/GOOGLE_API_KEY not configured" }, { status: 503 });
+
+  let text = "";
+  let voice = "Aoede";
+  try {
+    const b = (await req.json()) as { text?: string; voice?: string };
+    text = (b.text ?? "").trim();
+    if (b.voice) voice = b.voice;
+  } catch {
+    /* empty */
+  }
+
+  if (!text) {
+    return json({ error: "Text is required for TTS" }, { status: 400 });
+  }
+
+  const validVoices = ["Aoede", "Puck", "Charon", "Kore", "Fenrir", "Zephyr"];
+  const voiceName = validVoices.includes(voice) ? voice : "Aoede";
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-lite-tts:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text }] }],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName },
+              },
+            },
+          },
+        }),
+      },
+    );
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.error("[sophia-server] Gemini TTS error:", res.status, errText);
+      return json({ error: `gemini-tts:${res.status}`, details: errText }, { status: 502 });
+    }
+
+    const data = (await res.json()) as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            inlineData?: {
+              mimeType?: string;
+              data?: string;
+            };
+          }>;
+        };
+      }>;
+    };
+
+    const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+    if (!inlineData?.data) {
+      return json({ error: "No audio data returned by Gemini TTS" }, { status: 502 });
+    }
+
+    const binaryBuffer = Buffer.from(inlineData.data, "base64");
+    return new Response(binaryBuffer, {
+      headers: {
+        "content-type": inlineData.mimeType || "audio/wav",
+        "content-length": String(binaryBuffer.length),
+      },
+    });
+  } catch (err) {
+    console.error("[sophia-server] Gemini TTS failed:", err);
+    return json({ error: "gemini-tts-failed", message: (err as Error).message }, { status: 500 });
+  }
+}
+
+async function mouthSpeak(req: Request): Promise<Response> {
+  let body: Record<string, any> = {};
+  try {
+    body = (await req.json()) as Record<string, any>;
+  } catch {
+    return json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const requestedProvider = body.provider || "auto";
+
+  if (requestedProvider === "elevenlabs" && key("ELEVENLABS_API_KEY")) {
+    const fakeReq = new Request(req.url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return elevenLabsSpeak(fakeReq);
+  }
+
+  if (requestedProvider === "deepgram" && key("DEEPGRAM_API_KEY")) {
+    const fakeReq = new Request(req.url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return deepgramSpeak(fakeReq);
+  }
+
+  // Default / auto / gemini path:
+  if (geminiKey()) {
+    const fakeReq = new Request(req.url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return geminiSpeak(fakeReq);
+  }
+
+  if (key("ELEVENLABS_API_KEY")) {
+    const fakeReq = new Request(req.url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return elevenLabsSpeak(fakeReq);
+  }
+
+  if (key("DEEPGRAM_API_KEY")) {
+    const fakeReq = new Request(req.url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return deepgramSpeak(fakeReq);
+  }
+
+  return json({ error: "No neural TTS engine configured (Gemini/ElevenLabs/Deepgram)" }, { status: 503 });
+}
+
 export async function handleSophiaRequest(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname.replace(/^.*\/api\/sophia/, "") || "/";
@@ -561,6 +700,11 @@ export async function handleSophiaRequest(req: Request): Promise<Response> {
       return deepgramSession();
     case "/chat":
       return chat(req);
+    case "/gemini/speak":
+      return geminiSpeak(req);
+    case "/mouth/speak":
+    case "/speak":
+      return mouthSpeak(req);
     case "/dg/speak":
       return deepgramSpeak(req);
     case "/elevenlabs/speak":

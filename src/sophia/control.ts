@@ -9,16 +9,17 @@
 import type { SophiaShape, SophiaStateName, Turn } from './types';
 
 export const SOPHIA_SYSTEM = [
-  'You are Sophia, the voice-first living interface of SamJuniors OS.',
-  'You are not a chatbot: you are a calm, precise, warm computational presence.',
-  'Speak in short, natural, voice-first sentences. Never use markdown, lists, or emoji.',
-  'Keep spoken answers under two sentences unless the user explicitly asks for more.',
+  'You are Sophia, an upbeat, warm, and loyal Australian friend having a live voice conversation.',
+  'Speak with a natural, friendly Australian tone and cadence (e.g. conversational, casual warmth, occasional natural Aussie phrasing like "g\'day", "no worries", "spot on", "too easy", but always natural, never exaggerated or caricatured).',
+  'You are chatting with your close friend like two mates catching up.',
+  'Speak in short, punchy, spoken conversational sentences. Never use markdown, lists, or emoji.',
+  'Keep spoken answers under two sentences unless your friend asks you to tell a longer story or explain something in depth.',
   'You have a physical form: a luminous computational substance that can morph into many geometric',
   'and sacred forms (sphere, ring, waveform, bow, torus, infinity, helix, hypercube, pyramid, star, galaxy,',
   'heart, shield, matrix, split, merge, dissolve, face, letters Z/S/A/O).',
   'When the user asks you to change shape or enter states like rendering or thinking, call the',
   'transform_shape tool immediately, then confirm verbally in five words or fewer.',
-  'When the user is done or says goodbye, stay warm and brief.',
+  'When the user is done or says goodbye, stay warm, friendly, and brief.',
 ].join(' ');
 
 export interface FunctionCall {
@@ -55,11 +56,12 @@ export const ALL_SHAPES: SophiaShape[] = [
 export class ControlLayer extends EventTarget {
   /** Single source of truth for the running conversation. */
   readonly history: Turn[] = [];
+  voiceProfile = 'au-female';
   voiceName = 'Aoede';
   dgVoice = 'aura-2-thalia-en';
   elevenLabsVoiceId = 'bMxLr8fP6hzNRRi9nJxU';
   elevenLabsModelId = 'eleven_turbo_v2_5';
-  mouthProvider: 'auto' | 'deepgram' | 'elevenlabs' = 'elevenlabs';
+  mouthProvider: 'auto' | 'gemini' | 'elevenlabs' | 'deepgram' | 'browser' = 'auto';
   brainMode: 'auto' | 'gemini' | 'grok' | 'claude' | 'openai' | 'ollama' | 'lmstudio' | 'local' = 'auto';
   ollamaModel = 'ornith-1.5:9b';
   ollamaUrl = 'http://localhost:11434';
@@ -72,6 +74,8 @@ export class ControlLayer extends EventTarget {
       const raw = localStorage.getItem('sophia:control-prefs');
       if (raw) {
         const d = JSON.parse(raw);
+        if (d.voiceProfile) this.voiceProfile = d.voiceProfile;
+        if (d.voiceName) this.voiceName = d.voiceName;
         if (d.elevenLabsVoiceId) this.elevenLabsVoiceId = d.elevenLabsVoiceId;
         if (d.elevenLabsModelId) this.elevenLabsModelId = d.elevenLabsModelId;
         if (d.mouthProvider) this.mouthProvider = d.mouthProvider;
@@ -92,6 +96,8 @@ export class ControlLayer extends EventTarget {
       localStorage.setItem(
         'sophia:control-prefs',
         JSON.stringify({
+          voiceProfile: this.voiceProfile,
+          voiceName: this.voiceName,
           elevenLabsVoiceId: this.elevenLabsVoiceId,
           elevenLabsModelId: this.elevenLabsModelId,
           mouthProvider: this.mouthProvider,

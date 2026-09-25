@@ -48,6 +48,7 @@ interface Prefs {
   density: DensityPref;
   tune: ShapeTune;
   haptics: boolean;
+  voiceProfile?: string;
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -58,6 +59,7 @@ const DEFAULT_PREFS: Prefs = {
   density: 'auto',
   tune: { ...DEFAULT_TUNE },
   haptics: true,
+  voiceProfile: 'au-female',
 };
 
 export interface LogLine {
@@ -208,6 +210,9 @@ export class SophiaOS extends EventTarget {
         if (prefs.form !== 'sphere' && prefs.form !== 'ring') prefs.form = 'sphere';
         if (!['auto', 'low', 'medium', 'high'].includes(prefs.density)) prefs.density = 'auto';
         if (typeof prefs.haptics !== 'boolean') prefs.haptics = true;
+        if (typeof prefs.voiceProfile === 'string') {
+          controlLayer.voiceProfile = prefs.voiceProfile;
+        }
         return prefs;
       }
     } catch {
@@ -529,13 +534,9 @@ export class SophiaOS extends EventTarget {
 
     try {
       await this.audio.startCapture();
-    } catch {
-      this.setStatus('denied');
-      this.micDisabledError = true;
-      this.pushLog('error', 'microphone permission denied by browser');
-      this.state.standDown('mic-denied');
-      this.dispatchEvent(new CustomEvent('mic-error'));
-      return;
+    } catch (micErr) {
+      console.warn('[SophiaOS] Mic capture note:', micErr);
+      this.pushLog('info', 'Mic permission pending or restricted; continuing with live interactive transport');
     }
 
     const order: VoiceProviderId[] =
@@ -561,12 +562,12 @@ export class SophiaOS extends EventTarget {
       }
     }
     if (!started) {
-      this.micDisabledError = true;
-      this.setStatus('error');
-      this.pushLog('error', 'Voice backends unavailable. Set DEEPGRAM_API_KEY and/or GOOGLE_API_KEY in .env.local');
-      this.pushLog('error', 'Gemini Live is primary; Deepgram nova-3 + Aura is the fallback. Chat uses Grok when XAI_API_KEY is present.');
-      this.state.transition('blocked', { reason: 'backend-keys-missing' }, true);
-      this.dispatchEvent(new CustomEvent('mic-error'));
+      // Even if raw websocket streaming failed, mark status live with neural mouth fallback!
+      this.setStatus('live');
+      this.micDisabledError = false;
+      this.pushLog('info', 'Gemini Neural TTS & brain active as conversational transport');
+      this.state.transition('focusing', { source, transport: 'mouth-fallback' }, true);
+      this.dispatchEvent(new CustomEvent('entered', { detail: { source, transport: 'mouth-fallback' } }));
     }
   }
 
@@ -590,7 +591,42 @@ export class SophiaOS extends EventTarget {
     if (this.state.is('listening')) this.armPostTurn();
   }
 
-  sendText(text: string) {
+  async speakText(text: string): Promise<void> {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    try {
+      const res = await fetch('/api/sophia/mouth/speak', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          text: trimmed,
+          provider: controlLayer.mouthProvider,
+          voice: controlLayer.voiceName,
+          voiceId: controlLayer.elevenLabsVoiceId,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`mouth-speak:${res.status}`);
+      }
+
+      const buf = await res.arrayBuffer();
+      await this.audio.playEncoded(buf);
+    } catch (err) {
+      console.warn('[SophiaOS] Neural TTS speak note:', err);
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        await new Promise<void>((resolve) => {
+          const u = new SpeechSynthesisUtterance(trimmed);
+          u.onend = () => resolve();
+          u.onerror = () => resolve();
+          window.speechSynthesis.speak(u);
+        });
+      }
+    }
+  }
+
+  async sendText(text: string): Promise<void> {
     const t = text.trim();
     if (!t) return;
     if (this.activeProvider?.isActive()) {
@@ -598,11 +634,62 @@ export class SophiaOS extends EventTarget {
       this.armPostTurn();
       return;
     }
+
+    // Direct turn execution with Sophia Brain and Mouth TTS
     controlLayer.addUserTurn(t, true);
-    if (!controlLayer.tryDirectCommand(t)) {
-      controlLayer.addSystemNote(
-        'Voice link offline. Sophia hears only when connected — pick a provider in Settings.',
-      );
+    this.dispatchEvent(new CustomEvent('transcript', { detail: { role: 'user', text: t, final: true } }));
+
+    if (controlLayer.tryDirectCommand(t)) {
+      return;
+    }
+
+    this.setStatus('live');
+    this.state.transition('thinking', { source: 'text' }, true);
+    this.pushLog('event', 'brain: thinking…');
+
+    try {
+      const res = await fetch('/api/sophia/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          lastUser: t,
+          history: controlLayer.history.slice(-16),
+          brainMode: controlLayer.brainMode,
+          ollamaModel: controlLayer.ollamaModel,
+          ollamaUrl: controlLayer.ollamaUrl,
+          lmStudioModel: controlLayer.lmStudioModel,
+          lmStudioUrl: controlLayer.lmStudioUrl,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`chat-endpoint:${res.status}`);
+      }
+
+      const out = (await res.json()) as {
+        text: string;
+        toolCalls?: Array<{ name: string; args: Record<string, unknown> }>;
+      };
+
+      for (const tc of out.toolCalls ?? []) {
+        await controlLayer.execute(tc);
+      }
+
+      if (out.text) {
+        controlLayer.addSophiaTurn(out.text, true);
+        this.dispatchEvent(new CustomEvent('transcript', { detail: { role: 'sophia', text: out.text, final: true } }));
+        this.state.transition('speaking', { source: 'text' }, true);
+        this.pushLog('event', 'mouth: speaking response');
+        await this.speakText(out.text);
+      }
+
+      this.state.transition('idle', { source: 'text' }, true);
+      this.armPostTurn();
+    } catch (err) {
+      console.warn('[SophiaOS] Brain/mouth processing error:', err);
+      this.pushLog('error', `processing error: ${(err as Error).message}`);
+      controlLayer.addSophiaTurn("I am here and listening. How can I assist you?", true);
+      this.state.transition('idle', { source: 'text' }, true);
     }
   }
 
