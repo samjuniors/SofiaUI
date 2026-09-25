@@ -430,8 +430,9 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
 
   // Collapsible accordion states
   const [sections, setSections] = useState({
+    env: true,
     voice: true,
-    brain: true,
+    brain: false,
     form: false,
     tuning: false,
     states: false,
@@ -588,20 +589,20 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
         </div>
 
         <div className="space-y-2">
-          {/* SENSE: EAR & MOUTH (VOICE) */}
+          {/* ENVIRONMENT: GEMINI LIVE API & ASR BARGE-IN */}
           <AccordionSection
-            title="Ear & Mouth (Voice System)"
-            badge={controlLayer.mouthProvider === 'elevenlabs' ? 'ElevenLabs' : 'Deepgram'}
-            isOpen={sections.voice}
-            onToggle={() => toggleSection('voice')}
+            title="Environment & Gemini Live Setup"
+            badge={controlLayer.pureGeminiLive ? 'Pure Gemini' : 'Configured'}
+            isOpen={sections.env}
+            onToggle={() => toggleSection('env')}
           >
-            {/* PURE GEMINI LIVE (ALL-IN-ONE) MASTER CARD */}
+            {/* Pure Gemini Live Master Mode */}
             <div className="space-y-2.5 rounded-xl border border-sky-400/40 bg-gradient-to-b from-sky-950/40 to-sky-950/10 p-3 shadow-[0_0_16px_rgba(56,189,248,0.15)]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="block size-2 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.9)] animate-pulse" />
                   <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-sky-200">
-                    Pure Gemini Live (All-in-One)
+                    Pure Gemini Live API Mode
                   </span>
                 </div>
                 <button
@@ -633,7 +634,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
               </div>
 
               <p className="text-[8.5px] leading-relaxed text-sky-200/80">
-                When enabled, Gemini Live handles microphone streaming, brain intelligence, and speech synthesis entirely in one unified pipeline. External split providers are bypassed.
+                Uses the Gemini Live API key for microphone streaming, brain reasoning, and voice output across the application. External split backends are bypassed.
               </p>
 
               <div className="flex items-center justify-between pt-1 border-t border-sky-400/15">
@@ -646,10 +647,47 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                   }}
                   className="rounded-lg border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 text-[8.5px] font-medium text-sky-200 hover:bg-sky-400/20 active:scale-95"
                 >
-                  Reset & Reconnect Live
+                  Reset & Reconnect
                 </button>
               </div>
             </div>
+
+            {/* ASR Voice Interruption (Barge-In) Card */}
+            <div className="space-y-2 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 shadow-[0_0_12px_rgba(16,185,129,0.1)]">
+              <ToggleRow
+                label="ASR Barge-in Interruption"
+                hint="When you speak into the microphone, immediately cut off Sophia's current voice playback so you can interrupt live."
+                on={controlLayer.asrInterruption}
+                onChange={(on) => {
+                  controlLayer.asrInterruption = on;
+                  controlLayer.saveControlPrefs();
+                  rerender();
+                }}
+              />
+            </div>
+
+            {/* Environment Status Summary */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-2.5 font-mono text-[8.5px] space-y-1">
+              <div className="flex justify-between text-white/60">
+                <span>API Protocol</span>
+                <span className="text-sky-300">WebSocket Bidi (PCM16)</span>
+              </div>
+              <div className="flex justify-between text-white/60">
+                <span>Environment Key</span>
+                <span className={serverStatus?.gemini ? 'text-emerald-400' : 'text-amber-400'}>
+                  {serverStatus?.gemini ? 'GEMINI_API_KEY Configured' : 'Checking Key...'}
+                </span>
+              </div>
+            </div>
+          </AccordionSection>
+
+          {/* SENSE: EAR & MOUTH (VOICE) */}
+          <AccordionSection
+            title="Ear & Mouth (Voice System)"
+            badge={controlLayer.mouthProvider === 'elevenlabs' ? 'ElevenLabs' : 'Deepgram'}
+            isOpen={sections.voice}
+            onToggle={() => toggleSection('voice')}
+          >
 
             {/* Hearing / Provider */}
             <SegRow<ProviderPref>

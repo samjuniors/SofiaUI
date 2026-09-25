@@ -1,7 +1,7 @@
 /**
  * Sophia — server reference handlers.
  *
- *   POST /api/sophia/live/session      → Gemini Live ephemeral token
+ *   POST /api/sophia/live/session      → Gemini Live token / session credentials
  *   POST /api/sophia/live/reset        → Validate & reset live session state
  *   POST /api/sophia/chat              → LLM brain (Gemini / Grok / Claude / OpenAI / Ollama / LM Studio)
  *   POST /api/sophia/gemini/speak      → Gemini Flash Lite TTS neural stream
@@ -120,36 +120,6 @@ async function liveSession(req: Request): Promise<Response> {
   }
 
   const now = Date.now();
-  try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/auth_tokens?key=${apiKey}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        ttl: "1800s",
-      }),
-    });
-
-    if (res.ok) {
-      const data = (await res.json()) as { name?: string };
-      if (data.name) {
-        return json({
-          token: data.name,
-          model: modelOverride,
-          wsUrl: LIVE_WS,
-          voice,
-          createdAt: now,
-          expiresInSeconds: 1800,
-        });
-      }
-    } else {
-      const errText = await res.text().catch(() => "");
-      console.warn("[sophia-server] auth_tokens endpoint returned status", res.status, errText, "- falling back to direct key link");
-    }
-  } catch (err: any) {
-    console.warn("[sophia-server] auth_tokens exception:", err.message, "- falling back to direct key link");
-  }
-
-  // Fallback: return API key directly so WebSocket connects using ?key=
   return json({
     token: apiKey,
     model: modelOverride,
@@ -364,6 +334,28 @@ async function chatWithLMStudio(body: ChatBody): Promise<Response | null> {
   return chatWithOpenAICompatible(body, endpoint, {}, model, "lmstudio");
 }
 
+function getGeminiFetchParams(apiKey: string, model: string, endpoint = "generateContent") {
+  const cleanKey = apiKey.replace(/^auth_tokens\//, "").trim();
+  const isAuthToken =
+    apiKey.startsWith("auth_tokens/") ||
+    apiKey.startsWith("AQ.") ||
+    apiKey.startsWith("ya29.") ||
+    !apiKey.startsWith("AIza");
+
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (isAuthToken) {
+    headers["authorization"] = `Bearer ${cleanKey}`;
+    return {
+      url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:${endpoint}?access_token=${encodeURIComponent(cleanKey)}`,
+      headers,
+    };
+  }
+  return {
+    url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:${endpoint}?key=${encodeURIComponent(cleanKey)}`,
+    headers,
+  };
+}
+
 async function chatWithGemini(body: ChatBody, apiKey: string): Promise<Response> {
   const contents = body.history
     .filter((t) => t.final && t.role !== "system")
@@ -371,11 +363,12 @@ async function chatWithGemini(body: ChatBody, apiKey: string): Promise<Response>
   if (contents.length === 0 && body.lastUser) {
     contents.push({ role: "user", parts: [{ text: body.lastUser }] });
   }
+  const { url, headers } = getGeminiFetchParams(apiKey, GEMINI_TEXT_MODEL);
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TEXT_MODEL}:generateContent?key=${apiKey}`,
+    url,
     {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SOPHIA_SYSTEM }] },
         tools: [{ functionDeclarations: FUNCTION_DECLARATIONS }],
@@ -603,61 +596,69 @@ async function geminiSpeak(req: Request): Promise<Response> {
   const validVoices = ["Aoede", "Puck", "Charon", "Kore", "Fenrir", "Zephyr"];
   const voiceName = validVoices.includes(voice) ? voice : "Aoede";
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TTS_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text }] }],
-          generationConfig: {
-            responseModalities: ["AUDIO"],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName },
+  const modelsToTry = [GEMINI_TTS_MODEL, "gemini-3.8-flash-tts", "gemini-3.8-flash"];
+  let lastErr = "";
+
+  for (const model of Array.from(new Set(modelsToTry))) {
+    try {
+      const { url, headers } = getGeminiFetchParams(apiKey, model);
+      const res = await fetch(
+        url,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text }] }],
+            generationConfig: {
+              responseModalities: ["AUDIO"],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: { voiceName },
+                },
               },
             },
-          },
-        }),
-      },
-    );
+          }),
+        },
+      );
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.error("[sophia-server] Gemini TTS error:", res.status, errText);
-      return json({ error: `gemini-tts:${res.status}`, details: errText }, { status: 502 });
+      if (!res.ok) {
+        lastErr = await res.text().catch(() => "");
+        console.warn(`[sophia-server] Gemini TTS (${model}) error ${res.status}:`, lastErr);
+        continue;
+      }
+
+      const data = (await res.json()) as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{
+              inlineData?: {
+                mimeType?: string;
+                data?: string;
+              };
+            }>;
+          };
+        }>;
+      };
+
+      const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+      if (!inlineData?.data) {
+        continue;
+      }
+
+      const binaryBuffer = Buffer.from(inlineData.data, "base64");
+      return new Response(binaryBuffer, {
+        headers: {
+          "content-type": inlineData.mimeType || "audio/wav",
+          "content-length": String(binaryBuffer.length),
+        },
+      });
+    } catch (err: any) {
+      lastErr = err.message || String(err);
+      console.warn(`[sophia-server] Gemini TTS (${model}) failed:`, err);
     }
-
-    const data = (await res.json()) as {
-      candidates?: Array<{
-        content?: {
-          parts?: Array<{
-            inlineData?: {
-              mimeType?: string;
-              data?: string;
-            };
-          }>;
-        };
-      }>;
-    };
-
-    const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-    if (!inlineData?.data) {
-      return json({ error: "No audio data returned by Gemini TTS" }, { status: 502 });
-    }
-
-    const binaryBuffer = Buffer.from(inlineData.data, "base64");
-    return new Response(binaryBuffer, {
-      headers: {
-        "content-type": inlineData.mimeType || "audio/wav",
-        "content-length": String(binaryBuffer.length),
-      },
-    });
-  } catch (err: any) {
-    console.error("[sophia-server] Gemini TTS failed:", err);
-    return json({ error: "gemini-tts-failed", message: err.message }, { status: 500 });
   }
+
+  return json({ error: "gemini-tts-failed", details: lastErr }, { status: 502 });
 }
 
 async function mouthSpeak(req: Request): Promise<Response> {

@@ -219,6 +219,7 @@ export default function App() {
         settingsOpen={settingsOpen}
         onSettings={() => setSettingsOpen((v) => !v)}
         onDiagnostics={() => setDiagnosticsOpen(true)}
+        os={os}
       />
       <Identity layout={layout} state={state} docked={docked} />
       <OrbDock visible={docked && !glFailed} state={state} />

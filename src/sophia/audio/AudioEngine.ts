@@ -9,6 +9,8 @@
  * Encoded audio (Deepgram/Gemini TTS mpeg/wav) is decoded via decodeAudioData.
  */
 
+import { controlLayer } from '../control';
+
 type PCMHandler = (pcm: ArrayBuffer) => void;
 type LevelHandler = (level: number) => void;
 type MicStatusHandler = (status: MicStatus, errorMsg?: string) => void;
@@ -56,7 +58,7 @@ class SophiCapture extends AudioWorkletProcessor {
       this.buf[this.len++] = v < 0 ? v * 0x8000 : v * 0x7fff;
 
       if (this.len >= 640) {
-        const chunk = this.buf.slice(0, 640);
+        const chunk = new Int16Array(this.buf.subarray(0, 640));
         this.port.postMessage({ type: 'pcm', buffer: chunk.buffer }, [chunk.buffer]);
         this.len = 0;
       }
@@ -162,6 +164,8 @@ export class AudioEngine {
       }
 
       const src = this.ctx.createMediaStreamSource(this.stream);
+      const silenceGain = this.ctx.createGain();
+      silenceGain.gain.value = 0; // Mute local speaker feedback so echo cancellation does not suppress user voice
 
       // Attempt AudioWorklet first, then fallback to ScriptProcessor
       let workletReady = false;
@@ -182,6 +186,9 @@ export class AudioEngine {
             } else if (d.type === 'level') {
               this._mic = this._mic * 0.72 + Math.min(1, d.rms * 5.5) * 0.28;
               this.levelHandlers.forEach((fn) => fn(this._mic));
+              if (controlLayer.asrInterruption && this.active.length > 0 && this._mic > 0.06) {
+                this.interruptPlayback();
+              }
             } else if (d.type === 'clap') {
               const now = performance.now();
               if (now - this.lastClap > 1400) {
@@ -191,7 +198,8 @@ export class AudioEngine {
             }
           };
           src.connect(this.captureNode);
-          this.captureNode.connect(this.ctx.destination);
+          this.captureNode.connect(silenceGain);
+          silenceGain.connect(this.ctx.destination);
           workletReady = true;
         } catch (err) {
           console.warn('[AudioEngine] AudioWorklet setup failed, falling back to ScriptProcessor:', err);
@@ -225,6 +233,9 @@ export class AudioEngine {
           const rms = Math.sqrt(sum / ch.length);
           this._mic = this._mic * 0.72 + Math.min(1, rms * 5.5) * 0.28;
           this.levelHandlers.forEach((fn) => fn(this._mic));
+          if (controlLayer.asrInterruption && this.active.length > 0 && this._mic > 0.06) {
+            this.interruptPlayback();
+          }
 
           if (peak > 0.55 && prevRms < 0.045 && peak / Math.max(rms, 0.001) > 5.5) {
             const now = performance.now();
@@ -246,9 +257,8 @@ export class AudioEngine {
             pcmBuf[pcmLen++] = v < 0 ? v * 0x8000 : v * 0x7fff;
 
             if (pcmLen >= 640) {
-              const chunk = pcmBuf.slice(0, 640);
-              const b = chunk.buffer;
-              this.pcmHandlers.forEach((fn) => fn(b));
+              const chunk = new Int16Array(pcmBuf.subarray(0, 640));
+              this.pcmHandlers.forEach((fn) => fn(chunk.buffer));
               pcmLen = 0;
             }
             idx += ratio;
@@ -256,7 +266,8 @@ export class AudioEngine {
           inputPos = idx - ch.length;
         };
         src.connect(spNode);
-        spNode.connect(this.ctx.destination);
+        spNode.connect(silenceGain);
+        silenceGain.connect(this.ctx.destination);
       }
 
       this.capturing = true;
@@ -297,21 +308,35 @@ export class AudioEngine {
     return this.playCtx;
   }
 
-  /** Queue a 24 kHz PCM16 chunk (Gemini Live format). Returns its RMS level. */
-  playPCM24(input: ArrayBuffer): number {
+  /** Queue a 24 kHz PCM16 chunk (Gemini Live native audio). Returns its RMS level. */
+  playPCM24(input: ArrayBuffer | Uint8Array): number {
     const ctx = this.ensurePlayCtx();
-    const pcm = new Int16Array(input.slice(0));
-    const len = pcm.length;
-    if (len === 0) return 0;
-    const buf = ctx.createBuffer(1, len, 24000);
+    let u8: Uint8Array;
+    if (input instanceof Uint8Array) {
+      u8 = input;
+    } else if (input instanceof ArrayBuffer) {
+      u8 = new Uint8Array(input);
+    } else {
+      return 0;
+    }
+
+    const sampleCount = Math.floor(u8.length / 2);
+    if (sampleCount === 0) return 0;
+
+    // Use DataView for endian-safe 16-bit signed PCM conversion
+    const view = new DataView(u8.buffer, u8.byteOffset, sampleCount * 2);
+    const buf = ctx.createBuffer(1, sampleCount, 24000);
     const data = buf.getChannelData(0);
     let sum = 0;
-    for (let i = 0; i < len; i++) {
-      const s = pcm[i] / 0x8000;
+
+    for (let i = 0; i < sampleCount; i++) {
+      const sample16 = view.getInt16(i * 2, true); // Little endian
+      const s = sample16 / 0x8000;
       data[i] = s;
       if ((i & 7) === 0) sum += s * s;
     }
-    this.playRms = this.playRms * 0.55 + Math.min(1, Math.sqrt(sum / Math.max(1, len / 8)) * 3.2) * 0.45;
+
+    this.playRms = this.playRms * 0.55 + Math.min(1, Math.sqrt(sum / Math.max(1, sampleCount / 8)) * 3.2) * 0.45;
     this.playbackLevelHandlers.forEach((fn) => fn(this.playRms));
     this.schedule(buf);
     return this.playRms;
@@ -333,13 +358,19 @@ export class AudioEngine {
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.connect(ctx.destination);
-    const t = Math.max(ctx.currentTime + 0.04, this.nextStart);
+
+    // Prevent latency drift or scheduling gaps
+    if (this.nextStart < ctx.currentTime - 0.05) {
+      this.nextStart = ctx.currentTime + 0.03;
+    }
+    const t = Math.max(ctx.currentTime + 0.03, this.nextStart);
     src.start(t);
     this.nextStart = t + buf.duration;
     this.active.push(src);
+
     src.onended = () => {
       this.active = this.active.filter((s) => s !== src);
-      if (this.active.length === 0 && this.nextStart <= ctx.currentTime + 0.05) {
+      if (this.active.length === 0 && this.nextStart <= ctx.currentTime + 0.06) {
         this.playRms = 0;
         this.playbackHandlers.forEach((fn) => fn());
       }

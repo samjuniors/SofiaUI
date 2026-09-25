@@ -5,11 +5,13 @@
  * that receives the mini-orb when content owns the centre stage.
  */
 
-import { Activity, Mic, MicOff, Settings } from 'lucide-react';
+import { Activity, Mic, MicOff, Settings, Zap } from 'lucide-react';
 import { useEffect, useState, type RefObject } from 'react';
 import { controlLayer } from '../sophia/control';
 import type { StageLayout } from '../sophia/layout';
 import type { SophiaStateName } from '../sophia/types';
+import type { SophiaOS } from '../sophia/SophiaOS';
+import type { LiveConnectionMetrics } from '../sophia/voice/GeminiLiveProvider';
 
 export function Brand() {
   return (
@@ -29,29 +31,126 @@ const HEALTH_META: Record<'ok' | 'warn' | 'error', { color: string; label: strin
   error: { color: '#ff5468', label: 'Check Microphone or Keys' },
 };
 
+/**
+ * ConnectionIndicator — displays real-time Gemini Live API latency and stability.
+ */
+export function ConnectionIndicator({
+  os,
+  onClick,
+}: {
+  os?: SophiaOS;
+  onClick: () => void;
+}) {
+  const [metrics, setMetrics] = useState<LiveConnectionMetrics>(() => {
+    return os?.getGeminiLiveMetrics() ?? {
+      isConnected: false,
+      latencyMs: 0,
+      stabilityPercent: 0,
+      quality: 'offline',
+      packetsSent: 0,
+      packetsReceived: 0,
+      modelName: 'gemini-3.8-live',
+      voiceName: 'Aoede',
+      history: [],
+    };
+  });
+
+  useEffect(() => {
+    if (!os) return;
+    const interval = setInterval(() => {
+      setMetrics(os.getGeminiLiveMetrics());
+    }, 600);
+    return () => clearInterval(interval);
+  }, [os]);
+
+  const isConn = metrics.isConnected;
+  const lat = metrics.latencyMs;
+  const stab = metrics.stabilityPercent;
+
+  let latBadgeStyle = 'border-sky-500/20 bg-sky-950/20 text-sky-200';
+  let dotBg = 'bg-sky-400 shadow-[0_0_8px_#38bdf8]';
+
+  if (!isConn) {
+    latBadgeStyle = 'border-white/10 bg-white/[0.02] text-white/40';
+    dotBg = 'bg-neutral-500';
+  } else if (lat > 0 && lat < 90) {
+    latBadgeStyle = 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.12)]';
+    dotBg = 'bg-emerald-400 shadow-[0_0_8px_#34d399]';
+  } else if (lat < 180) {
+    latBadgeStyle = 'border-amber-500/30 bg-amber-950/20 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.12)]';
+    dotBg = 'bg-amber-400 shadow-[0_0_8px_#fbbf24]';
+  } else {
+    latBadgeStyle = 'border-rose-500/30 bg-rose-950/20 text-rose-300 shadow-[0_0_12px_rgba(244,63,94,0.12)]';
+    dotBg = 'bg-rose-400 shadow-[0_0_8px_#f43f5e]';
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Gemini Live Real-time API Connection Latency & Stability. Click for Live Diagnostics."
+      aria-label={`Gemini Live API status: ${isConn ? 'Connected' : 'Standby'}, Latency ${lat} ms, Stability ${stab}%. Click for detailed diagnostics.`}
+      className={`group flex items-center gap-2 rounded-full border px-3 py-1.5 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 ${latBadgeStyle}`}
+    >
+      <div className="relative flex items-center justify-center">
+        <span className={`block size-2 rounded-full transition-all duration-300 ${dotBg}`} />
+        {isConn && <span className="absolute size-3 animate-ping rounded-full bg-emerald-400/30" />}
+      </div>
+
+      <div className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-wider">
+        <span className="font-semibold text-white/90 group-hover:text-sky-200">
+          Gemini Live
+        </span>
+        <span className="text-white/20">•</span>
+        {isConn ? (
+          <>
+            <span className="font-bold text-sky-200">{lat}ms</span>
+            <span className="text-white/20">•</span>
+            <span className="text-emerald-300">{stab}% stab</span>
+          </>
+        ) : (
+          <span className="text-white/40">Standby</span>
+        )}
+      </div>
+
+      <Zap
+        size={11}
+        className={`transition-all duration-300 group-hover:scale-110 ${
+          isConn ? 'text-amber-300 animate-pulse' : 'text-white/20'
+        }`}
+      />
+    </button>
+  );
+}
+
 export function StatusCluster({
   health,
   active,
   onSettings,
   onDiagnostics,
   settingsOpen,
+  os,
 }: {
   health: 'ok' | 'warn' | 'error';
   active: boolean;
   onSettings: () => void;
   onDiagnostics: () => void;
   settingsOpen: boolean;
+  os?: SophiaOS;
 }) {
   const meta = HEALTH_META[health];
   return (
     <div className="status-cluster absolute right-7 top-[26px] z-10 flex items-center gap-2.5 transition-all duration-500 sm:right-11 sm:top-[30px]">
-      {/* Clickable Live Diagnostics Pill */}
+      {/* Real-time Gemini Live Connection Indicator */}
+      <ConnectionIndicator os={os} onClick={onDiagnostics} />
+
+      {/* Clickable System Health Pill */}
       <button
         type="button"
         title="Open Live Diagnostics & System Health Monitor"
         aria-label={`System health: ${meta.label}. Click for diagnostics.`}
         onClick={onDiagnostics}
-        className="group flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 backdrop-blur-md transition-all hover:border-sky-400/40 hover:bg-sky-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50"
+        className="group hidden sm:flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 backdrop-blur-md transition-all hover:border-sky-400/40 hover:bg-sky-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50"
       >
         <span
           className={`block size-[7px] rounded-full transition-colors duration-500 ${active && health === 'ok' ? 'status-breathe' : ''} ${health === 'error' ? 'status-alert' : ''}`}

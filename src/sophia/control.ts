@@ -60,6 +60,9 @@ export class ControlLayer extends EventTarget {
   /** Pure Gemini Live All-in-One mode toggle */
   pureGeminiLive = false;
 
+  /** Automatic Speech Recognition (ASR) Barge-in Interruption toggle */
+  asrInterruption = true;
+
   voiceProfile = 'au-female';
   voiceName = 'Aoede';
   dgVoice = 'aura-2-thalia-en';
@@ -79,6 +82,7 @@ export class ControlLayer extends EventTarget {
       if (raw) {
         const d = JSON.parse(raw);
         if (typeof d.pureGeminiLive === 'boolean') this.pureGeminiLive = d.pureGeminiLive;
+        if (typeof d.asrInterruption === 'boolean') this.asrInterruption = d.asrInterruption;
         if (d.voiceProfile) this.voiceProfile = d.voiceProfile;
         if (d.voiceName) this.voiceName = d.voiceName;
         if (d.elevenLabsVoiceId) this.elevenLabsVoiceId = d.elevenLabsVoiceId;
@@ -111,6 +115,7 @@ export class ControlLayer extends EventTarget {
         'sophia:control-prefs',
         JSON.stringify({
           pureGeminiLive: this.pureGeminiLive,
+          asrInterruption: this.asrInterruption,
           voiceProfile: this.voiceProfile,
           voiceName: this.voiceName,
           elevenLabsVoiceId: this.elevenLabsVoiceId,

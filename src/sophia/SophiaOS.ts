@@ -27,7 +27,7 @@ import type {
   VoiceProviderId,
 } from './types';
 import { DeepgramVoiceProvider } from './voice/DeepgramVoiceProvider';
-import { GeminiLiveProvider } from './voice/GeminiLiveProvider';
+import { GeminiLiveProvider, type LiveConnectionMetrics } from './voice/GeminiLiveProvider';
 import { ElevenLabsVoiceProvider } from './voice/ElevenLabsVoiceProvider';
 import type { VoiceProvider } from './voice/VoiceProvider';
 import { WakeWordSpotter } from './voice/wake';
@@ -555,6 +555,23 @@ export class SophiaOS extends EventTarget {
     return 'ok';
   }
 
+  getGeminiLiveMetrics(): LiveConnectionMetrics {
+    const gemini = this.providers['gemini-live'] as GeminiLiveProvider | undefined;
+    return gemini
+      ? gemini.getMetrics()
+      : {
+          isConnected: false,
+          latencyMs: 0,
+          stabilityPercent: 0,
+          quality: 'offline',
+          packetsSent: 0,
+          packetsReceived: 0,
+          modelName: 'gemini-3.8-live',
+          voiceName: 'Aoede',
+          history: [],
+        };
+  }
+
   async activate(source: ActivationSource): Promise<void> {
     if (this.state.paused) this.resume();
 
@@ -671,6 +688,16 @@ export class SophiaOS extends EventTarget {
       this.pushLog('error', `Voice test error: ${err.message}`);
       await this.speakText("G'day, voice test complete.");
     }
+  }
+
+  getLiveMetrics(): LiveConnectionMetrics {
+    const liveProvider = this.providers['gemini-live'] as GeminiLiveProvider;
+    return liveProvider.getMetrics();
+  }
+
+  async pingLive(): Promise<number> {
+    const liveProvider = this.providers['gemini-live'] as GeminiLiveProvider;
+    return liveProvider.ping();
   }
 
   getDiagnostics(): DiagnosticsSnapshot {
