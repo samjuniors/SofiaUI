@@ -195,10 +195,10 @@ export function Dock({
   const micLabel = paused
     ? 'System paused · Click to enable microphone & resume'
     : micError
-      ? 'Microphone disabled (missing backend keys) · Click to retry'
-      : state === 'speaking' || state === 'thinking'
-        ? 'Sophia is active · Click to pause system'
-        : 'Microphone active · Click to pause system';
+      ? 'Microphone unavailable · Click to reconnect'
+      : on
+        ? 'Voice conversation active · Click to pause'
+        : 'Click to start voice conversation';
 
   const showChat = audioAvailable === false || micError === true;
 
