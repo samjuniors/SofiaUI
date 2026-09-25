@@ -191,10 +191,11 @@ export function Dock({
   onToggleBrowser?: () => void;
 }) {
   const on = state !== 'ambient' && state !== 'paused' && state !== 'idle' && state !== 'completed';
+  const isMicDisabled = paused || micError === true || audioAvailable === false;
   const micLabel = paused
     ? 'System paused · Click to enable microphone & resume'
     : micError
-      ? 'Voice error (check terminal) · Click to pause system'
+      ? 'Microphone disabled (missing backend keys) · Click to retry'
       : state === 'speaking' || state === 'thinking'
         ? 'Sophia is active · Click to pause system'
         : 'Microphone active · Click to pause system';
@@ -258,37 +259,53 @@ export function Dock({
         </button>
       )}
 
-      {/* Main Microphone Button — polished toggle for active vs paused system */}
+      {/* Main Microphone Button — polished toggle for active vs paused/disabled system */}
       <button
         ref={micRef}
         type="button"
         aria-label={micLabel}
-        aria-pressed={!paused}
+        aria-pressed={!isMicDisabled}
         title={micLabel}
         onClick={onMic}
-        className={`group relative grid size-[46px] place-items-center rounded-2xl border transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 ${
-          paused
-            ? 'border-white/[0.09] bg-white/[0.03] text-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-sky-400/35 hover:bg-white/[0.08] hover:text-white/90 active:scale-95'
-            : 'border-sky-400/40 bg-sky-500/[0.14] text-sky-100 shadow-[0_0_18px_rgba(56,189,248,0.35),inset_0_1px_0_rgba(255,255,255,0.22)] hover:border-sky-400/60 hover:bg-sky-500/[0.22] hover:text-white active:scale-95'
+        className={`group relative grid size-[48px] place-items-center rounded-2xl border transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 active:scale-95 ${
+          micError
+            ? 'border-rose-500/50 bg-rose-500/[0.20] text-rose-100 shadow-[0_0_18px_rgba(244,63,94,0.40),inset_0_1px_0_rgba(255,255,255,0.18)] hover:border-rose-400 hover:bg-rose-500/[0.30] hover:text-white'
+            : paused
+              ? 'border-white/[0.12] bg-white/[0.04] text-white/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-sky-400/40 hover:bg-white/[0.10] hover:text-white'
+              : 'border-sky-400/40 bg-sky-500/[0.16] text-sky-100 shadow-[0_0_20px_rgba(56,189,248,0.38),inset_0_1px_0_rgba(255,255,255,0.22)] hover:border-sky-400/70 hover:bg-sky-500/[0.26] hover:text-white'
         }`}
       >
         {/* Error indicator dot */}
         {micError && (
           <span
-            title="Missing key or code error"
-            className="status-alert absolute -right-0.5 -top-0.5 block size-[7px] rounded-full bg-rose-500 shadow-[0_0_8px_2px_rgba(244,63,94,0.7)]"
+            title="Microphone disabled"
+            className="status-alert absolute -right-0.5 -top-0.5 block size-[8px] rounded-full bg-rose-500 shadow-[0_0_10px_2px_rgba(244,63,94,0.85)]"
           />
         )}
 
         {/* Live speaking/listening indicator halo dot when active and running */}
-        {!paused && !micError && on && (
-          <span className="absolute -right-0.5 -top-0.5 block size-[7px] rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+        {!isMicDisabled && on && (
+          <span className="absolute -right-0.5 -top-0.5 block size-[8px] rounded-full bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.9)]" />
         )}
 
-        {paused ? (
-          <MicOff size={20} strokeWidth={1.8} className="text-white/40 transition-colors group-hover:text-white" />
+        {isMicDisabled ? (
+          <MicOff
+            size={22}
+            strokeWidth={2.2}
+            className={`transition-all duration-200 ${
+              micError
+                ? 'text-white drop-shadow-[0_0_6px_rgba(244,63,94,0.6)]'
+                : 'text-white/60 group-hover:text-white'
+            }`}
+            aria-hidden="true"
+          />
         ) : (
-          <Mic size={20} strokeWidth={1.8} className="text-sky-200 transition-all group-hover:scale-105" />
+          <Mic
+            size={22}
+            strokeWidth={2.2}
+            className="text-sky-200 transition-all duration-200 group-hover:scale-105 group-hover:text-white"
+            aria-hidden="true"
+          />
         )}
       </button>
     </div>

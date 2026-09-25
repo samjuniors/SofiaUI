@@ -124,34 +124,80 @@ vec3 atmosphere(vec2 q, float vq){
   float breath = 0.5 + 0.5 * sin(uTime * uBgPulseSpd * uMotion);
   col += (uBgAuraA * 0.58 + uBgAuraB * 0.42) * (uBgPulse * breath * 0.62 + uBgLevel * 0.10) * centerHalo;
 
-  // Wake-up: refined radiant expansion without blinding wash
-  float wakeHalo = mix(centerHalo, gauss(vq - 0.48, 0.18), uForm);
-  col += mix(uBgAuraA, vec3(0.5, 0.75, 1.0), 0.3) * uWake * (1.0 - uWake) * 0.45 * wakeHalo;
-  // Shockwave ring: expands outward from centre gently
-  float shockR = uWake * 1.8 + uForm * 0.4;
-  float shockRing = gauss(vq - shockR, 0.05 + uWake * 0.06);
-  col += mix(vec3(0.3, 0.6, 0.9), vec3(0.5, 0.7, 1.0), uForm) * uWakeShock * shockRing * 0.35;
-  // Subtle central aura during wake
-  col += vec3(0.3, 0.55, 0.8) * uWakeShock * centerHalo * 0.15;
-
-  // Ambient dust particles — tiny scattered motes
+  // ================= GALAXY & PIXIE DUST (Multi-scale celestial particles) =================
   if (uDustVisible > 0.001 && uDustAmount > 0.001) {
-    float dustT = uTime * uDustSpeed * 0.12;
-    float dustCellSize = mix(80.0, 50.0, min(uDustAmount, 1.0));
-    vec2 dustUv = (q * vec2(uAspect, 1.0) + 0.5) * dustCellSize;
-    dustUv += vec2(dustT * 0.6, dustT * 0.35);
-    vec2 dustCell = floor(dustUv);
-    vec2 dustFrac = fract(dustUv) - 0.5;
-    float dh = hash21(dustCell);
-    float dh2 = hash21(dustCell + 77.0);
-    if (dh < 0.32 * uDustAmount) {
-      vec2 dustOff = vec2(dh2 - 0.5, hash21(dustCell + 33.0) - 0.5) * 0.65;
-      float dustDist = length(dustFrac - dustOff);
-      float dustSz = 0.018 + dh * 0.015;
-      float dustDot = exp(-dustDist * dustDist / (dustSz * dustSz));
-      float dustTwinkle = 0.6 + 0.4 * sin(uTime * (1.5 + dh2 * 3.0) + dh * 40.0);
-      float dustFade = smoothstep(1.2, 0.6, vq) * 0.7;
-      col += vec3(0.55, 0.72, 1.0) * dustDot * dustTwinkle * dustFade * uDustVisible * 0.45;
+    float dustSpeedFactor = uDustSpeed * 0.14;
+    float dustT = uTime * dustSpeedFactor;
+    vec2 baseUv = q * vec2(uAspect, 1.0) + 0.5;
+
+    // --- LAYER 1: Floating Volumetric Pixie Dust (varied sizes, luminous halos, gem colors) ---
+    float pixieCellSize = mix(44.0, 30.0, min(uDustAmount, 1.0));
+    vec2 pixieUv = baseUv * pixieCellSize;
+    pixieUv += vec2(dustT * 0.45, dustT * 0.28 + sin(uTime * 0.35 + q.x * 2.2) * 0.16);
+    vec2 pCell = floor(pixieUv);
+    vec2 pFrac = fract(pixieUv) - 0.5;
+    float ph1 = hash21(pCell);
+    float ph2 = hash21(pCell + 43.17);
+    float ph3 = hash21(pCell + 97.43);
+
+    if (ph1 < 0.44 * min(uDustAmount * 1.15, 1.25)) {
+      vec2 pOffset = vec2(ph2 - 0.5, ph3 - 0.5) * 0.72;
+      vec2 dVec = pFrac - pOffset;
+      float pDist = length(dVec);
+
+      // Huge size variation: tiny pixie specks (0.015) to prominent luminous motes (0.065)
+      float pSize = mix(0.016, 0.064, ph2 * ph2);
+
+      // Rich diverse celestial color palette: cyan, lavender/amethyst, champagne gold, rose quartz, diamond white
+      vec3 pColor;
+      if (ph3 < 0.26) {
+        pColor = vec3(0.38, 0.88, 1.0);   // Celestial Cyan
+      } else if (ph3 < 0.52) {
+        pColor = vec3(0.74, 0.56, 1.0);   // Amethyst / Lavender
+      } else if (ph3 < 0.76) {
+        pColor = vec3(1.0, 0.86, 0.54);   // Cosmic Champagne Gold
+      } else if (ph3 < 0.90) {
+        pColor = vec3(0.98, 0.62, 0.82);   // Rose Nebula Quartz
+      } else {
+        pColor = vec3(0.88, 0.96, 1.0);   // Diamond Star-White
+      }
+
+      // Dual-kernel glow: concentrated bright core + wide soft ethereal aureole
+      float coreGlow = exp(-pDist * pDist / (pSize * pSize * 0.28));
+      float auraGlow = exp(-pDist * pDist / (pSize * pSize * 2.5)) * 0.52;
+      float pixieGlow = coreGlow + auraGlow;
+
+      // Subtle diamond star sparkle for larger radiant gems
+      if (ph2 > 0.70) {
+        float glintX = max(0.0, 1.0 - abs(dVec.x) / (pSize * 1.7)) * max(0.0, 1.0 - abs(dVec.y) / (pSize * 0.42));
+        float glintY = max(0.0, 1.0 - abs(dVec.y) / (pSize * 1.7)) * max(0.0, 1.0 - abs(dVec.x) / (pSize * 0.42));
+        pixieGlow += (glintX + glintY) * 0.35;
+      }
+
+      // Varied twinkle rate: some slow breathing, some rapid shimmering pixie dust
+      float twinkleRate = mix(1.2, 5.2, ph3);
+      float twinkle = 0.55 + 0.45 * sin(uTime * twinkleRate + ph1 * 62.8);
+
+      // Soft vignette fade toward deep screen edges
+      float fade = smoothstep(1.35, 0.75, vq) * 0.85;
+      col += pColor * pixieGlow * twinkle * fade * uDustVisible * 0.65;
+    }
+
+    // --- LAYER 2: Fine Cosmic Nebula Stardust (dense micro glittering pinpricks) ---
+    float microCellSize = mix(82.0, 64.0, min(uDustAmount, 1.0));
+    vec2 microUv = baseUv * microCellSize + vec2(-dustT * 0.32, dustT * 0.22);
+    vec2 mCell = floor(microUv);
+    vec2 mFrac = fract(microUv) - 0.5;
+    float mh1 = hash21(mCell);
+    float mh2 = hash21(mCell + 61.2);
+    if (mh1 < 0.38 * min(uDustAmount, 1.0)) {
+      vec2 mOffset = vec2(mh2 - 0.5, hash21(mCell + 19.4) - 0.5) * 0.75;
+      float mDist = length(mFrac - mOffset);
+      float mSize = 0.010 + mh2 * 0.014;
+      float mDot = exp(-mDist * mDist / (mSize * mSize * 0.52));
+      float mTwinkle = 0.5 + 0.5 * sin(uTime * (2.2 + mh2 * 4.0) + mh1 * 40.0);
+      vec3 mColor = mix(vec3(0.50, 0.75, 1.0), vec3(0.85, 0.70, 1.0), mh2);
+      col += mColor * mDot * mTwinkle * smoothstep(1.4, 0.6, vq) * uDustVisible * 0.32;
     }
   }
 
@@ -163,6 +209,11 @@ vec3 atmosphere(vec2 q, float vq){
     float bgLuma = dot(col, vec3(0.2126, 0.7152, 0.0722));
     col = mix(col, vec3(bgLuma * 0.75), uPaused * 0.88);
   }
+
+  // High-precision dithering — breaks up any subtle gradient banding
+  float ignAtm = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  col += vec3((ignAtm - 0.5) * (1.2 / 255.0));
+
   return col;
 }
 `;
@@ -242,11 +293,6 @@ void main(){
 
   /* ============ LAYER 2 : THE BODY (hidden in "just particles") ============ */
   if (uShowBody <= 0.001) {
-    // Wake-up shockwave still reads against pure particles.
-    if (uWake > 0.001 && uWake < 1.0) {
-      float wr = uWake * 2.3;
-      col += vec3(0.55, 0.85, 1.0) * gauss(length(p) - wr, 0.05 + uWake * 0.07) * (1.0 - uWake) * 1.1;
-    }
     frag = vec4(col, 1.0);
     return;
   }
@@ -446,13 +492,6 @@ void main(){
   }
   col += shapeCol;
 
-  // wake-up shockwave rides the body layer — gentle and crisp
-  if (uWake > 0.001 && uWake < 1.0) {
-    float wr = uWake * 2.3;
-    col += mix(uShapeTint, vec3(0.5, 0.75, 1.0), 0.3) * gauss(dS - wr, 0.05 + uWake*0.06) * (1.0 - uWake) * 0.35;
-    float ringShock = gauss(dS - uWake * 1.6, 0.04 + uWake * 0.06) * uForm;
-    col += vec3(0.4, 0.75, 1.0) * ringShock * uWakeShock * 0.45;
-  }
 
   // pause: serene frosted desaturation
   if (uPaused > 0.01) {
@@ -617,7 +656,6 @@ void main(){
 
   // WAKE-UP : converge from a scattered shell into the form
   float wakeK = 1.0;
-  float wakeGlow = 0.0;
   if (uWake > 0.001 && uWake < 1.0) {
     wakeK = smoothstep(0.0, 1.0, uWake * 1.35 - aSeed.w * 0.35);
     float sa = aSeed.x * TAU + uTime * 0.15 * mo;
@@ -625,9 +663,6 @@ void main(){
     float scatterR = (2.6 + aSeed.z * 2.2) * (1.0 + uForm * 0.55);
     vec2 scatter = vec2(cos(sa), sin(sa)) * scatterR + (aSeed.ww - 0.5) * 0.65;
     pos = mix(scatter, pos, wakeK);
-    // Shockwave glow: gentle subtle brightening near shockwave front
-    float shockDist = abs(length(pos) - uWake * 1.8);
-    wakeGlow = uWakeShock * exp(-shockDist * shockDist * 25.0) * 0.35;
   }
 
   // Idle / pause posture: deep U-bow only if explicitly non-zero
@@ -679,7 +714,6 @@ void main(){
     a *= mix(1.0, 0.80, uPause);
   }
   a *= 0.35 + 0.65 * wakeK;              // wake-up brightens as she lands
-  a += wakeGlow;                          // shockwave front glow
 
   float baseSize = 1.35 + 1.2*limb*(1.0-uForm) + 1.0*uForm + 1.5*mt;
   float size = baseSize * uDpr * uParticleScale * mix(1.0, 1.45, uOnlyParticles)
@@ -705,7 +739,7 @@ void main(){
     float pauseSpark = step(0.970, aSeed.z) * (0.5 + 0.5 * sin(uTime * 3.0 + aSeed.w * 24.0));
     size *= mix(1.0, 0.88 + 0.25 * pauseSpark, uPause);
   }
-  size *= mix(1.6, 1.0, wakeK);          // wake-up: points arrive large then settle
+  size *= mix(1.12, 1.0, wakeK);          // wake-up: points arrive gently then settle
 
   // Completed: emerald success event
   if (uCompleted > 0.01) {
@@ -783,13 +817,26 @@ uniform sampler2D uB1;
 uniform sampler2D uB2;
 uniform float uExposure;
 out vec4 frag;
+
+// High-frequency Jimenez Interleaved Gradient Noise for 8-bit banding removal
+float ign(vec2 p) {
+  vec3 magic = vec3(0.06711056, 0.00583715, 52.9829189);
+  return fract(magic.z * fract(dot(p, magic.xy)));
+}
+
 void main(){
   vec3 sc = texture(uScene, vUv).rgb;
   vec3 b1 = texture(uB1, vUv).rgb;
   vec3 b2 = texture(uB2, vUv).rgb;
   vec3 c = sc + b1*0.46 + b2*0.28;
   c *= uExposure;
+  // ACES Filmic Tone Map
   c = (c*(2.51*c+0.03))/(c*(2.43*c+0.59)+0.14);
-  frag = vec4(c, 1.0);
+  // High-precision triangular dithering — eliminates all color banding and gradient lines
+  float n1 = ign(gl_FragCoord.xy);
+  float n2 = ign(gl_FragCoord.xy + vec2(0.5, 0.5));
+  float dither = (n1 + n2 - 1.0) * (1.6 / 255.0);
+  c += vec3(dither);
+  frag = vec4(clamp(c, 0.0, 1.0), 1.0);
 }
 `;

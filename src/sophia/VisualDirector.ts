@@ -146,7 +146,7 @@ export const THEMES: ThemePreset[] = [
 const ENERGY: Record<SophiaStateName, number> = {
   ambient: 0.15,
   idle: 0.18,
-  wakeup: 0.55,
+  wakeup: 0.35,
   focusing: 0.45,
   listening: 0.6,
   thinking: 0.75,
@@ -199,13 +199,13 @@ const PALETTES: Record<SophiaStateName, Palette> = {
     bgAuraAmt: 0.48, bgSpeed: 0.42, bgPulse: 0.07, bgPulseSpd: 0.35, bgVig: 0.90,
     tint: [0.38, 0.75, 1.0], tintAmt: 0.15, glow: 1.12,
   },
-  // wake-up: the aura blooms bright, the body flares white-cyan
+  // wake-up: serene cosmic convergence without white ring, flare, or intense bloom
   wakeup: {
     code: 6,
-    bgDeep: [0.008, 0.022, 0.055], bgCore: [0.030, 0.078, 0.140],
-    bgAuraA: [0.30, 0.72, 1.0], bgAuraB: [0.36, 0.34, 1.0],
-    bgAuraAmt: 0.85, bgSpeed: 2.4, bgPulse: 0.26, bgPulseSpd: 2.6, bgVig: 0.6,
-    tint: [0.72, 0.95, 1.0], tintAmt: 0.5, glow: 1.55,
+    bgDeep: [0.004, 0.009, 0.026], bgCore: [0.012, 0.026, 0.070],
+    bgAuraA: [0.16, 0.34, 0.75], bgAuraB: [0.28, 0.18, 0.68],
+    bgAuraAmt: 0.50, bgSpeed: 0.85, bgPulse: 0.08, bgPulseSpd: 0.8, bgVig: 0.88,
+    tint: [0.38, 0.75, 1.0], tintAmt: 0.15, glow: 1.10,
   },
   // focusing: teal-green anticipation, body leans cyan-white toward the mic
   focusing: {
@@ -498,17 +498,13 @@ export class VisualDirector {
     this.outputAudio += (rawPlay - this.outputAudio) * (rawPlay > this.outputAudio ? k(18) : k(6));
     this.level = this.speak * this.outputAudio + this.listen * this.inputAudio;
 
-    /* wake-up timeline — 1.85s scatter → shockwave → land */
+    /* wake-up timeline — 1.85s smooth scatter convergence into form */
     if (this.wakeTimer >= 0) {
       this.wakeTimer += dt;
       this.wake = Math.min(1, this.wakeTimer / 1.85);
-      const shockT = this.wakeTimer / 1.85;
-      this.wakeShockwave = shockT < 0.28
-        ? shockT / 0.28
-        : Math.max(0, 1 - (shockT - 0.28) / 0.72);
+      this.wakeShockwave = 0;
       if (this.wake >= 1) {
         this.wakeTimer = -1;
-        this.wakeShockwave = 0;
       }
     }
 
