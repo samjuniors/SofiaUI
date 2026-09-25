@@ -9,3 +9,4 @@ sofia/
 dist/
 artifacts/
 screenshots/*.png
+.venv
