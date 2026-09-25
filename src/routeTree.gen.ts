@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiSophiaIndexRouteImport } from './routes/api/sophia/index'
+import { Route as ApiSophiaSplatRouteImport } from './routes/api/sophia/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSophiaIndexRoute = ApiSophiaIndexRouteImport.update({
+  id: '/api/sophia/',
+  path: '/api/sophia/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSophiaSplatRoute = ApiSophiaSplatRouteImport.update({
+  id: '/api/sophia/$',
+  path: '/api/sophia/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/sophia/$': typeof ApiSophiaSplatRoute
+  '/api/sophia/': typeof ApiSophiaIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/sophia/$': typeof ApiSophiaSplatRoute
+  '/api/sophia': typeof ApiSophiaIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/sophia/$': typeof ApiSophiaSplatRoute
+  '/api/sophia/': typeof ApiSophiaIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/sophia/$' | '/api/sophia/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/sophia/$' | '/api/sophia'
+  id: '__root__' | '/' | '/api/sophia/$' | '/api/sophia/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiSophiaSplatRoute: typeof ApiSophiaSplatRoute
+  ApiSophiaIndexRoute: typeof ApiSophiaIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/sophia/': {
+      id: '/api/sophia/'
+      path: '/api/sophia'
+      fullPath: '/api/sophia/'
+      preLoaderRoute: typeof ApiSophiaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/sophia/$': {
+      id: '/api/sophia/$'
+      path: '/api/sophia/$'
+      fullPath: '/api/sophia/$'
+      preLoaderRoute: typeof ApiSophiaSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiSophiaSplatRoute: ApiSophiaSplatRoute,
+  ApiSophiaIndexRoute: ApiSophiaIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

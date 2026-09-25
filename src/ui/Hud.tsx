@@ -261,13 +261,12 @@ export function Dock({
 
       {/* Main Microphone Button — polished toggle for active vs paused/disabled system */}
       <button
-        ref={micRef}
         type="button"
         aria-label={micLabel}
         aria-pressed={!isMicDisabled}
         title={micLabel}
         onClick={onMic}
-        className={`group relative grid size-[48px] place-items-center rounded-2xl border transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 active:scale-95 ${
+        className={`group relative grid size-[48px] place-items-center rounded-2xl border transition-all duration-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 active:scale-95 ${
           micError
             ? 'border-rose-500/50 bg-rose-500/[0.20] text-rose-100 shadow-[0_0_18px_rgba(244,63,94,0.40),inset_0_1px_0_rgba(255,255,255,0.18)] hover:border-rose-400 hover:bg-rose-500/[0.30] hover:text-white'
             : paused
@@ -288,25 +287,27 @@ export function Dock({
           <span className="absolute -right-0.5 -top-0.5 block size-[8px] rounded-full bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.9)]" />
         )}
 
-        {isMicDisabled ? (
-          <MicOff
-            size={22}
-            strokeWidth={2.2}
-            className={`transition-all duration-200 ${
-              micError
-                ? 'text-white drop-shadow-[0_0_6px_rgba(244,63,94,0.6)]'
-                : 'text-white/60 group-hover:text-white'
-            }`}
-            aria-hidden="true"
-          />
-        ) : (
-          <Mic
-            size={22}
-            strokeWidth={2.2}
-            className="text-sky-200 transition-all duration-200 group-hover:scale-105 group-hover:text-white"
-            aria-hidden="true"
-          />
-        )}
+        <div className="relative z-10 transition-transform duration-300 group-hover:scale-110">
+          {isMicDisabled ? (
+            <MicOff
+              size={22}
+              strokeWidth={2.2}
+              className={`transition-all duration-200 ${
+                micError
+                  ? 'text-white drop-shadow-[0_0_6px_rgba(244,63,94,0.6)]'
+                  : 'text-white/60 group-hover:text-white'
+              }`}
+              aria-hidden="true"
+            />
+          ) : (
+            <Mic
+              size={22}
+              strokeWidth={2.2}
+              className="text-sky-200 transition-all duration-200 group-hover:scale-105 group-hover:text-white"
+              aria-hidden="true"
+            />
+          )}
+        </div>
       </button>
     </div>
   );

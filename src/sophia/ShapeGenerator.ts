@@ -465,6 +465,21 @@ function sampleGlyph(ch: string, count: number, rng: () => number): Float32Array
   return out;
 }
 
+/** Jagged / Spiky shape for negative emotions or tension. */
+function sampleSpiky(count: number, rng: () => number): Float32Array {
+  const out = new Float32Array(count * 2);
+  for (let i = 0; i < count; i++) {
+    const th = rng() * TAU;
+    const rBase = 0.85;
+    // create sharp spikes by modulating radius with high-frequency noise
+    const spike = Math.sin(th * 8) * 0.2 + Math.cos(th * 14) * 0.1 + (rng() - 0.5) * 0.2;
+    const r = rBase + spike;
+    out[i * 2] = Math.cos(th) * r;
+    out[i * 2 + 1] = Math.sin(th) * r;
+  }
+  return out;
+}
+
 export const ShapeGenerator = {
   /** `count` target points (object space, y up) for a shape, relative to the live form. */
   createTargets(shape: SophiaShape, count: number, form: SophiaForm = 'sphere'): Float32Array {
@@ -505,6 +520,8 @@ export const ShapeGenerator = {
         return sampleDissolve(count, rng);
       case 'face':
         return sampleFace(count, rng);
+      case 'spiky':
+        return sampleSpiky(count, rng);
       case 'letter-z':
         return sampleGlyph('Z', count, rng);
       case 'letter-s':

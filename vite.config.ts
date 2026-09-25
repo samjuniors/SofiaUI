@@ -142,6 +142,89 @@ function authPopupPlugin(): Plugin {
   };
 }
 
+function sophiaApiPlugin(): Plugin {
+  return {
+    name: "app-builder:sophia-api",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        try {
+          const rawUrl = req.url ?? "";
+          const pathOnly = rawUrl.split("?", 1)[0] ?? "";
+          if (!pathOnly.startsWith("/api/sophia")) {
+            next();
+            return;
+          }
+
+          const host = String(
+            req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost:8080",
+          );
+          const proto = String(
+            req.headers["x-forwarded-proto"] ??
+              ((req.socket as { encrypted?: boolean } | undefined)?.encrypted ? "https" : "http"),
+          );
+          const requestHeaders = new Headers();
+          for (const [key, value] of Object.entries(req.headers)) {
+            if (value === undefined) continue;
+            if (Array.isArray(value)) {
+              for (const v of value) requestHeaders.append(key, v);
+            } else {
+              requestHeaders.set(key, value);
+            }
+          }
+
+          let body: Buffer | undefined;
+          if (req.method && !["GET", "HEAD"].includes(req.method.toUpperCase())) {
+            const chunks: Buffer[] = [];
+            for await (const chunk of req) {
+              chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+            }
+            body = Buffer.concat(chunks);
+          }
+
+          const request = new Request(`${proto}://${host}${rawUrl}`, {
+            method: req.method ?? "GET",
+            headers: requestHeaders,
+            body,
+            // @ts-expect-error duplex needed for node fetch with body
+            duplex: body ? "half" : undefined,
+          });
+
+          const mod = (await server.ssrLoadModule("/src/lib/sophia-server.ts")) as {
+            handleSophiaRequest: (req: Request) => Promise<Response>;
+          };
+          const response = await mod.handleSophiaRequest(request);
+
+          res.statusCode = response.status;
+          response.headers.forEach((value, key) => {
+            res.setHeader(key, value);
+          });
+
+          if (response.body) {
+            const reader = response.body.getReader();
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              if (value) res.write(Buffer.from(value));
+            }
+            res.end();
+          } else {
+            res.end();
+          }
+        } catch (err) {
+          console.error("[app-builder] /api/sophia handler failed:", err);
+          if (!res.headersSent) {
+            res.statusCode = 500;
+            res.setHeader("content-type", "application/json");
+            res.end(JSON.stringify({ error: "server-error", message: (err as Error).message }));
+          }
+        }
+      });
+    },
+  };
+}
+
+
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
@@ -161,6 +244,8 @@ export default defineConfig(({ command, isPreview }) => ({
     pgliteBootstrapPlugin(),
     // Before tanstackStart so /auth/popup never falls through to the SPA.
     authPopupPlugin(),
+    // Sophia OS voice/brain/TTS server API proxy
+    sophiaApiPlugin(),
     // Dev-only /__app-env, read by scripts/check-auth-invariant.mjs.
     appEnvPlugin(),
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.

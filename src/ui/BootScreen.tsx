@@ -36,7 +36,7 @@ export function BootScreen({ os, onEnter }: { os: SophiaOS; onEnter: () => void 
 
   return (
     <div
-      className="boot-screen absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#04060f]/72 backdrop-blur-[10px]"
+      className="boot-screen absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#04060f] transition-all duration-1000 ease-in-out"
       role="dialog"
       aria-label="Sophia boot"
     >
@@ -50,9 +50,11 @@ export function BootScreen({ os, onEnter }: { os: SophiaOS; onEnter: () => void 
         <h1 className="mt-3 text-[clamp(28px,4vw,42px)] font-extralight tracking-[0.14em] text-white/92">
           Sophia
         </h1>
-        <p className="boot-hint mt-5 text-[12px] font-light tracking-[0.12em] text-white/50">{hint}</p>
+        <p className="boot-hint mt-5 text-[12px] font-light tracking-[0.12em] text-white/40 transition-all duration-500">
+          {hint}
+        </p>
         <span
-          className={`mt-8 h-px w-16 bg-gradient-to-r from-transparent via-sky-300/80 to-transparent ${
+          className={`mt-8 h-px w-16 bg-gradient-to-r from-transparent via-sky-300/80 to-transparent transition-all duration-1000 ${
             phase === 'init' ? 'boot-scan' : 'opacity-80'
           }`}
         />

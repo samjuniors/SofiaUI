@@ -225,7 +225,11 @@ export default function App() {
       {chatOpen && voiceUnavailable && (
         <ChatPanel status={status} onClose={() => setChatOpen(false)} onSend={(t) => os.sendText(t)} />
       )}
-      {!booted && <BootScreen os={os} onEnter={() => setBooted(true)} />}
+      {!booted && (
+        <div className="absolute inset-0 z-50">
+          <BootScreen os={os} onEnter={() => setBooted(true)} />
+        </div>
+      )}
       {booted && settingsOpen && <SettingsSheet os={os} status={status} onClose={() => setSettingsOpen(false)} />}
       {booted && <Terminal os={os} open={terminalOpen} onToggle={() => setTerminalOpen((v) => !v)} />}
       {browserOpen && <BrowserPanel onClose={() => setBrowserOpen(false)} />}

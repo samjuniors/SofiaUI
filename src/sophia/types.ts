@@ -46,7 +46,7 @@ export interface SophiaEventDetail {
   source?: string;
 }
 
-export type VoiceProviderId = 'gemini-live' | 'deepgram';
+export type VoiceProviderId = 'gemini-live' | 'deepgram' | 'elevenlabs';
 
 /** Geometry the substance can become. Generated, never hand-animated. */
 export type SophiaShape =
@@ -68,6 +68,7 @@ export type SophiaShape =
   | 'merge'
   | 'dissolve'
   | 'face'
+  | 'spiky'
   | 'letter-z'
   | 'letter-s'
   | 'letter-a'

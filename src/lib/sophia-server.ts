@@ -1,31 +1,37 @@
 /**
  * Sophia — server reference handlers.
  *
- *   POST /api/sophia/live/session  → Gemini Live ephemeral token
- *   POST /api/sophia/dg/session    → Deepgram grant token
- *   POST /api/sophia/chat          → LLM brain (xAI Grok → Gemini text)
- *   POST /api/sophia/dg/speak      → Deepgram Aura TTS stream
- *   GET  /api/sophia/status        → which backends are configured (no secrets)
+ *   POST /api/sophia/live/session      → Gemini Live ephemeral token
+ *   POST /api/sophia/dg/session        → Deepgram grant token
+ *   POST /api/sophia/chat              → LLM brain (Gemini / Grok / Claude / OpenAI / Ollama / LM Studio)
+ *   POST /api/sophia/dg/speak          → Deepgram Aura TTS stream
+ *   POST /api/sophia/elevenlabs/speak  → ElevenLabs high-fidelity TTS stream
+ *   GET  /api/sophia/elevenlabs/voices → ElevenLabs available voices list
+ *   GET  /api/sophia/status            → which backends & models are configured
  */
 
 import { ALL_SHAPES, SOPHIA_SYSTEM } from "../sophia/control";
 
-const GEMINI_MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
+const GEMINI_MODEL = process.env.GEMINI_LIVE_MODEL?.trim() || "models/gemini-2.5-flash-native-audio-preview-12-2025";
 const GEMINI_TEXT_MODEL = "gemini-2.5-flash";
 const LIVE_WS =
   "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained";
 const GROK_MODEL = "grok-4.5";
+const CLAUDE_MODEL = "claude-3-5-sonnet-20241022";
+const OPENAI_MODEL = "gpt-4o";
 
 function key(name: string): string | undefined {
   const v = process.env[name]?.trim();
-  return v || undefined;
+  return v && v !== "your_xai_api_key_here" && v !== "your_claude_api_key_here" && v !== "your_openai_api_key_here"
+    ? v
+    : undefined;
 }
 
 const FUNCTION_DECLARATIONS = [
   {
     name: "transform_shape",
     description:
-      "Transform Sophia's physical substance into a requested geometry (sphere, ring, waveform, bow, torus, infinity, helix, hypercube, pyramid, star, galaxy, heart, shield, matrix, split, merge, dissolve, face, letter-z, letter-s, letter-a, letter-o).",
+      "Transform Sophia's physical substance into a requested geometry (sphere, ring, waveform, bow, torus, infinity, helix, hypercube, pyramid, star, galaxy, heart, shield, matrix, split, merge, dissolve, face, spiky, letter-z, letter-s, letter-a, letter-o).",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -45,14 +51,37 @@ const json = (body: unknown, init: ResponseInit = {}) =>
 function statusPayload() {
   const gemini = Boolean(key("GOOGLE_API_KEY"));
   const deepgram = Boolean(key("DEEPGRAM_API_KEY"));
+  const elevenlabs = Boolean(key("ELEVENLABS_API_KEY"));
   const xai = Boolean(key("XAI_API_KEY"));
-  const brain = xai ? "xai" : gemini ? "gemini" : "none";
+  const anthropic = Boolean(key("ANTHROPIC_API_KEY"));
+  const openai = Boolean(key("OPENAI_API_KEY"));
+  const brainMode = process.env.SOPHIA_BRAIN_MODE?.trim() || "auto";
+
   return {
     gemini,
     deepgram,
-    brain,
-    voice: gemini || deepgram,
-    ok: gemini || deepgram,
+    elevenlabs,
+    xai,
+    anthropic,
+    openai,
+    ollama: {
+      configured: true,
+      baseUrl: process.env.OLLAMA_BASE_URL?.trim() || "http://localhost:11434",
+      model: process.env.OLLAMA_MODEL?.trim() || "llama3.2",
+    },
+    lmstudio: {
+      configured: true,
+      baseUrl: process.env.LMSTUDIO_BASE_URL?.trim() || "http://localhost:1234/v1",
+      model: process.env.LMSTUDIO_MODEL?.trim() || "local-model",
+    },
+    configuredVoiceId:
+      process.env.ELEVENLABS_VOICE_ID?.trim() ||
+      process.env.SOPHIA_VOICE_ID?.trim() ||
+      "bMxLr8fP6hzNRRi9nJxU",
+    configuredDeepgramVoice: process.env.DEEPGRAM_VOICE_MODEL?.trim() || "aura-2-thalia-en",
+    defaultBrainMode: brainMode,
+    voice: gemini || deepgram || elevenlabs,
+    ok: gemini || deepgram || elevenlabs,
   };
 }
 
@@ -66,18 +95,20 @@ async function liveSession(req: Request): Promise<Response> {
     /* empty body is fine */
   }
   const now = Date.now();
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/authTokens?key=${apiKey}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/auth_tokens?key=${apiKey}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      authToken: {
-        uses: 1,
-        expireTime: new Date(now + 30 * 60_000).toISOString(),
-        newSessionExpireTime: new Date(now + 90_000).toISOString(),
-      },
+      uses: 1,
+      expireTime: new Date(now + 30 * 60_000).toISOString(),
+      newSessionExpireTime: new Date(now + 90_000).toISOString(),
     }),
   });
-  if (!res.ok) return json({ error: `authTokens:${res.status}` }, { status: 502 });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    console.error("[sophia-server] auth_tokens failed:", res.status, errText);
+    return json({ error: `auth_tokens:${res.status}`, details: errText }, { status: 502 });
+  }
   const data = (await res.json()) as { name?: string };
   if (!data.name) return json({ error: "no token issued" }, { status: 502 });
   return json({ token: data.name, model: GEMINI_MODEL, wsUrl: LIVE_WS, voice });
@@ -97,12 +128,17 @@ async function deepgramSession(): Promise<Response> {
   return json({ key: data.access_token });
 }
 
-type ChatBody = {
+export type ChatBody = {
   lastUser: string;
   history: Array<{ role: string; text: string; final: boolean }>;
+  brainMode?: "auto" | "gemini" | "grok" | "claude" | "openai" | "ollama" | "lmstudio" | "local";
+  ollamaUrl?: string;
+  ollamaModel?: string;
+  lmStudioUrl?: string;
+  lmStudioModel?: string;
 };
 
-async function chatWithGrok(body: ChatBody, apiKey: string): Promise<Response | null> {
+function formatOpenAIMessages(body: ChatBody) {
   const messages: Array<{ role: string; content: string }> = [
     { role: "system", content: SOPHIA_SYSTEM },
   ];
@@ -115,51 +151,172 @@ async function chatWithGrok(body: ChatBody, apiKey: string): Promise<Response | 
   if (!messages.some((m) => m.role === "user" && m.content === body.lastUser)) {
     messages.push({ role: "user", content: body.lastUser });
   }
-  const res = await fetch("https://api.x.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${apiKey}`,
+  return messages;
+}
+
+const OPENAI_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "transform_shape",
+      description: FUNCTION_DECLARATIONS[0].description,
+      parameters: {
+        type: "object",
+        properties: {
+          shape: { type: "string", enum: [...ALL_SHAPES] },
+        },
+        required: ["shape"],
+      },
     },
-    body: JSON.stringify({
-      model: GROK_MODEL,
-      max_tokens: 220,
-      temperature: 0.7,
-      messages,
-      tools: [
-        {
-          type: "function",
-          function: {
+  },
+];
+
+async function chatWithOpenAICompatible(
+  body: ChatBody,
+  endpoint: string,
+  headers: Record<string, string>,
+  model: string,
+  brainId: string,
+): Promise<Response | null> {
+  const messages = formatOpenAIMessages(body);
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({
+        model,
+        max_tokens: 220,
+        temperature: 0.7,
+        messages,
+        tools: OPENAI_TOOLS,
+      }),
+    });
+    if (!res.ok) {
+      // Fallback without tools if model doesn't support tools
+      const fallbackRes = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...headers },
+        body: JSON.stringify({
+          model,
+          max_tokens: 220,
+          temperature: 0.7,
+          messages,
+        }),
+      });
+      if (!fallbackRes.ok) return null;
+      const data = (await fallbackRes.json()) as any;
+      const content = data.choices?.[0]?.message?.content ?? "";
+      return json({ text: content.trim(), toolCalls: [], brain: brainId });
+    }
+    const data = (await res.json()) as any;
+    const msg = data.choices?.[0]?.message;
+    const toolCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+    for (const tc of msg?.tool_calls ?? []) {
+      if (!tc.function?.name) continue;
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(tc.function.arguments || "{}");
+      } catch {
+        args = {};
+      }
+      toolCalls.push({ name: tc.function.name, args });
+    }
+    return json({ text: (msg?.content ?? "").trim(), toolCalls, brain: brainId });
+  } catch (err) {
+    console.error(`[sophia-server] ${brainId} chat failed:`, err);
+    return null;
+  }
+}
+
+async function chatWithGrok(body: ChatBody, apiKey: string): Promise<Response | null> {
+  return chatWithOpenAICompatible(
+    body,
+    "https://api.x.ai/v1/chat/completions",
+    { authorization: `Bearer ${apiKey}` },
+    GROK_MODEL,
+    "xai",
+  );
+}
+
+async function chatWithOpenAI(body: ChatBody, apiKey: string): Promise<Response | null> {
+  return chatWithOpenAICompatible(
+    body,
+    "https://api.openai.com/v1/chat/completions",
+    { authorization: `Bearer ${apiKey}` },
+    OPENAI_MODEL,
+    "openai",
+  );
+}
+
+async function chatWithClaude(body: ChatBody, apiKey: string): Promise<Response | null> {
+  const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
+  for (const t of body.history.filter((x) => x.final && x.role !== "system")) {
+    messages.push({
+      role: t.role === "sophia" ? "assistant" : "user",
+      content: t.text,
+    });
+  }
+  if (!messages.some((m) => m.role === "user" && m.content === body.lastUser)) {
+    messages.push({ role: "user", content: body.lastUser });
+  }
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 220,
+        system: SOPHIA_SYSTEM,
+        messages,
+        tools: [
+          {
             name: "transform_shape",
             description: FUNCTION_DECLARATIONS[0].description,
-            parameters: FUNCTION_DECLARATIONS[0].parameters,
+            input_schema: {
+              type: "object",
+              properties: {
+                shape: { type: "string", enum: [...ALL_SHAPES] },
+              },
+              required: ["shape"],
+            },
           },
-        },
-      ],
-    }),
-  });
-  if (!res.ok) return null;
-  const data = (await res.json()) as {
-    choices?: Array<{
-      message?: {
-        content?: string | null;
-        tool_calls?: Array<{ function?: { name?: string; arguments?: string } }>;
-      };
-    }>;
-  };
-  const msg = data.choices?.[0]?.message;
-  const toolCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
-  for (const tc of msg?.tool_calls ?? []) {
-    if (!tc.function?.name) continue;
-    let args: Record<string, unknown> = {};
-    try {
-      args = JSON.parse(tc.function.arguments || "{}") as Record<string, unknown>;
-    } catch {
-      args = {};
+        ],
+      }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as any;
+    let text = "";
+    const toolCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+    for (const block of data.content ?? []) {
+      if (block.type === "text") text += block.text;
+      if (block.type === "tool_use" && block.name === "transform_shape") {
+        toolCalls.push({ name: block.name, args: block.input ?? {} });
+      }
     }
-    toolCalls.push({ name: tc.function.name, args });
+    return json({ text: text.trim(), toolCalls, brain: "claude" });
+  } catch (err) {
+    console.error("[sophia-server] Claude chat failed:", err);
+    return null;
   }
-  return json({ text: (msg?.content ?? "").trim(), toolCalls, brain: "xai" });
+}
+
+async function chatWithOllama(body: ChatBody): Promise<Response | null> {
+  const baseUrl = (body.ollamaUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
+  const model = body.ollamaModel || process.env.OLLAMA_MODEL || "llama3.2";
+  const endpoint = `${baseUrl}/v1/chat/completions`;
+  return chatWithOpenAICompatible(body, endpoint, {}, model, "ollama");
+}
+
+async function chatWithLMStudio(body: ChatBody): Promise<Response | null> {
+  const baseUrl = (body.lmStudioUrl || process.env.LMSTUDIO_BASE_URL || "http://localhost:1234/v1").replace(/\/$/, "");
+  const model = body.lmStudioModel || process.env.LMSTUDIO_MODEL || "local-model";
+  const endpoint = `${baseUrl}/chat/completions`;
+  return chatWithOpenAICompatible(body, endpoint, {}, model, "lmstudio");
 }
 
 async function chatWithGemini(body: ChatBody, apiKey: string): Promise<Response> {
@@ -198,20 +355,89 @@ async function chatWithGemini(body: ChatBody, apiKey: string): Promise<Response>
 
 async function chat(req: Request): Promise<Response> {
   const body = (await req.json()) as ChatBody;
+  const requestedMode = body.brainMode || process.env.SOPHIA_BRAIN_MODE || "auto";
+
+  // Explicit modes
+  if (requestedMode === "ollama") {
+    const res = await chatWithOllama(body);
+    if (res) return res;
+    return json({ error: "Ollama not reachable at configured endpoint" }, { status: 502 });
+  }
+  if (requestedMode === "lmstudio" || requestedMode === "local") {
+    const res = await chatWithLMStudio(body);
+    if (res) return res;
+    return json({ error: "LM Studio not reachable at configured endpoint" }, { status: 502 });
+  }
+  if (requestedMode === "claude") {
+    const anthropicKey = key("ANTHROPIC_API_KEY");
+    if (!anthropicKey) return json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 503 });
+    const res = await chatWithClaude(body, anthropicKey);
+    if (res) return res;
+  }
+  if (requestedMode === "openai") {
+    const openAiKey = key("OPENAI_API_KEY");
+    if (!openAiKey) return json({ error: "OPENAI_API_KEY not configured" }, { status: 503 });
+    const res = await chatWithOpenAI(body, openAiKey);
+    if (res) return res;
+  }
+  if (requestedMode === "grok" || requestedMode === "xai") {
+    const xai = key("XAI_API_KEY");
+    if (xai) {
+      const grok = await chatWithGrok(body, xai);
+      if (grok) return grok;
+    }
+  }
+  if (requestedMode === "gemini") {
+    const gemini = key("GOOGLE_API_KEY");
+    if (gemini) return chatWithGemini(body, gemini);
+  }
+
+  // Auto fallback priority chain
+  const gemini = key("GOOGLE_API_KEY");
+  if (gemini) {
+    const r = await chatWithGemini(body, gemini);
+    if (r.ok) return r;
+  }
+
   const xai = key("XAI_API_KEY");
   if (xai) {
     const grok = await chatWithGrok(body, xai);
     if (grok) return grok;
   }
-  const gemini = key("GOOGLE_API_KEY");
-  if (gemini) return chatWithGemini(body, gemini);
-  return json({ error: "no LLM brain configured (XAI_API_KEY or GOOGLE_API_KEY)" }, { status: 503 });
+
+  const anthropic = key("ANTHROPIC_API_KEY");
+  if (anthropic) {
+    const claude = await chatWithClaude(body, anthropic);
+    if (claude) return claude;
+  }
+
+  const openai = key("OPENAI_API_KEY");
+  if (openai) {
+    const oai = await chatWithOpenAI(body, openai);
+    if (oai) return oai;
+  }
+
+  // Try local Ollama if running
+  const ollama = await chatWithOllama(body);
+  if (ollama) return ollama;
+
+  // Try local LM Studio if running
+  const lmstudio = await chatWithLMStudio(body);
+  if (lmstudio) return lmstudio;
+
+  return json(
+    { error: "No LLM brain responded. Check GOOGLE_API_KEY, XAI_API_KEY, or local Ollama/LM Studio." },
+    { status: 503 },
+  );
 }
 
 async function deepgramSpeak(req: Request): Promise<Response> {
   const apiKey = key("DEEPGRAM_API_KEY");
   if (!apiKey) return json({ error: "DEEPGRAM_API_KEY not configured" }, { status: 503 });
-  const { text, voice = "aura-2-thalia-en" } = (await req.json()) as { text: string; voice?: string };
+  const { text, voice = process.env.DEEPGRAM_VOICE_MODEL || "aura-2-thalia-en" } = (await req.json()) as {
+    text: string;
+    voice?: string;
+  };
   const res = await fetch(`https://api.deepgram.com/v1/speak?model=${encodeURIComponent(voice)}`, {
     method: "POST",
     headers: { authorization: `Token ${apiKey}`, "content-type": "application/json" },
@@ -223,12 +449,104 @@ async function deepgramSpeak(req: Request): Promise<Response> {
   });
 }
 
+async function elevenLabsSpeak(req: Request): Promise<Response> {
+  const apiKey = key("ELEVENLABS_API_KEY");
+  if (!apiKey) return json({ error: "ELEVENLABS_API_KEY not configured" }, { status: 503 });
+
+  const {
+    text,
+    voiceId = process.env.ELEVENLABS_VOICE_ID || process.env.SOPHIA_VOICE_ID || "bMxLr8fP6hzNRRi9nJxU",
+    modelId = process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2_5",
+  } = (await req.json()) as {
+    text: string;
+    voiceId?: string;
+    modelId?: string;
+  };
+
+  if (!text?.trim()) {
+    return json({ error: "Text is required for TTS" }, { status: 400 });
+  }
+
+  const endpoint = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream?output_format=mp3_44100_128`;
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "xi-api-key": apiKey,
+      "content-type": "application/json",
+      accept: "audio/mpeg",
+    },
+    body: JSON.stringify({
+      text,
+      model_id: modelId,
+      voice_settings: {
+        stability: 0.5,
+        similarity_boost: 0.75,
+        style: 0.0,
+        use_speaker_boost: true,
+      },
+    }),
+  });
+
+  if (!res.ok || !res.body) {
+    const errText = await res.text().catch(() => "");
+    console.error(`[sophia-server] ElevenLabs speak error ${res.status}:`, errText);
+    return json({ error: `elevenlabs-speak:${res.status}`, details: errText }, { status: 502 });
+  }
+
+  return new Response(res.body, {
+    headers: {
+      "content-type": res.headers.get("content-type") ?? "audio/mpeg",
+      "transfer-encoding": "chunked",
+    },
+  });
+}
+
+async function elevenLabsVoices(): Promise<Response> {
+  const apiKey = key("ELEVENLABS_API_KEY");
+  if (!apiKey) {
+    return json({
+      voices: [
+        { voice_id: "bMxLr8fP6hzNRRi9nJxU", name: "Sophia Custom (.env)" },
+        { voice_id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel (Calm & Professional)" },
+        { voice_id: "pNInz6obpgSf9S9P369C", name: "Adam (Warm & Deep)" },
+        { voice_id: "piTKgcLEGmPE4e6mEKli", name: "Nicole (Whispering & Soft)" },
+        { voice_id: "XB0fDUnXU5powFXDhCwa", name: "Charlotte (Expressive & Elegant)" },
+        { voice_id: "JBFqnCBsd6RMkjVDRZzb", name: "George (British Accent)" },
+      ],
+    });
+  }
+
+  try {
+    const res = await fetch("https://api.elevenlabs.io/v1/voices", {
+      headers: { "xi-api-key": apiKey },
+    });
+    if (!res.ok) throw new Error(`voices-fetch:${res.status}`);
+    const data = (await res.json()) as { voices?: Array<{ voice_id: string; name: string; category?: string }> };
+    return json({ voices: data.voices ?? [] });
+  } catch (err) {
+    console.warn("[sophia-server] Failed to fetch ElevenLabs voices, returning presets:", err);
+    return json({
+      voices: [
+        { voice_id: "bMxLr8fP6hzNRRi9nJxU", name: "Sophia Custom (.env)" },
+        { voice_id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel (Calm & Professional)" },
+        { voice_id: "pNInz6obpgSf9S9P369C", name: "Adam (Warm & Deep)" },
+        { voice_id: "piTKgcLEGmPE4e6mEKli", name: "Nicole (Whispering & Soft)" },
+        { voice_id: "XB0fDUnXU5powFXDhCwa", name: "Charlotte (Expressive & Elegant)" },
+        { voice_id: "JBFqnCBsd6RMkjVDRZzb", name: "George (British Accent)" },
+      ],
+    });
+  }
+}
+
 export async function handleSophiaRequest(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname.replace(/^.*\/api\/sophia/, "") || "/";
 
   if (req.method === "GET" && (path === "/" || path === "/status" || path === "")) {
     return json(statusPayload());
+  }
+  if (req.method === "GET" && path === "/elevenlabs/voices") {
+    return elevenLabsVoices();
   }
   if (req.method !== "POST") return json({ error: "method" }, { status: 405 });
 
@@ -241,6 +559,10 @@ export async function handleSophiaRequest(req: Request): Promise<Response> {
       return chat(req);
     case "/dg/speak":
       return deepgramSpeak(req);
+    case "/elevenlabs/speak":
+      return elevenLabsSpeak(req);
+    case "/elevenlabs/voices":
+      return elevenLabsVoices();
     default:
       return json({ error: "not-found", path }, { status: 404 });
   }

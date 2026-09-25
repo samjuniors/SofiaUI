@@ -44,7 +44,10 @@ export class GeminiLiveProvider extends VoiceProvider {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ voice: controlLayer.voiceName }),
     });
-    if (!res.ok) throw new Error(`live-session:${res.status}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(`live-session:${res.status}${err.error ? ` (${err.error})` : ''}`);
+    }
     const ticket = (await res.json()) as LiveSessionTicket;
 
     await new Promise<void>((resolve, reject) => {
@@ -147,7 +150,7 @@ export class GeminiLiveProvider extends VoiceProvider {
             const level = this.audio.playPCM24(base64Decode(inline.data));
             this.emit('audio_chunk', { level, source: this.id });
           }
-          if (typeof p.text === 'string' && p.text.trim()) {
+          if (typeof p.text === 'string' && p.text.trim() && !p.thought) {
             this.outBuf += p.text;
             controlLayer.addSophiaTurn(this.outBuf, false);
             this.emit('transcript', { role: 'sophia', text: this.outBuf, final: false, source: this.id });
@@ -239,7 +242,7 @@ export class GeminiLiveProvider extends VoiceProvider {
     this.emit('thinking', { source: this.id });
     this.ws.send(
       JSON.stringify({
-        clientContent: { turns: [{ role: 'user', parts: [{ text }] }], turnComplete: true },
+        realtimeInput: { text },
       }),
     );
   }

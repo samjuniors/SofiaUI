@@ -1,9 +1,12 @@
+import { createFileRoute } from "@tanstack/react-router";
 import { handleSophiaRequest } from "@/lib/sophia-server";
 
-export async function GET(req: Request) {
-  return handleSophiaRequest(req);
-}
+export const Route = createFileRoute("/api/sophia/")({
+  server: {
+    handlers: {
+      GET: ({ request }) => handleSophiaRequest(request),
+      POST: ({ request }) => handleSophiaRequest(request),
+    },
+  },
+});
 
-export async function POST(req: Request) {
-  return handleSophiaRequest(req);
-}

@@ -140,7 +140,15 @@ export class DeepgramVoiceProvider extends VoiceProvider {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         signal: ctl.signal,
-        body: JSON.stringify({ lastUser: text, history: controlLayer.history.slice(-16) }),
+        body: JSON.stringify({
+          lastUser: text,
+          history: controlLayer.history.slice(-16),
+          brainMode: controlLayer.brainMode,
+          ollamaModel: controlLayer.ollamaModel,
+          ollamaUrl: controlLayer.ollamaUrl,
+          lmStudioModel: controlLayer.lmStudioModel,
+          lmStudioUrl: controlLayer.lmStudioUrl,
+        }),
       });
       if (!res.ok) throw new Error(`chat:${res.status}`);
       const out = (await res.json()) as {
@@ -167,15 +175,34 @@ export class DeepgramVoiceProvider extends VoiceProvider {
 
   private async speak(text: string, signal: AbortSignal) {
     this.emit('response_started', { source: this.id });
-    const res = await fetch('/api/sophia/dg/speak', {
+
+    const useElevenLabs = controlLayer.mouthProvider === 'elevenlabs';
+    const primaryUrl = useElevenLabs ? '/api/sophia/elevenlabs/speak' : '/api/sophia/dg/speak';
+    const primaryBody = useElevenLabs
+      ? { text, voiceId: controlLayer.elevenLabsVoiceId, modelId: controlLayer.elevenLabsModelId }
+      : { text, voice: controlLayer.dgVoice };
+
+    let res = await fetch(primaryUrl, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       signal,
-      body: JSON.stringify({ text, voice: controlLayer.dgVoice }),
+      body: JSON.stringify(primaryBody),
     });
+
+    // Graceful fallback to Deepgram if ElevenLabs encounters an issue
+    if (!res.ok && useElevenLabs) {
+      console.warn('[sophia] ElevenLabs speak returned error, falling back to Deepgram Aura');
+      res = await fetch('/api/sophia/dg/speak', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        signal,
+        body: JSON.stringify({ text, voice: controlLayer.dgVoice }),
+      });
+    }
+
     if (!res.ok || !res.body) {
       this.busy = false;
-      this.emit('error', { code: 'dg-speak', source: this.id });
+      this.emit('error', { code: 'tts-speak', source: this.id });
       return;
     }
     this.speaking = true;

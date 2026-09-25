@@ -1,25 +1,25 @@
 /**
- * SettingsSheet — full control over Sophia's physical substance.
+ * SettingsSheet — full control over Sophia's physical substance, voice, and brain.
  *
  * Includes:
- *   - Collapsible sections for organized, clutter-free navigation
+ *   - Voice & Mouth Provider: ElevenLabs (High-Fidelity) vs Deepgram Aura (Fast)
+ *   - Multiple Voice ID options: Presets, .env configured voice, and custom Voice ID input
+ *   - Multi-Brain & Local LLMs: Ollama (Local), LM Studio (Local), Gemini, Grok, Claude, OpenAI
  *   - Display style: [ Full (Rim + Glow) ] vs [ Only Particles ]
  *   - Form: [ Sphere ] vs [ Ring ]
  *   - Interactive State triggers: Idle, Listening, Thinking, Speaking, Rendering, Ambient
  *   - Audio Agent Shape gallery: Waveform, Torus, Infinity, Helix, Hypercube,
- *     Pyramid, Star, Galaxy, Heart, Shield, Matrix, Split, Face, Glyphs, etc.
- *   - Detailed shape corrections: size, rim, glow, color hue, saturation, particle scale, sparkle
- *   - Atmosphere & Dust motes controls
+ *     Pyramid, Star, Galaxy, Heart, Shield, Matrix, Split, Spiky, Face, Glyphs, etc.
  *   - Save as Default and Reset to Factory Settings
  */
 
-import { Bookmark, Check, ChevronDown, RotateCcw, X } from 'lucide-react';
+import { Bookmark, Check, ChevronDown, RotateCcw, X, Mic, Brain, Sparkles, Volume2, Cpu } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { DensityPref, OSStatus, ProviderPref, SophiaOS } from '../sophia/SophiaOS';
 import { DEFAULT_TUNE, type ShapeTune } from '../sophia/VisualDirector';
 import type { SophiaForm } from '../sophia/ShapeGenerator';
 import type { SophiaShape, SophiaStateName } from '../sophia/types';
-import { ALL_SHAPES } from '../sophia/control';
+import { ALL_SHAPES, controlLayer } from '../sophia/control';
 
 function SegRow<T extends string>({
   label,
@@ -35,13 +35,13 @@ function SegRow<T extends string>({
   return (
     <div>
       <p className="mb-2 text-[9px] font-normal uppercase tracking-[0.24em] text-white/40">{label}</p>
-      <div className="flex overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] p-0.5">
+      <div className="flex flex-wrap overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] p-0.5">
         {options.map((o) => (
           <button
             key={o.id}
             type="button"
             onClick={() => onChange(o.id)}
-            className={`h-7 flex-1 rounded-lg text-[9.5px] font-normal tracking-[0.1em] transition-all duration-200 ${
+            className={`h-7 min-w-[70px] flex-1 rounded-lg text-[9px] font-normal tracking-[0.08em] transition-all duration-200 ${
               value === o.id
                 ? 'border border-sky-400/30 bg-sky-400/[0.18] text-sky-100 shadow-[inset_0_0_10px_rgba(56,189,248,0.18)]'
                 : 'text-white/45 hover:text-white/80'
@@ -59,20 +59,20 @@ function ToggleRow({
   label,
   hint,
   on,
-  onChange,
   disabled,
+  onChange,
 }: {
   label: string;
-  hint: string;
+  hint?: string;
   on: boolean;
-  onChange: (on: boolean) => void;
   disabled?: boolean;
+  onChange: (on: boolean) => void;
 }) {
   return (
-    <div className={`flex items-center justify-between ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
+    <div className={`flex items-center justify-between ${disabled ? 'opacity-40' : ''}`}>
       <div>
-        <p className="text-[11px] font-normal tracking-wide text-white/90">{label}</p>
-        <p className="text-[9.5px] font-light text-white/40">{hint}</p>
+        <p className="text-[10px] font-normal uppercase tracking-[0.2em] text-white/70">{label}</p>
+        {hint && <p className="text-[8.5px] font-light text-white/35">{hint}</p>}
       </div>
       <button
         type="button"
@@ -201,6 +201,7 @@ const SHAPE_LABELS: Record<SophiaShape, string> = {
   merge: 'Merge',
   dissolve: 'Dissolve',
   face: 'Face',
+  spiky: 'Spiky',
   'letter-z': 'Glyph Z',
   'letter-s': 'Glyph S',
   'letter-a': 'Glyph A',
@@ -276,6 +277,9 @@ function ShapeThumb({ shape }: { shape: SophiaShape }) {
           <path d="M9 14.5c1.5 1.2 4.5 1.2 6 0" {...common} />
         </>
       )}
+      {shape === 'spiky' && (
+        <path d="M12 3l2 5 5-2-2 5 5 2-5 2 2 5-5-2-2 5-2-5-5 2 2-5-5-2 5-2-2-5 5 2z" {...common} />
+      )}
       {shape.startsWith('letter-') && (
         <text x="12" y="16.5" textAnchor="middle" fontSize="11" fill={stroke} fontFamily="Inter, sans-serif">
           {shape.slice(-1).toUpperCase()}
@@ -286,13 +290,44 @@ function ShapeThumb({ shape }: { shape: SophiaShape }) {
 }
 
 const STATUS_LABEL: Record<OSStatus, string> = {
-  idle: 'ambient — idle',
-  connecting: 'opening session…',
-  live: 'live session',
-  offline: 'providers offline (check server)',
-  denied: 'microphone permission denied',
-  error: 'voice backend unavailable / key missing',
+  idle: 'Standby · Audio sleeping',
+  connecting: 'Connecting voice session…',
+  live: 'Live · Full duplex audio active',
+  offline: 'Offline · Local fallback ready',
+  denied: 'Microphone blocked by browser',
+  error: 'Voice transport failed',
 };
+
+const DEFAULT_ELEVENLABS_VOICES = [
+  { id: 'bMxLr8fP6hzNRRi9nJxU', label: 'Sophia Custom (.env)' },
+  { id: '21m00Tcm4TlvDq8ikWAM', label: 'Rachel (Calm & Clear)' },
+  { id: 'pNInz6obpgSf9S9P369C', label: 'Adam (Warm & Deep)' },
+  { id: 'piTKgcLEGmPE4e6mEKli', label: 'Nicole (Soft Whisper)' },
+  { id: 'XB0fDUnXU5powFXDhCwa', label: 'Charlotte (Expressive)' },
+  { id: 'JBFqnCBsd6RMkjVDRZzb', label: 'George (British)' },
+  { id: 'custom', label: 'Custom Voice ID…' },
+];
+
+const DEEPGRAM_VOICES = [
+  { id: 'aura-2-thalia-en', label: 'Aura-2 Thalia (Natural)' },
+  { id: 'aura-2-asteria-en', label: 'Aura-2 Asteria (Warm)' },
+  { id: 'aura-2-luna-en', label: 'Aura-2 Luna (Calm)' },
+  { id: 'aura-2-stella-en', label: 'Aura-2 Stella (Friendly)' },
+  { id: 'aura-2-athena-en', label: 'Aura-2 Athena (Clear)' },
+  { id: 'aura-2-orion-en', label: 'Aura-2 Orion (Confident)' },
+  { id: 'aura-2-perseus-en', label: 'Aura-2 Perseus (Expressive)' },
+  { id: 'aura-2-helios-en', label: 'Aura-2 Helios (Deep)' },
+];
+
+const BRAIN_OPTIONS = [
+  { id: 'auto', label: 'Auto (Smart Fallback)' },
+  { id: 'ollama', label: 'Ollama (Local LLM)' },
+  { id: 'lmstudio', label: 'LM Studio (Local)' },
+  { id: 'gemini', label: 'Gemini 2.5 Flash' },
+  { id: 'grok', label: 'Grok 4.5 (xAI)' },
+  { id: 'claude', label: 'Claude 3.5 Sonnet' },
+  { id: 'openai', label: 'OpenAI GPT-4o' },
+];
 
 export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: OSStatus; onClose: () => void }) {
   const [, force] = useState(0);
@@ -302,8 +337,10 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
 
   // Collapsible accordion states
   const [sections, setSections] = useState({
-    form: true,
-    tuning: true,
+    voice: true,
+    brain: true,
+    form: false,
+    tuning: false,
     states: false,
     shapes: false,
     atmo: false,
@@ -315,6 +352,12 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
   };
 
   const [savedNotice, setSavedNotice] = useState(false);
+  const [serverStatus, setServerStatus] = useState<any>(null);
+  const [elevenVoices, setElevenVoices] = useState(DEFAULT_ELEVENLABS_VOICES);
+  const [customVoiceId, setCustomVoiceId] = useState(controlLayer.elevenLabsVoiceId);
+  const [isCustomSelected, setIsCustomSelected] = useState(
+    !DEFAULT_ELEVENLABS_VOICES.some((v) => v.id === controlLayer.elevenLabsVoiceId && v.id !== 'custom'),
+  );
 
   useEffect(() => {
     os.addEventListener('prefs', rerender);
@@ -324,6 +367,27 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
       os.removeEventListener('state', rerender);
     };
   }, [os]);
+
+  useEffect(() => {
+    fetch('/api/sophia/status')
+      .then((r) => r.json())
+      .then((data) => setServerStatus(data))
+      .catch(() => undefined);
+
+    fetch('/api/sophia/elevenlabs/voices')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data.voices) && data.voices.length > 0) {
+          const mapped = data.voices.map((v: any) => ({
+            id: v.voice_id,
+            label: `${v.name} (${v.voice_id.slice(0, 6)}…)`,
+          }));
+          mapped.push({ id: 'custom', label: 'Custom Voice ID…' });
+          setElevenVoices(mapped);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   const setTune = (patch: Partial<ShapeTune>) => os.savePrefs({ tune: { ...p.tune, ...patch } });
 
@@ -341,9 +405,31 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
     rerender();
   };
 
+  const handleVoiceSelect = (id: string) => {
+    if (id === 'custom') {
+      setIsCustomSelected(true);
+    } else {
+      setIsCustomSelected(false);
+      controlLayer.elevenLabsVoiceId = id;
+      controlLayer.saveControlPrefs();
+      rerender();
+    }
+  };
+
+  const handleCustomVoiceSubmit = (val: string) => {
+    const trimmed = val.trim();
+    setCustomVoiceId(trimmed);
+    if (trimmed) {
+      controlLayer.elevenLabsVoiceId = trimmed;
+      controlLayer.saveControlPrefs();
+      rerender();
+    }
+  };
+
   const handleSave = () => {
     try {
       localStorage.setItem('sophia:prefs', JSON.stringify(os.prefs));
+      controlLayer.saveControlPrefs();
       setSavedNotice(true);
       setTimeout(() => setSavedNotice(false), 2200);
     } catch {
@@ -353,6 +439,11 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
 
   const handleReset = () => {
     os.resetPrefs();
+    controlLayer.elevenLabsVoiceId = 'bMxLr8fP6hzNRRi9nJxU';
+    controlLayer.dgVoice = 'aura-2-thalia-en';
+    controlLayer.mouthProvider = 'elevenlabs';
+    controlLayer.brainMode = 'auto';
+    controlLayer.saveControlPrefs();
     rerender();
   };
 
@@ -361,12 +452,12 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
       <button aria-label="Close settings" className="fixed inset-0 z-10 cursor-default" onClick={onClose} />
       <section
         aria-label="Settings"
-        className="glass-panel panel-in panel-in-top-right fixed top-[70px] right-4 left-4 z-30 max-h-[calc(100vh-86px)] overflow-y-auto rounded-2xl p-4 sm:left-auto sm:right-11 sm:top-[76px] sm:w-[340px] sm:max-h-[calc(100vh-96px)]"
+        className="glass-panel panel-in panel-in-top-right fixed top-[70px] right-4 left-4 z-30 max-h-[calc(100vh-86px)] overflow-y-auto rounded-2xl p-4 sm:left-auto sm:right-11 sm:top-[76px] sm:w-[360px] sm:max-h-[calc(100vh-96px)]"
       >
         <div className="mb-3 flex items-center justify-between border-b border-white/[0.06] pb-2.5">
           <div className="flex items-center gap-2">
             <span className="block size-1.5 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.7)]" />
-            <p className="text-[10px] font-normal uppercase tracking-[0.28em] text-white/70">Settings & Controls</p>
+            <p className="text-[10px] font-normal uppercase tracking-[0.28em] text-white/70">Settings & Intelligence</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-2 py-0.5 font-mono text-[8.5px] uppercase tracking-wider text-sky-200">
@@ -384,6 +475,251 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
         </div>
 
         <div className="space-y-2">
+          {/* SENSE: EAR & MOUTH (VOICE) */}
+          <AccordionSection
+            title="Ear & Mouth (Voice System)"
+            badge={controlLayer.mouthProvider === 'elevenlabs' ? 'ElevenLabs' : 'Deepgram'}
+            isOpen={sections.voice}
+            onToggle={() => toggleSection('voice')}
+          >
+            {/* Hearing / Provider */}
+            <SegRow<ProviderPref>
+              label="Hearing & Voice Transport"
+              value={p.provider}
+              onChange={(provider) => os.savePrefs({ provider })}
+              options={[
+                { id: 'auto', label: 'Auto' },
+                { id: 'gemini-live', label: 'Gemini' },
+                { id: 'deepgram', label: 'Deepgram' },
+                { id: 'elevenlabs', label: 'ElevenLabs' },
+              ]}
+            />
+
+            {/* Speaking Mouth Engine */}
+            <div>
+              <p className="mb-2 text-[9px] font-normal uppercase tracking-[0.24em] text-white/40">Mouth TTS Engine</p>
+              <div className="flex overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] p-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    controlLayer.mouthProvider = 'elevenlabs';
+                    controlLayer.saveControlPrefs();
+                    rerender();
+                  }}
+                  className={`h-7 flex-1 rounded-lg text-[9.5px] font-normal tracking-[0.08em] transition-all duration-200 ${
+                    controlLayer.mouthProvider === 'elevenlabs'
+                      ? 'border border-sky-400/30 bg-sky-400/[0.18] text-sky-100 shadow-[inset_0_0_10px_rgba(56,189,248,0.18)]'
+                      : 'text-white/45 hover:text-white/80'
+                  }`}
+                >
+                  ElevenLabs (HD Voice)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    controlLayer.mouthProvider = 'deepgram';
+                    controlLayer.saveControlPrefs();
+                    rerender();
+                  }}
+                  className={`h-7 flex-1 rounded-lg text-[9.5px] font-normal tracking-[0.08em] transition-all duration-200 ${
+                    controlLayer.mouthProvider === 'deepgram'
+                      ? 'border border-sky-400/30 bg-sky-400/[0.18] text-sky-100 shadow-[inset_0_0_10px_rgba(56,189,248,0.18)]'
+                      : 'text-white/45 hover:text-white/80'
+                  }`}
+                >
+                  Deepgram Aura (Fast)
+                </button>
+              </div>
+            </div>
+
+            {/* ElevenLabs Voice Selection */}
+            {controlLayer.mouthProvider === 'elevenlabs' && (
+              <div className="space-y-2 rounded-xl border border-sky-500/20 bg-sky-950/15 p-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-sky-200/70">ElevenLabs Voice</span>
+                  <span className="font-mono text-[8px] text-sky-300/60">
+                    ID: {controlLayer.elevenLabsVoiceId.slice(0, 8)}…
+                  </span>
+                </div>
+
+                <select
+                  value={isCustomSelected ? 'custom' : controlLayer.elevenLabsVoiceId}
+                  onChange={(e) => handleVoiceSelect(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-[#080d1a] px-2.5 py-1.5 text-[11px] text-white/90 outline-none focus:border-sky-400"
+                >
+                  {elevenVoices.map((v) => (
+                    <option key={v.id} value={v.id} className="bg-[#080d1a] text-white">
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+
+                {isCustomSelected && (
+                  <div>
+                    <p className="mb-1 text-[8.5px] text-white/40">Custom ElevenLabs Voice ID</p>
+                    <input
+                      type="text"
+                      placeholder="Paste ElevenLabs Voice ID…"
+                      value={customVoiceId}
+                      onChange={(e) => handleCustomVoiceSubmit(e.target.value)}
+                      className="w-full rounded-lg border border-white/10 bg-[#080d1a] px-2.5 py-1 text-[11px] font-mono text-sky-200 placeholder:text-white/20 outline-none focus:border-sky-400"
+                    />
+                  </div>
+                )}
+
+                <SegRow<string>
+                  label="ElevenLabs Model"
+                  value={controlLayer.elevenLabsModelId}
+                  onChange={(m) => {
+                    controlLayer.elevenLabsModelId = m;
+                    controlLayer.saveControlPrefs();
+                    rerender();
+                  }}
+                  options={[
+                    { id: 'eleven_turbo_v2_5', label: 'Turbo 2.5' },
+                    { id: 'eleven_multilingual_v2', label: 'Multilingual' },
+                    { id: 'eleven_flash_v2_5', label: 'Flash 2.5' },
+                  ]}
+                />
+              </div>
+            )}
+
+            {/* Deepgram Aura Voice Selection */}
+            {controlLayer.mouthProvider === 'deepgram' && (
+              <div className="space-y-2 rounded-xl border border-sky-500/20 bg-sky-950/15 p-2.5">
+                <span className="text-[9px] uppercase tracking-[0.2em] text-sky-200/70">Deepgram Voice Model</span>
+                <select
+                  value={controlLayer.dgVoice}
+                  onChange={(e) => {
+                    controlLayer.dgVoice = e.target.value;
+                    controlLayer.saveControlPrefs();
+                    rerender();
+                  }}
+                  className="w-full rounded-lg border border-white/10 bg-[#080d1a] px-2.5 py-1.5 text-[11px] text-white/90 outline-none focus:border-sky-400"
+                >
+                  {DEEPGRAM_VOICES.map((v) => (
+                    <option key={v.id} value={v.id} className="bg-[#080d1a] text-white">
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </AccordionSection>
+
+          {/* INTELLECT: BRAIN & LOCAL LLMS */}
+          <AccordionSection
+            title="Brain & LLM Intelligence"
+            badge={controlLayer.brainMode.toUpperCase()}
+            isOpen={sections.brain}
+            onToggle={() => toggleSection('brain')}
+          >
+            <div>
+              <p className="mb-2 text-[9px] font-normal uppercase tracking-[0.24em] text-white/40">Brain Provider</p>
+              <select
+                value={controlLayer.brainMode}
+                onChange={(e) => {
+                  controlLayer.brainMode = e.target.value as any;
+                  controlLayer.saveControlPrefs();
+                  rerender();
+                }}
+                className="w-full rounded-lg border border-white/10 bg-[#080d1a] px-2.5 py-1.5 text-[11px] text-white/90 outline-none focus:border-sky-400"
+              >
+                {BRAIN_OPTIONS.map((b) => (
+                  <option key={b.id} value={b.id} className="bg-[#080d1a] text-white">
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Ollama Local LLM Configuration */}
+            {(controlLayer.brainMode === 'ollama' || controlLayer.brainMode === 'auto') && (
+              <div className="space-y-2 rounded-xl border border-emerald-500/20 bg-emerald-950/15 p-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-emerald-300/80">Ollama Local Config</span>
+                  <span className="font-mono text-[8px] text-emerald-400/70">Port 11434</span>
+                </div>
+                <div>
+                  <p className="mb-1 text-[8.5px] text-white/40">Model Name</p>
+                  <input
+                    type="text"
+                    placeholder="e.g. ornith-1.5:9b, gemma4:cloud, llama3.2"
+                    value={controlLayer.ollamaModel}
+                    onChange={(e) => {
+                      controlLayer.ollamaModel = e.target.value;
+                      controlLayer.saveControlPrefs();
+                      rerender();
+                    }}
+                    className="w-full rounded-lg border border-white/10 bg-[#080d1a] px-2.5 py-1 text-[11px] font-mono text-emerald-200 outline-none focus:border-emerald-400"
+                  />
+                </div>
+                <div>
+                  <p className="mb-1 text-[8.5px] text-white/40">Ollama Server Endpoint</p>
+                  <input
+                    type="text"
+                    placeholder="http://localhost:11434"
+                    value={controlLayer.ollamaUrl}
+                    onChange={(e) => {
+                      controlLayer.ollamaUrl = e.target.value;
+                      controlLayer.saveControlPrefs();
+                      rerender();
+                    }}
+                    className="w-full rounded-lg border border-white/10 bg-[#080d1a] px-2.5 py-1 text-[11px] font-mono text-white/80 outline-none focus:border-emerald-400"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* LM Studio Local Configuration */}
+            {controlLayer.brainMode === 'lmstudio' && (
+              <div className="space-y-2 rounded-xl border border-violet-500/20 bg-violet-950/15 p-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-violet-300/80">LM Studio Config</span>
+                  <span className="font-mono text-[8px] text-violet-400/70">Port 1234</span>
+                </div>
+                <div>
+                  <p className="mb-1 text-[8.5px] text-white/40">LM Studio Endpoint</p>
+                  <input
+                    type="text"
+                    placeholder="http://localhost:1234/v1"
+                    value={controlLayer.lmStudioUrl}
+                    onChange={(e) => {
+                      controlLayer.lmStudioUrl = e.target.value;
+                      controlLayer.saveControlPrefs();
+                      rerender();
+                    }}
+                    className="w-full rounded-lg border border-white/10 bg-[#080d1a] px-2.5 py-1 text-[11px] font-mono text-white/80 outline-none focus:border-violet-400"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Backend Key Status */}
+            {serverStatus && (
+              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-2">
+                <p className="mb-1 text-[8.5px] uppercase tracking-wider text-white/40">Provider Keys in Environment</p>
+                <div className="flex flex-wrap gap-1 font-mono text-[8px]">
+                  <span className={`px-1.5 py-0.5 rounded ${serverStatus.elevenlabs ? 'bg-sky-500/20 text-sky-300' : 'bg-rose-500/10 text-rose-300/60'}`}>
+                    ElevenLabs: {serverStatus.elevenlabs ? 'Configured' : 'Missing'}
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded ${serverStatus.deepgram ? 'bg-sky-500/20 text-sky-300' : 'bg-rose-500/10 text-rose-300/60'}`}>
+                    Deepgram: {serverStatus.deepgram ? 'Configured' : 'Missing'}
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded ${serverStatus.gemini ? 'bg-sky-500/20 text-sky-300' : 'bg-rose-500/10 text-rose-300/60'}`}>
+                    Gemini: {serverStatus.gemini ? 'Configured' : 'Missing'}
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded ${serverStatus.xai ? 'bg-sky-500/20 text-sky-300' : 'bg-white/5 text-white/30'}`}>
+                    Grok: {serverStatus.xai ? 'Configured' : 'Unset'}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                    Ollama: Local Ready
+                  </span>
+                </div>
+              </div>
+            )}
+          </AccordionSection>
+
           {/* SECTION 1: BASE FORM & DISPLAY MODE */}
           <AccordionSection
             title="Base Form & Display"
@@ -444,204 +780,98 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
               <Slider label="Rim Thickness" value={p.tune.rim} min={0.6} max={1.6} step={0.02} onChange={(v) => setTune({ rim: v })} />
             )}
             <Slider label="Shape Glow / Bloom" value={p.tune.glow} min={0.4} max={1.8} step={0.02} onChange={(v) => setTune({ glow: v })} />
-            <Slider
-              label="Color Hue"
-              value={p.tune.hue}
-              min={-1}
-              max={1}
-              step={0.05}
-              format={(v) => (v < -0.05 ? `Cyan ${Math.round(-v * 100)}%` : v > 0.05 ? `Violet ${Math.round(v * 100)}%` : 'Balanced')}
-              onChange={(v) => setTune({ hue: v })}
-            />
-            <Slider
-              label="Color Saturation"
-              value={p.tune.saturation ?? 1.0}
-              min={0.0}
-              max={2.0}
-              step={0.05}
-              format={(v) => (v === 0 ? 'Monochrome' : `${Math.round(v * 100)}%`)}
-              onChange={(v) => setTune({ saturation: v })}
-            />
+            <Slider label="Color Hue (0° - 360°)" value={p.tune.hue} min={0} max={360} step={1} format={(v) => `${Math.round(v)}°`} onChange={(v) => setTune({ hue: v })} />
+            <Slider label="Color Saturation" value={p.tune.saturation} min={0.4} max={2.0} step={0.05} onChange={(v) => setTune({ saturation: v })} />
           </AccordionSection>
 
-          {/* SECTION 3: INTERACTIVE STATE ANIMATIONS */}
+          {/* SECTION 3: STATES (REACTIVE PREVIEW) */}
           <AccordionSection
-            title="Interactive States"
+            title="Entity States (Simulation)"
             badge={state}
             isOpen={sections.states}
             onToggle={() => toggleSection('states')}
           >
-            <p className="text-[9px] font-normal uppercase tracking-[0.24em] text-white/40">Trigger State Animation</p>
+            <p className="text-[8.5px] font-light text-white/40">
+              Trigger states directly to preview audio reaction, halo pulsation, and physical morphs.
+            </p>
             <div className="grid grid-cols-3 gap-1.5">
-              {STATE_OPTIONS.map((opt) => {
-                const active = state === opt.id || (opt.id === 'pause' && state === 'paused') || (opt.id === 'paused' && state === 'pause');
-                const isDone = opt.id === 'completed';
-                const isBlocked = opt.id === 'blocked';
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => triggerState(opt.id)}
-                    className={`h-7 rounded-lg border text-[9.5px] tracking-wider transition-all duration-200 ${
-                      active
-                        ? isDone
-                          ? 'border-emerald-400/50 bg-emerald-500/[0.2] font-normal text-emerald-100 shadow-[0_0_12px_rgba(52,211,153,0.25)]'
-                          : isBlocked
-                            ? 'border-rose-400/50 bg-rose-500/[0.2] font-normal text-rose-100 shadow-[0_0_12px_rgba(244,63,94,0.25)]'
-                            : 'border-sky-400/40 bg-sky-400/[0.2] font-normal text-sky-100 shadow-[0_0_10px_rgba(56,189,248,0.2)]'
-                        : 'border-white/[0.07] bg-white/[0.02] font-light text-white/50 hover:border-white/20 hover:text-white/80'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </AccordionSection>
-
-          {/* SECTION 4: 20+ SHAPE GALLERY */}
-          <AccordionSection
-            title="Shape Gallery"
-            badge="20+ shapes"
-            isOpen={sections.shapes}
-            onToggle={() => toggleSection('shapes')}
-          >
-            <div className="grid grid-cols-3 gap-1.5 max-h-[200px] overflow-y-auto pr-1 chat-scroll">
-              {ALL_SHAPES.map((sh) => (
+              {STATE_OPTIONS.map((st) => (
                 <button
-                  key={sh}
+                  key={st.id}
                   type="button"
-                  onClick={() => triggerShape(sh)}
-                  className="flex h-[52px] flex-col items-center justify-center gap-1 rounded-xl border border-white/[0.07] bg-white/[0.02] px-1 text-[9px] font-normal tracking-wide text-white/60 transition-all duration-200 hover:border-sky-400/30 hover:bg-white/[0.05] hover:text-sky-100 active:scale-95"
+                  onClick={() => triggerState(st.id)}
+                  className={`h-8 rounded-xl border text-[9px] font-normal uppercase tracking-wider transition-all duration-200 ${
+                    state === st.id
+                      ? 'border-sky-400/50 bg-sky-400/[0.22] text-sky-100 shadow-[0_0_12px_rgba(56,189,248,0.3)]'
+                      : 'border-white/[0.08] bg-white/[0.02] text-white/55 hover:border-white/20 hover:text-white'
+                  }`}
                 >
-                  <ShapeThumb shape={sh} />
-                  <span className="truncate max-w-[80px]">{SHAPE_LABELS[sh] || sh}</span>
+                  {st.label}
                 </button>
               ))}
             </div>
           </AccordionSection>
 
-          {/* SECTION 5: ATMOSPHERE & DUST */}
+          {/* SECTION 4: SHAPES & SACRED GEOMETRY */}
           <AccordionSection
-            title="Atmosphere & Dust"
-            isOpen={sections.atmo}
-            onToggle={() => toggleSection('atmo')}
+            title="Audio Agent Shapes"
+            badge={`${ALL_SHAPES.length} Forms`}
+            isOpen={sections.shapes}
+            onToggle={() => toggleSection('shapes')}
           >
-            <ToggleRow
-              label="Aura animation"
-              hint="soft drifting atmosphere"
-              on={p.tune.backgroundEnabled}
-              onChange={(backgroundEnabled) => setTune({ backgroundEnabled })}
-            />
-            <div className={p.tune.backgroundEnabled ? '' : 'pointer-events-none opacity-30'}>
-              <div className="space-y-3">
-                <Slider
-                  label="Aura strength"
-                  value={p.tune.backgroundIntensity}
-                  min={0}
-                  max={1.25}
-                  step={0.05}
-                  format={(v) => `${Math.round(v * 100)}%`}
-                  onChange={(backgroundIntensity) => setTune({ backgroundIntensity })}
-                />
-                <Slider
-                  label="Aura motion"
-                  value={p.tune.backgroundMotion}
-                  min={0.15}
-                  max={1.5}
-                  step={0.05}
-                  format={(v) => `${Math.round(v * 100)}%`}
-                  onChange={(backgroundMotion) => setTune({ backgroundMotion })}
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-white/[0.04]">
-              <ToggleRow
-                label="Dust visible"
-                hint="scattered ambient motes"
-                on={p.tune.dustVisible}
-                onChange={(dustVisible) => setTune({ dustVisible })}
-              />
-              <div className={p.tune.dustVisible ? 'mt-2 space-y-3' : 'pointer-events-none opacity-30 mt-2 space-y-3'}>
-                <Slider
-                  label="Dust speed"
-                  value={p.tune.dustSpeed}
-                  min={0}
-                  max={2.0}
-                  step={0.05}
-                  format={(v) => `${Math.round(v * 100)}%`}
-                  onChange={(dustSpeed) => setTune({ dustSpeed })}
-                />
-                <Slider
-                  label="Dust amount"
-                  value={p.tune.dustAmount}
-                  min={0}
-                  max={2.0}
-                  step={0.05}
-                  format={(v) => `${Math.round(v * 100)}%`}
-                  onChange={(dustAmount) => setTune({ dustAmount })}
-                />
-              </div>
+            <p className="text-[8.5px] font-light text-white/40">
+              Transforms Sophia into sacred geometries. Say or trigger commands like &ldquo;waveform&rdquo;, &ldquo;torus&rdquo;, or &ldquo;spiky&rdquo;.
+            </p>
+            <div className="grid grid-cols-2 gap-1.5 max-h-[220px] overflow-y-auto pr-1">
+              {ALL_SHAPES.map((sh) => (
+                <button
+                  key={sh}
+                  type="button"
+                  onClick={() => triggerShape(sh)}
+                  className="flex h-9 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] px-2.5 text-left text-[9px] tracking-wide text-white/70 transition-all hover:border-sky-400/40 hover:bg-sky-400/[0.08] hover:text-white active:scale-[0.98]"
+                >
+                  <ShapeThumb shape={sh} />
+                  <span className="truncate">{SHAPE_LABELS[sh]}</span>
+                </button>
+              ))}
             </div>
           </AccordionSection>
 
-          {/* SECTION 6: SYSTEM & VOICE */}
+          {/* SECTION 5: ATMOSPHERE & BACKGROUND MOTES */}
           <AccordionSection
-            title="System & Voice"
+            title="Atmosphere & Dust Motes"
+            badge="Environment"
+            isOpen={sections.atmo}
+            onToggle={() => toggleSection('atmo')}
+          >
+            <Slider label="Dust Mote Density" value={p.tune.dustAmount} min={0} max={200} step={5} format={(v) => `${Math.round(v)}`} onChange={(v) => setTune({ dustAmount: v })} />
+            <Slider label="Mote Drift Speed" value={p.tune.dustSpeed} min={0.1} max={3.0} step={0.1} onChange={(v) => setTune({ dustSpeed: v })} />
+            <Slider label="Background Intensity" value={p.tune.backgroundIntensity} min={0.0} max={1.0} step={0.02} onChange={(v) => setTune({ backgroundIntensity: v })} />
+          </AccordionSection>
+
+          {/* SECTION 6: SYSTEM & GESTURES */}
+          <AccordionSection
+            title="System & Gestures"
+            badge={p.motion}
             isOpen={sections.system}
             onToggle={() => toggleSection('system')}
           >
+            <ToggleRow
+              label="Hey Sophia wake-word"
+              hint="background microphone detection"
+              on={p.wake}
+              onChange={(wake) => os.savePrefs({ wake })}
+            />
             <SegRow<DensityPref>
               label="Particle Mesh Density"
               value={p.density}
               onChange={(density) => os.savePrefs({ density })}
               options={[
                 { id: 'auto', label: 'Auto' },
-                { id: 'low', label: 'Low' },
-                { id: 'medium', label: 'Med' },
-                { id: 'high', label: 'High' },
+                { id: 'high', label: 'High (60k)' },
+                { id: 'medium', label: 'Med (35k)' },
+                { id: 'low', label: 'Low (15k)' },
               ]}
-            />
-            {!p.tune.onlyParticles && (
-              <>
-                <ToggleRow
-                  label="Orbit Rings & Nodes"
-                  hint="travelling satellite dots"
-                  on={p.tune.orbits}
-                  disabled={p.form === 'ring'}
-                  onChange={(orbits) => setTune({ orbits })}
-                />
-                <ToggleRow
-                  label="Inner Membrane Waves"
-                  hint="flowing liquid light"
-                  on={p.tune.waves}
-                  disabled={p.form === 'ring'}
-                  onChange={(waves) => setTune({ waves })}
-                />
-              </>
-            )}
-            <ToggleRow
-              label="Ambient Rotation"
-              hint="slow micro-swirl"
-              on={p.tune.spin}
-              onChange={(spin) => setTune({ spin })}
-            />
-            <SegRow<ProviderPref>
-              label="Voice Transport"
-              value={p.provider}
-              onChange={(provider) => os.savePrefs({ provider })}
-              options={[
-                { id: 'auto', label: 'Auto' },
-                { id: 'gemini-live', label: 'Gemini' },
-                { id: 'deepgram', label: 'Deepgram' },
-              ]}
-            />
-            <ToggleRow
-              label="Wake Phrase"
-              hint={'"Hey Sophia"'}
-              on={p.wake}
-              onChange={(wake) => os.savePrefs({ wake })}
             />
             <SegRow
               label="Motion"

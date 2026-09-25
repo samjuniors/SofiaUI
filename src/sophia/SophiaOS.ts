@@ -30,6 +30,7 @@ import type {
 } from './types';
 import { DeepgramVoiceProvider } from './voice/DeepgramVoiceProvider';
 import { GeminiLiveProvider } from './voice/GeminiLiveProvider';
+import { ElevenLabsVoiceProvider } from './voice/ElevenLabsVoiceProvider';
 import type { VoiceProvider } from './voice/VoiceProvider';
 import { WakeWordSpotter } from './voice/wake';
 import { VisualDirector } from './VisualDirector';
@@ -113,9 +114,11 @@ export class SophiaOS extends EventTarget {
     this.providers = {
       'gemini-live': new GeminiLiveProvider(this.audio),
       deepgram: new DeepgramVoiceProvider(this.audio),
+      elevenlabs: new ElevenLabsVoiceProvider(this.audio),
     };
     this.wireProvider(this.providers['gemini-live']);
     this.wireProvider(this.providers.deepgram);
+    this.wireProvider(this.providers.elevenlabs);
 
     this.audio.onMicLevel((l) => (this.micLvl = l));
     this.audio.onPlaybackLevel((l) => (this.playLvl = l));
@@ -536,7 +539,7 @@ export class SophiaOS extends EventTarget {
     }
 
     const order: VoiceProviderId[] =
-      this.prefs.provider === 'auto' ? ['gemini-live', 'deepgram'] : [this.prefs.provider];
+      this.prefs.provider === 'auto' ? ['gemini-live', 'deepgram', 'elevenlabs'] : [this.prefs.provider];
 
     let started = false;
     for (const id of order) {

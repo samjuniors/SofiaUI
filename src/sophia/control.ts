@@ -57,6 +57,58 @@ export class ControlLayer extends EventTarget {
   readonly history: Turn[] = [];
   voiceName = 'Aoede';
   dgVoice = 'aura-2-thalia-en';
+  elevenLabsVoiceId = 'bMxLr8fP6hzNRRi9nJxU';
+  elevenLabsModelId = 'eleven_turbo_v2_5';
+  mouthProvider: 'auto' | 'deepgram' | 'elevenlabs' = 'elevenlabs';
+  brainMode: 'auto' | 'gemini' | 'grok' | 'claude' | 'openai' | 'ollama' | 'lmstudio' | 'local' = 'auto';
+  ollamaModel = 'ornith-1.5:9b';
+  ollamaUrl = 'http://localhost:11434';
+  lmStudioModel = 'local-model';
+  lmStudioUrl = 'http://localhost:1234/v1';
+
+  constructor() {
+    super();
+    try {
+      const raw = localStorage.getItem('sophia:control-prefs');
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d.elevenLabsVoiceId) this.elevenLabsVoiceId = d.elevenLabsVoiceId;
+        if (d.elevenLabsModelId) this.elevenLabsModelId = d.elevenLabsModelId;
+        if (d.mouthProvider) this.mouthProvider = d.mouthProvider;
+        if (d.brainMode) this.brainMode = d.brainMode;
+        if (d.dgVoice) this.dgVoice = d.dgVoice;
+        if (d.ollamaModel) this.ollamaModel = d.ollamaModel;
+        if (d.ollamaUrl) this.ollamaUrl = d.ollamaUrl;
+        if (d.lmStudioModel) this.lmStudioModel = d.lmStudioModel;
+        if (d.lmStudioUrl) this.lmStudioUrl = d.lmStudioUrl;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  saveControlPrefs() {
+    try {
+      localStorage.setItem(
+        'sophia:control-prefs',
+        JSON.stringify({
+          elevenLabsVoiceId: this.elevenLabsVoiceId,
+          elevenLabsModelId: this.elevenLabsModelId,
+          mouthProvider: this.mouthProvider,
+          brainMode: this.brainMode,
+          dgVoice: this.dgVoice,
+          ollamaModel: this.ollamaModel,
+          ollamaUrl: this.ollamaUrl,
+          lmStudioModel: this.lmStudioModel,
+          lmStudioUrl: this.lmStudioUrl,
+        }),
+      );
+      this.dispatchEvent(new CustomEvent('control-prefs-changed'));
+    } catch {
+      /* ignore */
+    }
+  }
+
 
   private upsert(role: Turn['role'], text: string, final: boolean) {
     const last = this.history[this.history.length - 1];
