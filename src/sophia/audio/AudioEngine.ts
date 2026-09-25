@@ -1,69 +1,68 @@
 /**
  * AudioEngine — real microphone capture + low-latency PCM playback.
  *
- * Capture: getUserMedia → AudioWorklet → 16 kHz PCM16 frames (20 ms),
+ * Capture: getUserMedia → AudioWorklet (with ScriptProcessor fallback) → 16 kHz PCM16 frames,
  * plus a smoothed RMS level stream that drives Sophia's listening ripples.
  *
  * Playback: 24 kHz PCM16 queue (Gemini Live native audio) with sample-accurate
- * scheduling and *immediate* interruption (flush + stop all sources).
- * Encoded audio (Deepgram mpeg) is decoded via decodeAudioData.
- *
- * The worklet source is embedded and loaded through a Blob URL so the
- * single-file build never depends on external assets.
+ * scheduling and immediate interruption (flush + stop all sources).
+ * Encoded audio (Deepgram/Gemini TTS mpeg/wav) is decoded via decodeAudioData.
  */
 
 type PCMHandler = (pcm: ArrayBuffer) => void;
 type LevelHandler = (level: number) => void;
+type MicStatusHandler = (status: MicStatus, errorMsg?: string) => void;
+
+export type MicStatus = 'idle' | 'requesting' | 'capturing' | 'denied' | 'error';
 
 const CAPTURE_WORKLET = `
 class SophiCapture extends AudioWorkletProcessor {
   constructor() {
     super();
-    this.buf = new Float32Array(4096);
+    this.buf = new Int16Array(1024);
     this.len = 0;
     this.ratio = sampleRate / 16000;
-    this.pos = 0;
-    this.frames = 0;
+    this.inputPos = 0;
     this.prevRms = 0;
   }
   process(inputs) {
     const ch = inputs[0] && inputs[0][0];
     if (!ch || ch.length === 0) return true;
+
     let sum = 0;
     let peak = 0;
-    for (let i = 0; i < ch.length; i += 2) {
+    for (let i = 0; i < ch.length; i++) {
       const s = ch[i];
-      const a = s * s;
-      sum += a;
+      sum += s * s;
       const abs = Math.abs(s);
       if (abs > peak) peak = abs;
     }
-    const rms = Math.sqrt(sum / Math.max(1, ch.length / 2));
-    if ((this.frames++ & 3) === 0) this.port.postMessage({ type: 'level', rms, peak });
-    // Clap: sharp transient — high peak, low previous energy, high crest factor
+    const rms = Math.sqrt(sum / ch.length);
+    this.port.postMessage({ type: 'level', rms, peak });
+
     if (peak > 0.55 && this.prevRms < 0.045 && peak / Math.max(rms, 0.001) > 5.5) {
       this.port.postMessage({ type: 'clap', peak, rms });
     }
     this.prevRms = this.prevRms * 0.6 + rms * 0.4;
-    // downsample to 16k
-    const nOut = Math.floor(ch.length / this.ratio);
-    for (let i = 0; i < nOut; i++) {
-      const idx = this.pos + i * this.ratio;
+
+    let idx = this.inputPos;
+    while (idx < ch.length - 1) {
       const i0 = Math.floor(idx);
-      const f = idx - i0;
-      const s0 = ch[Math.min(i0, ch.length - 1)];
-      const s1 = ch[Math.min(i0 + 1, ch.length - 1)];
-      this.buf[this.len++] = s0 + (s1 - s0) * f;
-      if (this.len >= 320 * 4) {
-        const pcm = new Int16Array(this.len);
-        for (let j = 0; j < this.len; j++) {
-          const v = Math.max(-1, Math.min(1, this.buf[j]));
-          pcm[j] = v < 0 ? v * 0x8000 : v * 0x7fff;
-        }
-        this.port.postMessage({ type: 'pcm', buffer: pcm.buffer }, [pcm.buffer]);
+      const frac = idx - i0;
+      const s0 = ch[i0];
+      const s1 = ch[i0 + 1];
+      const sample = s0 + (s1 - s0) * frac;
+      const v = Math.max(-1, Math.min(1, sample));
+      this.buf[this.len++] = v < 0 ? v * 0x8000 : v * 0x7fff;
+
+      if (this.len >= 640) {
+        const chunk = this.buf.slice(0, 640);
+        this.port.postMessage({ type: 'pcm', buffer: chunk.buffer }, [chunk.buffer]);
         this.len = 0;
       }
+      idx += this.ratio;
     }
+    this.inputPos = idx - ch.length;
     return true;
   }
 }
@@ -73,18 +72,22 @@ registerProcessor('sophia-capture', SophiCapture);
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private stream: MediaStream | null = null;
-  private captureNode: AudioWorkletNode | null = null;
+  private captureNode: AudioWorkletNode | ScriptProcessorNode | null = null;
   private pcmHandlers = new Set<PCMHandler>();
   private levelHandlers = new Set<LevelHandler>();
   private playbackLevelHandlers = new Set<LevelHandler>();
   private playbackHandlers = new Set<() => void>();
   private clapHandlers = new Set<() => void>();
+  private micStatusHandlers = new Set<MicStatusHandler>();
   private lastClap = 0;
   private playCtx: AudioContext | null = null;
   private nextStart = 0;
   private active: AudioBufferSourceNode[] = [];
   private playRms = 0;
+  
   capturing = false;
+  micStatus: MicStatus = 'idle';
+  micErrorDetails: string | null = null;
 
   onPCM(fn: PCMHandler): () => void {
     this.pcmHandlers.add(fn);
@@ -107,57 +110,169 @@ export class AudioEngine {
     this.clapHandlers.add(fn);
     return () => this.clapHandlers.delete(fn);
   }
+  onMicStatus(fn: MicStatusHandler): () => void {
+    this.micStatusHandlers.add(fn);
+    return () => this.micStatusHandlers.delete(fn);
+  }
+
+  private setMicStatus(status: MicStatus, errorMsg?: string) {
+    this.micStatus = status;
+    this.micErrorDetails = errorMsg ?? null;
+    this.micStatusHandlers.forEach((fn) => fn(status, errorMsg));
+  }
 
   get micLevel(): number {
     return this._mic;
   }
   private _mic = 0;
 
+  get playbackLevel(): number {
+    return this.playRms;
+  }
+
   async startCapture(): Promise<void> {
     if (this.capturing) return;
-    this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
-    this.ctx = new AudioContext();
-    if (this.ctx.state === 'suspended') await this.ctx.resume();
-    const url = URL.createObjectURL(new Blob([CAPTURE_WORKLET], { type: 'application/javascript' }));
-    try {
-      await this.ctx.audioWorklet.addModule(url);
-    } finally {
-      URL.revokeObjectURL(url);
+    this.setMicStatus('requesting');
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const err = 'getUserMedia is not supported on this browser or origin';
+      this.setMicStatus('error', err);
+      throw new Error(err);
     }
-    const src = this.ctx.createMediaStreamSource(this.stream);
-    this.captureNode = new AudioWorkletNode(this.ctx, 'sophia-capture', {
-      numberOfInputs: 1,
-      numberOfOutputs: 1,
-      outputChannelCount: [1],
-    });
-    this.captureNode.port.onmessage = (e: MessageEvent) => {
-      const d = e.data;
-      if (d.type === 'pcm') {
-        const b: ArrayBuffer = d.buffer;
-        this.pcmHandlers.forEach((fn) => fn(b));
-      } else if (d.type === 'level') {
-        this._mic = this._mic * 0.72 + Math.min(1, d.rms * 5.5) * 0.28;
-        this.levelHandlers.forEach((fn) => fn(this._mic));
-      } else if (d.type === 'clap') {
-        const now = performance.now();
-        if (now - this.lastClap > 1400) {
-          this.lastClap = now;
-          this.clapHandlers.forEach((fn) => fn());
+
+    try {
+      // Try high-quality voice constraints first, then basic audio
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch (e) {
+        console.warn('[AudioEngine] Advanced audio constraints failed, trying basic audio: true', e);
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+
+      this.ctx = new AudioContext();
+      if (this.ctx.state === 'suspended') {
+        await this.ctx.resume();
+      }
+
+      const src = this.ctx.createMediaStreamSource(this.stream);
+
+      // Attempt AudioWorklet first, then fallback to ScriptProcessor
+      let workletReady = false;
+      if (typeof this.ctx.audioWorklet !== 'undefined') {
+        const url = URL.createObjectURL(new Blob([CAPTURE_WORKLET], { type: 'application/javascript' }));
+        try {
+          await this.ctx.audioWorklet.addModule(url);
+          this.captureNode = new AudioWorkletNode(this.ctx, 'sophia-capture', {
+            numberOfInputs: 1,
+            numberOfOutputs: 1,
+            outputChannelCount: [1],
+          });
+          this.captureNode.port.onmessage = (e: MessageEvent) => {
+            const d = e.data;
+            if (d.type === 'pcm') {
+              const b: ArrayBuffer = d.buffer;
+              this.pcmHandlers.forEach((fn) => fn(b));
+            } else if (d.type === 'level') {
+              this._mic = this._mic * 0.72 + Math.min(1, d.rms * 5.5) * 0.28;
+              this.levelHandlers.forEach((fn) => fn(this._mic));
+            } else if (d.type === 'clap') {
+              const now = performance.now();
+              if (now - this.lastClap > 1400) {
+                this.lastClap = now;
+                this.clapHandlers.forEach((fn) => fn());
+              }
+            }
+          };
+          src.connect(this.captureNode);
+          this.captureNode.connect(this.ctx.destination);
+          workletReady = true;
+        } catch (err) {
+          console.warn('[AudioEngine] AudioWorklet setup failed, falling back to ScriptProcessor:', err);
+        } finally {
+          URL.revokeObjectURL(url);
         }
       }
-    };
-    src.connect(this.captureNode);
-    // the worklet never writes output, so connecting to destination emits
-    // pure silence while keeping the processor guaranteed-active everywhere
-    this.captureNode.connect(this.ctx.destination);
-    this.capturing = true;
+
+      if (!workletReady) {
+        // Sample-accurate ScriptProcessorNode fallback
+        const spNode = this.ctx.createScriptProcessor(4096, 1, 1);
+        this.captureNode = spNode;
+        const ratio = this.ctx.sampleRate / 16000;
+        const pcmBuf = new Int16Array(1024);
+        let pcmLen = 0;
+        let inputPos = 0;
+        let prevRms = 0;
+
+        spNode.onaudioprocess = (e) => {
+          const ch = e.inputBuffer.getChannelData(0);
+          if (!ch || ch.length === 0) return;
+
+          let sum = 0;
+          let peak = 0;
+          for (let i = 0; i < ch.length; i++) {
+            const s = ch[i];
+            sum += s * s;
+            const abs = Math.abs(s);
+            if (abs > peak) peak = abs;
+          }
+          const rms = Math.sqrt(sum / ch.length);
+          this._mic = this._mic * 0.72 + Math.min(1, rms * 5.5) * 0.28;
+          this.levelHandlers.forEach((fn) => fn(this._mic));
+
+          if (peak > 0.55 && prevRms < 0.045 && peak / Math.max(rms, 0.001) > 5.5) {
+            const now = performance.now();
+            if (now - this.lastClap > 1400) {
+              this.lastClap = now;
+              this.clapHandlers.forEach((fn) => fn());
+            }
+          }
+          prevRms = prevRms * 0.6 + rms * 0.4;
+
+          let idx = inputPos;
+          while (idx < ch.length - 1) {
+            const i0 = Math.floor(idx);
+            const frac = idx - i0;
+            const s0 = ch[i0];
+            const s1 = ch[i0 + 1];
+            const sample = s0 + (s1 - s0) * frac;
+            const v = Math.max(-1, Math.min(1, sample));
+            pcmBuf[pcmLen++] = v < 0 ? v * 0x8000 : v * 0x7fff;
+
+            if (pcmLen >= 640) {
+              const chunk = pcmBuf.slice(0, 640);
+              const b = chunk.buffer;
+              this.pcmHandlers.forEach((fn) => fn(b));
+              pcmLen = 0;
+            }
+            idx += ratio;
+          }
+          inputPos = idx - ch.length;
+        };
+        src.connect(spNode);
+        spNode.connect(this.ctx.destination);
+      }
+
+      this.capturing = true;
+      this.setMicStatus('capturing');
+    } catch (err: any) {
+      const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || (err.message && err.message.toLowerCase().includes('permission denied'));
+      if (isDenied) {
+        console.warn('[AudioEngine] Microphone permission status: Permission denied');
+      } else {
+        console.error('[AudioEngine] Microphone error:', err);
+      }
+      const status: MicStatus = isDenied ? 'denied' : 'error';
+      this.setMicStatus(status, isDenied ? 'Microphone permission denied by browser or user' : (err.message || 'Microphone access error'));
+      this.stopCapture();
+      throw err;
+    }
   }
 
   stopCapture() {
@@ -169,6 +284,9 @@ export class AudioEngine {
     void this.ctx?.close().catch(() => undefined);
     this.ctx = null;
     this._mic = 0;
+    if (this.micStatus !== 'denied' && this.micStatus !== 'error') {
+      this.setMicStatus('idle');
+    }
   }
 
   /* ------------------------------ playback ------------------------------ */
@@ -199,7 +317,7 @@ export class AudioEngine {
     return this.playRms;
   }
 
-  /** Play an encoded buffer (mpeg/wav…) — used by the Deepgram fallback path. */
+  /** Play an encoded buffer (mpeg/wav…) — used by TTS fallback paths. */
   async playEncoded(data: ArrayBuffer): Promise<void> {
     const ctx = this.ensurePlayCtx();
     try {

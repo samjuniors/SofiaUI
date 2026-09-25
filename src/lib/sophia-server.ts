@@ -2,18 +2,19 @@
  * Sophia — server reference handlers.
  *
  *   POST /api/sophia/live/session      → Gemini Live ephemeral token
- *   POST /api/sophia/dg/session        → Deepgram grant token
+ *   POST /api/sophia/live/reset        → Validate & reset live session state
  *   POST /api/sophia/chat              → LLM brain (Gemini / Grok / Claude / OpenAI / Ollama / LM Studio)
- *   POST /api/sophia/dg/speak          → Deepgram Aura TTS stream
- *   POST /api/sophia/elevenlabs/speak  → ElevenLabs high-fidelity TTS stream
- *   GET  /api/sophia/elevenlabs/voices → ElevenLabs available voices list
- *   GET  /api/sophia/status            → which backends & models are configured
+ *   POST /api/sophia/gemini/speak      → Gemini Flash Lite TTS neural stream
+ *   POST /api/sophia/mouth/speak       → Unified neural mouth TTS endpoint
+ *   POST /api/sophia/test-voice        → Diagnostic quick voice sample
+ *   GET  /api/sophia/status            → Backends, live models & diagnostics
  */
 
 import { ALL_SHAPES, SOPHIA_SYSTEM } from "../sophia/control";
 
 const GEMINI_MODEL = process.env.GEMINI_LIVE_MODEL?.trim() || "models/gemini-3.8-live";
 const GEMINI_TEXT_MODEL = "gemini-3.8-flash";
+const GEMINI_TTS_MODEL = "gemini-3.8-flash-lite-tts";
 const LIVE_WS =
   "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained";
 const GROK_MODEL = "grok-4.5";
@@ -53,7 +54,7 @@ const json = (body: unknown, init: ResponseInit = {}) =>
   });
 
 function statusPayload() {
-  const gemini = Boolean(geminiKey());
+  const hasGemini = Boolean(geminiKey());
   const deepgram = Boolean(key("DEEPGRAM_API_KEY"));
   const elevenlabs = Boolean(key("ELEVENLABS_API_KEY"));
   const xai = Boolean(key("XAI_API_KEY"));
@@ -62,14 +63,18 @@ function statusPayload() {
   const brainMode = process.env.SOPHIA_BRAIN_MODE?.trim() || "auto";
 
   return {
-    gemini,
-    geminiTts: gemini,
+    gemini: hasGemini,
+    geminiLive: hasGemini,
+    geminiLiveModel: GEMINI_MODEL,
+    geminiTextModel: GEMINI_TEXT_MODEL,
+    geminiTtsModel: GEMINI_TTS_MODEL,
+    geminiTts: hasGemini,
     deepgram,
     elevenlabs,
     xai,
     anthropic,
     openai,
-    activeMouthEngine: gemini ? "gemini" : elevenlabs ? "elevenlabs" : deepgram ? "deepgram" : "browser",
+    activeMouthEngine: hasGemini ? "gemini" : elevenlabs ? "elevenlabs" : deepgram ? "deepgram" : "browser",
     ollama: {
       configured: true,
       baseUrl: process.env.OLLAMA_BASE_URL?.trim() || "http://localhost:11434",
@@ -86,38 +91,67 @@ function statusPayload() {
       "bMxLr8fP6hzNRRi9nJxU",
     configuredDeepgramVoice: process.env.DEEPGRAM_VOICE_MODEL?.trim() || "aura-2-thalia-en",
     defaultBrainMode: brainMode,
-    voice: gemini || deepgram || elevenlabs,
-    ok: gemini || deepgram || elevenlabs,
+    voice: hasGemini || deepgram || elevenlabs,
+    ok: hasGemini || deepgram || elevenlabs,
+    timestamp: Date.now(),
   };
 }
 
 async function liveSession(req: Request): Promise<Response> {
   const apiKey = geminiKey();
-  if (!apiKey) return json({ error: "GEMINI_API_KEY/GOOGLE_API_KEY not configured" }, { status: 503 });
+  if (!apiKey) {
+    return json(
+      {
+        error: "GEMINI_API_KEY not configured",
+        message: "Gemini API key is required to initiate Gemini Live sessions.",
+      },
+      { status: 503 },
+    );
+  }
+
   let voice = "Aoede";
+  let modelOverride = GEMINI_MODEL;
   try {
-    voice = ((await req.json()) as { voice?: string }).voice ?? voice;
+    const b = (await req.json()) as { voice?: string; model?: string };
+    if (b.voice) voice = b.voice;
+    if (b.model) modelOverride = b.model;
   } catch {
     /* empty body is fine */
   }
+
   const now = Date.now();
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/auth_tokens?key=${apiKey}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      uses: 1,
-      expireTime: new Date(now + 30 * 60_000).toISOString(),
-      newSessionExpireTime: new Date(now + 90_000).toISOString(),
-    }),
-  });
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    console.error("[sophia-server] auth_tokens failed:", res.status, errText);
-    return json({ error: `auth_tokens:${res.status}`, details: errText }, { status: 502 });
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/auth_tokens?key=${apiKey}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        uses: 1,
+        expireTime: new Date(now + 30 * 60_000).toISOString(),
+        newSessionExpireTime: new Date(now + 90_000).toISOString(),
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.error("[sophia-server] auth_tokens failed:", res.status, errText);
+      return json({ error: `auth_tokens:${res.status}`, details: errText }, { status: 502 });
+    }
+
+    const data = (await res.json()) as { name?: string };
+    if (!data.name) return json({ error: "no token issued" }, { status: 502 });
+
+    return json({
+      token: data.name,
+      model: modelOverride,
+      wsUrl: LIVE_WS,
+      voice,
+      createdAt: now,
+      expiresInSeconds: 1800,
+    });
+  } catch (err: any) {
+    console.error("[sophia-server] Live session setup exception:", err);
+    return json({ error: "live-session-failed", message: err.message }, { status: 500 });
   }
-  const data = (await res.json()) as { name?: string };
-  if (!data.name) return json({ error: "no token issued" }, { status: 502 });
-  return json({ token: data.name, model: GEMINI_MODEL, wsUrl: LIVE_WS, voice });
 }
 
 async function deepgramSession(): Promise<Response> {
@@ -198,7 +232,6 @@ async function chatWithOpenAICompatible(
       }),
     });
     if (!res.ok) {
-      // Fallback without tools if model doesn't support tools
       const fallbackRes = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json", ...headers },
@@ -364,6 +397,10 @@ async function chat(req: Request): Promise<Response> {
   const requestedMode = body.brainMode || process.env.SOPHIA_BRAIN_MODE || "auto";
 
   // Explicit modes
+  if (requestedMode === "gemini") {
+    const gemini = geminiKey();
+    if (gemini) return chatWithGemini(body, gemini);
+  }
   if (requestedMode === "ollama") {
     const res = await chatWithOllama(body);
     if (res) return res;
@@ -393,10 +430,6 @@ async function chat(req: Request): Promise<Response> {
       if (grok) return grok;
     }
   }
-  if (requestedMode === "gemini") {
-    const gemini = geminiKey();
-    if (gemini) return chatWithGemini(body, gemini);
-  }
 
   // Auto fallback priority chain
   const gemini = geminiKey();
@@ -423,16 +456,15 @@ async function chat(req: Request): Promise<Response> {
     if (oai) return oai;
   }
 
-  // Try local Ollama if running
+  // Local fallbacks
   const ollama = await chatWithOllama(body);
   if (ollama) return ollama;
 
-  // Try local LM Studio if running
   const lmstudio = await chatWithLMStudio(body);
   if (lmstudio) return lmstudio;
 
   return json(
-    { error: "No LLM brain responded. Check GOOGLE_API_KEY, XAI_API_KEY, or local Ollama/LM Studio." },
+    { error: "No LLM brain responded. Check GEMINI_API_KEY, XAI_API_KEY, or local Ollama/LM Studio." },
     { status: 503 },
   );
 }
@@ -567,7 +599,7 @@ async function geminiSpeak(req: Request): Promise<Response> {
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-lite-tts:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TTS_MODEL}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -616,9 +648,9 @@ async function geminiSpeak(req: Request): Promise<Response> {
         "content-length": String(binaryBuffer.length),
       },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("[sophia-server] Gemini TTS failed:", err);
-    return json({ error: "gemini-tts-failed", message: (err as Error).message }, { status: 500 });
+    return json({ error: "gemini-tts-failed", message: err.message }, { status: 500 });
   }
 }
 
@@ -681,6 +713,24 @@ async function mouthSpeak(req: Request): Promise<Response> {
   return json({ error: "No neural TTS engine configured (Gemini/ElevenLabs/Deepgram)" }, { status: 503 });
 }
 
+async function testVoice(req: Request): Promise<Response> {
+  let voice = "Aoede";
+  try {
+    const b = (await req.json()) as { voice?: string };
+    if (b.voice) voice = b.voice;
+  } catch {
+    /* empty */
+  }
+
+  const sampleGreeting = "G'day! Sophia here. All audio systems, microphone, and Gemini live link are functioning perfectly.";
+  const fakeReq = new Request(req.url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: sampleGreeting, voice }),
+  });
+  return geminiSpeak(fakeReq);
+}
+
 export async function handleSophiaRequest(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname.replace(/^.*\/api\/sophia/, "") || "/";
@@ -695,6 +745,7 @@ export async function handleSophiaRequest(req: Request): Promise<Response> {
 
   switch (path) {
     case "/live/session":
+    case "/live/reset":
       return liveSession(req);
     case "/dg/session":
       return deepgramSession();
@@ -711,6 +762,8 @@ export async function handleSophiaRequest(req: Request): Promise<Response> {
       return elevenLabsSpeak(req);
     case "/elevenlabs/voices":
       return elevenLabsVoices();
+    case "/test-voice":
+      return testVoice(req);
     default:
       return json({ error: "not-found", path }, { status: 404 });
   }

@@ -2,7 +2,7 @@
  * GeminiLiveProvider — PRIMARY realtime conversational transport.
  *
  * Flow:
- *   1. POST /api/live/session → server mints a short-lived ephemeral token
+ *   1. POST /api/sophia/live/session → server mints a short-lived ephemeral token
  *      (API key never leaves the server).
  *   2. Client opens BidiGenerateContentConstrained with that token.
  *   3. 16 kHz PCM16 mic frames stream as realtimeInput.
@@ -34,37 +34,64 @@ export class GeminiLiveProvider extends VoiceProvider {
   private outBuf = '';
   private inBuf = '';
 
+  // Live connection statistics
+  public stats = {
+    connectedAt: 0,
+    packetsSent: 0,
+    packetsReceived: 0,
+    lastLatencyMs: 0,
+    modelName: 'gemini-3.8-live',
+    voiceName: 'Aoede',
+  };
+
   constructor(private audio: AudioEngine) {
     super();
   }
 
+  get isConnected(): boolean {
+    return this.ws !== null && this.ws.readyState === WebSocket.OPEN && this.setupDone;
+  }
+
   async start(): Promise<void> {
+    await this.stop();
+
+    const voice = controlLayer.voiceName || 'Aoede';
     const res = await fetch('/api/sophia/live/session', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ voice: controlLayer.voiceName }),
+      body: JSON.stringify({ voice }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(`live-session:${res.status}${err.error ? ` (${err.error})` : ''}`);
     }
     const ticket = (await res.json()) as LiveSessionTicket;
+    this.stats.modelName = ticket.model || 'gemini-3.8-live';
+    this.stats.voiceName = ticket.voice || voice;
 
     await new Promise<void>((resolve, reject) => {
-      const ws = new WebSocket(`${ticket.wsUrl}?access_token=${encodeURIComponent(ticket.token)}`);
+      const wsUrl = `${ticket.wsUrl}?access_token=${encodeURIComponent(ticket.token)}`;
+      const ws = new WebSocket(wsUrl);
       this.ws = ws;
+      let settled = false;
+
       const fail = (msg: string) => {
-        if (this.ws) {
-          try {
-            this.ws.close();
-          } catch {
-            /* noop */
+        if (!settled) {
+          settled = true;
+          if (this.ws) {
+            try {
+              this.ws.close();
+            } catch {
+              /* noop */
+            }
           }
+          reject(new Error(msg));
         }
-        reject(new Error(msg));
       };
+
       ws.onopen = () => {
         const cfg = controlLayer.sessionConfig(ticket.model);
+        const selectedVoice = ticket.voice || controlLayer.voiceName || 'Aoede';
         ws.send(
           JSON.stringify({
             setup: {
@@ -73,7 +100,7 @@ export class GeminiLiveProvider extends VoiceProvider {
                 responseModalities: ['AUDIO'],
                 speechConfig: {
                   voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: ticket.voice ?? controlLayer.voiceName },
+                    prebuiltVoiceConfig: { voiceName: selectedVoice },
                   },
                 },
               },
@@ -93,23 +120,36 @@ export class GeminiLiveProvider extends VoiceProvider {
           }),
         );
       };
-      ws.onerror = () => fail('live-ws');
-      ws.onclose = (e) => {
-        if (!this.setupDone) fail(`live-closed:${e.code}`);
-        else this.handleClosed();
+
+      ws.onerror = (e) => {
+        console.warn('[GeminiLiveProvider] WS error:', e);
+        fail('live-ws-error');
       };
+
+      ws.onclose = (e) => {
+        if (!this.setupDone) {
+          fail(`live-closed:${e.code}`);
+        } else {
+          this.handleClosed();
+        }
+      };
+
       ws.onmessage = (ev) => {
+        this.stats.packetsReceived++;
         void this.handleMessage(ev.data, () => {
-          this.setupDone = true;
-          this.active = true;
-          resolve();
+          if (!settled) {
+            settled = true;
+            this.setupDone = true;
+            this.active = true;
+            this.stats.connectedAt = Date.now();
+            resolve();
+          }
         });
       };
     });
   }
 
   private async handleMessage(raw: string | Blob | ArrayBuffer, onSetup: () => void) {
-    // Gemini Live may deliver binary frames — normalize to JSON text first.
     if (raw instanceof Blob) raw = await raw.text();
     else if (raw instanceof ArrayBuffer) raw = new TextDecoder().decode(raw);
     let msg: Record<string, any>;
@@ -128,7 +168,6 @@ export class GeminiLiveProvider extends VoiceProvider {
 
     const sc = msg.serverContent;
     if (sc) {
-      // genuine user interruption of model speech
       if (sc.interrupted) {
         this.audio.interruptPlayback();
         this.responseLive = false;
@@ -171,15 +210,9 @@ export class GeminiLiveProvider extends VoiceProvider {
       }
       if (sc.turnComplete || sc.generationComplete) {
         this.flushTranscripts(true);
-        if (this.responseLive && this.audioEnded()) {
-          this.responseLive = false;
-          this.emit('response_finished', { source: this.id });
-          this.emit('listening', { source: this.id });
-        } else if (!this.responseLive) {
-          // text-only / tool-call turns
-          this.emit('response_finished', { source: this.id });
-          this.emit('listening', { source: this.id });
-        }
+        this.responseLive = false;
+        this.emit('response_finished', { source: this.id });
+        this.emit('listening', { source: this.id });
       }
     }
 
@@ -194,18 +227,15 @@ export class GeminiLiveProvider extends VoiceProvider {
           response: { result: await controlLayer.execute(c) },
         })),
       );
-      this.ws?.send(JSON.stringify({ toolResponse: { functionResponses: responses } }));
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ toolResponse: { functionResponses: responses } }));
+        this.stats.packetsSent++;
+      }
     }
 
     if (msg.goAway) {
-      this.emit('error', { code: 'go-away', message: 'session expiring', source: this.id });
+      this.emit('error', { code: 'go-away', message: 'Gemini live token expiring, renewing...', source: this.id });
     }
-  }
-
-  private audioEnded(): boolean {
-    // the playback queue drains asynchronously; treat turnComplete as end and
-    // let the AudioEngine's own drain drive residual visuals
-    return true;
   }
 
   private flushTranscripts(final: boolean) {
@@ -238,6 +268,7 @@ export class GeminiLiveProvider extends VoiceProvider {
           },
         }),
       );
+      this.stats.packetsSent++;
     });
   }
 
@@ -261,6 +292,7 @@ export class GeminiLiveProvider extends VoiceProvider {
         },
       }),
     );
+    this.stats.packetsSent++;
   }
 
   interrupt() {
@@ -268,6 +300,7 @@ export class GeminiLiveProvider extends VoiceProvider {
     this.responseLive = false;
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+      this.stats.packetsSent++;
     }
   }
 
@@ -277,7 +310,7 @@ export class GeminiLiveProvider extends VoiceProvider {
     this.detachPCM?.();
     this.detachPCM = null;
     this.ws = null;
-    this.emit('error', { code: 'closed', source: this.id });
+    this.emit('error', { code: 'transport-closed', message: 'Live WebSocket link closed', source: this.id });
   }
 
   async stop(): Promise<void> {
@@ -289,11 +322,17 @@ export class GeminiLiveProvider extends VoiceProvider {
     this.detachPCM = null;
     if (ws) {
       ws.onclose = null;
+      ws.onerror = null;
       try {
         ws.close();
       } catch {
         /* noop */
       }
     }
+  }
+
+  async reset(): Promise<void> {
+    await this.stop();
+    await this.start();
   }
 }

@@ -595,11 +595,73 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
             isOpen={sections.voice}
             onToggle={() => toggleSection('voice')}
           >
+            {/* PURE GEMINI LIVE (ALL-IN-ONE) MASTER CARD */}
+            <div className="space-y-2.5 rounded-xl border border-sky-400/40 bg-gradient-to-b from-sky-950/40 to-sky-950/10 p-3 shadow-[0_0_16px_rgba(56,189,248,0.15)]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="block size-2 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.9)] animate-pulse" />
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-sky-200">
+                    Pure Gemini Live (All-in-One)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={controlLayer.pureGeminiLive}
+                  onClick={() => {
+                    const next = !controlLayer.pureGeminiLive;
+                    controlLayer.setPureGeminiLive(next);
+                    if (next) {
+                      os.savePrefs({ provider: 'gemini-live' });
+                    }
+                    rerender();
+                  }}
+                  className={`relative h-5 w-9 rounded-full border transition-colors duration-200 ${
+                    controlLayer.pureGeminiLive
+                      ? 'border-sky-400/50 bg-sky-400/30 shadow-[0_0_10px_rgba(56,189,248,0.3)]'
+                      : 'border-white/10 bg-white/5'
+                  }`}
+                >
+                  <span
+                    className={`block size-3.5 rounded-full transition-transform duration-200 ${
+                      controlLayer.pureGeminiLive
+                        ? 'translate-x-4 bg-sky-300 shadow-[0_0_6px_rgba(125,211,252,0.8)]'
+                        : 'translate-x-0.5 bg-white/40'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <p className="text-[8.5px] leading-relaxed text-sky-200/80">
+                When enabled, Gemini Live handles microphone streaming, brain intelligence, and speech synthesis entirely in one unified pipeline. External split providers are bypassed.
+              </p>
+
+              <div className="flex items-center justify-between pt-1 border-t border-sky-400/15">
+                <span className="text-[8.5px] font-mono text-sky-300/70">Model: models/gemini-3.8-live</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void os.resetGeminiLiveSession();
+                    rerender();
+                  }}
+                  className="rounded-lg border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 text-[8.5px] font-medium text-sky-200 hover:bg-sky-400/20 active:scale-95"
+                >
+                  Reset & Reconnect Live
+                </button>
+              </div>
+            </div>
+
             {/* Hearing / Provider */}
             <SegRow<ProviderPref>
               label="Hearing & Voice Transport"
-              value={p.provider}
-              onChange={(provider) => os.savePrefs({ provider })}
+              value={controlLayer.pureGeminiLive ? 'gemini-live' : p.provider}
+              onChange={(provider) => {
+                if (controlLayer.pureGeminiLive && provider !== 'gemini-live') {
+                  controlLayer.setPureGeminiLive(false);
+                }
+                os.savePrefs({ provider });
+                rerender();
+              }}
               options={[
                 { id: 'auto', label: 'Auto' },
                 { id: 'gemini-live', label: 'Gemini' },
@@ -674,17 +736,32 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                 <button
                   type="button"
                   onClick={() => {
+                    controlLayer.mouthProvider = 'gemini';
+                    controlLayer.saveControlPrefs();
+                    rerender();
+                  }}
+                  className={`h-7 flex-1 rounded-lg text-[9px] font-normal tracking-[0.08em] transition-all duration-200 ${
+                    controlLayer.mouthProvider === 'gemini' || controlLayer.mouthProvider === 'auto'
+                      ? 'border border-sky-400/30 bg-sky-400/[0.18] text-sky-100 shadow-[inset_0_0_10px_rgba(56,189,248,0.18)]'
+                      : 'text-white/45 hover:text-white/80'
+                  }`}
+                >
+                  Gemini (Neural)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                     controlLayer.mouthProvider = 'elevenlabs';
                     controlLayer.saveControlPrefs();
                     rerender();
                   }}
-                  className={`h-7 flex-1 rounded-lg text-[9.5px] font-normal tracking-[0.08em] transition-all duration-200 ${
+                  className={`h-7 flex-1 rounded-lg text-[9px] font-normal tracking-[0.08em] transition-all duration-200 ${
                     controlLayer.mouthProvider === 'elevenlabs'
                       ? 'border border-sky-400/30 bg-sky-400/[0.18] text-sky-100 shadow-[inset_0_0_10px_rgba(56,189,248,0.18)]'
                       : 'text-white/45 hover:text-white/80'
                   }`}
                 >
-                  ElevenLabs (HD Voice)
+                  ElevenLabs
                 </button>
                 <button
                   type="button"
@@ -693,13 +770,13 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                     controlLayer.saveControlPrefs();
                     rerender();
                   }}
-                  className={`h-7 flex-1 rounded-lg text-[9.5px] font-normal tracking-[0.08em] transition-all duration-200 ${
+                  className={`h-7 flex-1 rounded-lg text-[9px] font-normal tracking-[0.08em] transition-all duration-200 ${
                     controlLayer.mouthProvider === 'deepgram'
                       ? 'border border-sky-400/30 bg-sky-400/[0.18] text-sky-100 shadow-[inset_0_0_10px_rgba(56,189,248,0.18)]'
                       : 'text-white/45 hover:text-white/80'
                   }`}
                 >
-                  Deepgram Aura (Fast)
+                  Deepgram
                 </button>
               </div>
             </div>

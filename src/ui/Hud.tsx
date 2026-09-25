@@ -5,7 +5,7 @@
  * that receives the mini-orb when content owns the centre stage.
  */
 
-import { Mic, MicOff, Settings } from 'lucide-react';
+import { Activity, Mic, MicOff, Settings } from 'lucide-react';
 import { useEffect, useState, type RefObject } from 'react';
 import { controlLayer } from '../sophia/control';
 import type { StageLayout } from '../sophia/layout';
@@ -25,38 +25,45 @@ export function Brand() {
 
 const HEALTH_META: Record<'ok' | 'warn' | 'error', { color: string; label: string }> = {
   ok: { color: '#2fe6a0', label: 'All systems operational' },
-  warn: { color: '#ffab4a', label: 'Degraded — voice link connecting or offline' },
-  error: { color: '#ff5468', label: 'Fault — missing key, mic denied, or renderer failed' },
+  warn: { color: '#ffab4a', label: 'Connecting / Standby' },
+  error: { color: '#ff5468', label: 'Check Microphone or Keys' },
 };
 
 export function StatusCluster({
   health,
   active,
   onSettings,
+  onDiagnostics,
   settingsOpen,
 }: {
   health: 'ok' | 'warn' | 'error';
   active: boolean;
   onSettings: () => void;
+  onDiagnostics: () => void;
   settingsOpen: boolean;
 }) {
   const meta = HEALTH_META[health];
   return (
-    <div className="status-cluster absolute right-7 top-[26px] z-10 flex items-center gap-3 transition-all duration-500 sm:right-11 sm:top-[30px]">
-      <div
-        title={meta.label}
-        role="status"
-        aria-label={`System health: ${meta.label}`}
-        className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 backdrop-blur-md transition-colors"
+    <div className="status-cluster absolute right-7 top-[26px] z-10 flex items-center gap-2.5 transition-all duration-500 sm:right-11 sm:top-[30px]">
+      {/* Clickable Live Diagnostics Pill */}
+      <button
+        type="button"
+        title="Open Live Diagnostics & System Health Monitor"
+        aria-label={`System health: ${meta.label}. Click for diagnostics.`}
+        onClick={onDiagnostics}
+        className="group flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 backdrop-blur-md transition-all hover:border-sky-400/40 hover:bg-sky-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50"
       >
         <span
-          className={`block size-[6px] rounded-full transition-colors duration-500 ${active && health === 'ok' ? 'status-breathe' : ''} ${health === 'error' ? 'status-alert' : ''}`}
+          className={`block size-[7px] rounded-full transition-colors duration-500 ${active && health === 'ok' ? 'status-breathe' : ''} ${health === 'error' ? 'status-alert' : ''}`}
           style={{ background: meta.color, boxShadow: `0 0 8px 1px ${meta.color}88` }}
         />
-        <span className="hidden font-mono text-[9px] uppercase tracking-wider text-white/45 sm:inline">
-          {health === 'ok' ? 'Online' : health === 'warn' ? 'Checking' : 'Fault'}
+        <span className="font-mono text-[9px] uppercase tracking-wider text-white/60 group-hover:text-sky-200">
+          {health === 'ok' ? 'Online' : health === 'warn' ? 'Live Link' : 'Fault'}
         </span>
-      </div>
+        <Activity size={11} className="text-white/30 transition-transform group-hover:scale-110 group-hover:text-sky-300" />
+      </button>
+
+      {/* Settings Button */}
       <button
         type="button"
         aria-label="Settings"
@@ -174,8 +181,6 @@ export function Dock({
   onChat,
   chatOpen,
   paused,
-  micError,
-  audioAvailable,
   browserOpen,
   onToggleBrowser,
 }: {
@@ -185,25 +190,19 @@ export function Dock({
   onChat: () => void;
   chatOpen: boolean;
   paused: boolean;
-  micError?: boolean;
-  audioAvailable?: boolean;
   browserOpen?: boolean;
   onToggleBrowser?: () => void;
 }) {
   const on = state !== 'ambient' && state !== 'paused' && state !== 'idle' && state !== 'completed';
-  const isMicDisabled = paused || micError === true || audioAvailable === false;
+  const isMicOff = paused;
   const micLabel = paused
     ? 'System paused · Click to enable microphone & resume'
-    : micError
-      ? 'Microphone disabled (missing backend keys) · Click to retry'
-      : state === 'speaking' || state === 'thinking'
-        ? 'Sophia is active · Click to pause system'
-        : 'Microphone active · Click to pause system';
-
-  const showChat = audioAvailable === false || micError === true;
+    : state === 'speaking' || state === 'thinking'
+      ? 'Sophia is active · Click to pause system'
+      : 'Microphone active · Click to pause system';
 
   return (
-    <div className="dock-cluster absolute bottom-[44px] right-7 z-10 flex items-center gap-[20px] transition-all duration-500 sm:bottom-[52px] sm:right-11">
+    <div className="dock-cluster absolute bottom-[44px] right-7 z-10 flex items-center gap-[18px] transition-all duration-500 sm:bottom-[52px] sm:right-11">
       {/* Fullscreen Browser/Workspace launcher */}
       {onToggleBrowser && (
         <button
@@ -231,73 +230,58 @@ export function Dock({
         </button>
       )}
 
-      {/* Text fallback chat — ONLY visible when there is no audio available */}
-      {showChat && (
-        <button
-          type="button"
-          aria-label="Type to Sophia"
-          aria-expanded={chatOpen}
-          onClick={onChat}
-          className={`dock-btn ${chatOpen ? 'text-sky-300 drop-shadow-[0_0_10px_rgba(56,189,248,0.5)]' : ''}`}
+      {/* Text Chat Launcher — Available anytime */}
+      <button
+        type="button"
+        aria-label="Type message to Sophia"
+        title="Type message to Sophia (Chat Panel)"
+        aria-expanded={chatOpen}
+        onClick={onChat}
+        className={`dock-btn ${chatOpen ? 'text-sky-300 drop-shadow-[0_0_10px_rgba(56,189,248,0.5)]' : ''}`}
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M20 14.5a2 2 0 0 1-2 2H9l-4.5 3.5V16.5H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
-            <circle cx="8.6" cy="10.5" r="0.55" fill="currentColor" />
-            <circle cx="12" cy="10.5" r="0.55" fill="currentColor" />
-            <circle cx="15.4" cy="10.5" r="0.55" fill="currentColor" />
-          </svg>
-        </button>
-      )}
+          <path d="M20 14.5a2 2 0 0 1-2 2H9l-4.5 3.5V16.5H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
+          <circle cx="8.6" cy="10.5" r="0.55" fill="currentColor" />
+          <circle cx="12" cy="10.5" r="0.55" fill="currentColor" />
+          <circle cx="15.4" cy="10.5" r="0.55" fill="currentColor" />
+        </svg>
+      </button>
 
-      {/* Main Microphone Button — polished toggle for active vs paused/disabled system */}
+      {/* Main Microphone Button */}
       <button
         ref={micRef}
         type="button"
         aria-label={micLabel}
-        aria-pressed={!isMicDisabled}
+        aria-pressed={!isMicOff}
         title={micLabel}
         onClick={onMic}
         className={`group relative grid size-[48px] place-items-center rounded-2xl border transition-all duration-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 active:scale-95 ${
-          micError
-            ? 'border-rose-500/50 bg-rose-500/[0.20] text-rose-100 shadow-[0_0_18px_rgba(244,63,94,0.40),inset_0_1px_0_rgba(255,255,255,0.18)] hover:border-rose-400 hover:bg-rose-500/[0.30] hover:text-white'
-            : paused
-              ? 'border-white/[0.12] bg-white/[0.04] text-white/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-sky-400/40 hover:bg-white/[0.10] hover:text-white'
-              : 'border-sky-400/40 bg-sky-500/[0.16] text-sky-100 shadow-[0_0_20px_rgba(56,189,248,0.38),inset_0_1px_0_rgba(255,255,255,0.22)] hover:border-sky-400/70 hover:bg-sky-500/[0.26] hover:text-white'
+          paused
+            ? 'border-white/[0.12] bg-white/[0.04] text-white/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-sky-400/40 hover:bg-white/[0.10] hover:text-white'
+            : 'border-sky-400/40 bg-sky-500/[0.16] text-sky-100 shadow-[0_0_20px_rgba(56,189,248,0.38),inset_0_1px_0_rgba(255,255,255,0.22)] hover:border-sky-400/70 hover:bg-sky-500/[0.26] hover:text-white'
         }`}
       >
-        {/* Error indicator dot */}
-        {micError && (
-          <span
-            title="Microphone disabled"
-            className="status-alert absolute -right-0.5 -top-0.5 block size-[8px] rounded-full bg-rose-500 shadow-[0_0_10px_2px_rgba(244,63,94,0.85)]"
-          />
-        )}
-
         {/* Live speaking/listening indicator halo dot when active and running */}
-        {!isMicDisabled && on && (
+        {!isMicOff && on && (
           <span className="absolute -right-0.5 -top-0.5 block size-[8px] rounded-full bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.9)]" />
         )}
 
         <div className="relative z-10 transition-transform duration-300 group-hover:scale-110">
-          {isMicDisabled ? (
+          {isMicOff ? (
             <MicOff
               size={22}
               strokeWidth={2.2}
-              className={`transition-all duration-200 ${
-                micError
-                  ? 'text-white drop-shadow-[0_0_6px_rgba(244,63,94,0.6)]'
-                  : 'text-white/60 group-hover:text-white'
-              }`}
+              className="text-white/60 group-hover:text-white"
               aria-hidden="true"
             />
           ) : (

@@ -11,6 +11,8 @@ import { ChatPanel } from './ui/ChatPanel';
 import { Brand, Dock, Identity, OrbDock, StatusCluster } from './ui/Hud';
 import { BootScreen } from './ui/BootScreen';
 import { BrowserPanel } from './ui/BrowserPanel';
+import { DiagnosticsModal } from './ui/DiagnosticsModal';
+import { MicPermissionModal } from './ui/MicPermissionModal';
 import { SettingsSheet } from './ui/SettingsSheet';
 import { Terminal } from './ui/Terminal';
 import { controlLayer } from './sophia/control';
@@ -36,7 +38,6 @@ const STATE_ANNOUNCE: Record<SophiaStateName, string> = {
   transforming: 'Sophia is transforming.',
 };
 
-
 export default function App() {
   const os = useMemo(getSophiaOS, []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -47,16 +48,14 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [browserOpen, setBrowserOpen] = useState(false);
-  const [micError, setMicError] = useState(os.isMicDisabledError);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [micModalOpen, setMicModalOpen] = useState(false);
   const [glFailed, setGlFailed] = useState(false);
   const [booted, setBooted] = useState(false);
   const [layout, setLayout] = useState<StageLayout>(() => stageLayout(window.innerWidth, window.innerHeight));
 
-  /* ONLY full screen space like Browser / Workspace causes Sophia to dock at the bottom!
-     Settings, Terminal, and Chat all leave Sophia in the center stage. */
   const docked = browserOpen;
   const paused = state === 'paused';
-  const voiceUnavailable = micError || status === 'denied' || status === 'error';
 
   useEffect(() => {
     os.setDocked(docked);
@@ -75,19 +74,19 @@ export default function App() {
     const canvas = canvasRef.current;
     if (canvas) os.attach(canvas);
     const onState = (e: Event) => setState((e as CustomEvent).detail.state);
-    const onStatus = (e: Event) => {
-      setStatus((e as CustomEvent).detail);
-      setMicError(os.isMicDisabledError);
-    };
-    const onMicErr = () => {
-      setMicError(true);
-      setBooted(true);
+    const onStatus = (e: Event) => setStatus((e as CustomEvent).detail);
+    const onMicStatus = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.status === 'denied') {
+        setMicModalOpen(true);
+      }
     };
     const onFail = () => setGlFailed(true);
     const onEntered = () => setBooted(true);
+
     os.addEventListener('state', onState);
     os.addEventListener('status', onStatus);
-    os.addEventListener('mic-error', onMicErr);
+    os.addEventListener('mic-status', onMicStatus);
     os.addEventListener('renderer-failed', onFail);
     os.addEventListener('entered', onEntered);
 
@@ -107,7 +106,7 @@ export default function App() {
       window.removeEventListener('resize', measure);
       os.removeEventListener('state', onState);
       os.removeEventListener('status', onStatus);
-      os.removeEventListener('mic-error', onMicErr);
+      os.removeEventListener('mic-status', onMicStatus);
       os.removeEventListener('renderer-failed', onFail);
       os.removeEventListener('entered', onEntered);
       os.detach();
@@ -116,6 +115,10 @@ export default function App() {
 
   const onMic = useCallback(() => {
     if (os.rendererFailed) return;
+    if (os.audio.micStatus === 'denied') {
+      setMicModalOpen(true);
+      return;
+    }
     if (os.isPaused || paused) {
       os.resume();
       void os.enterSession('mic-button');
@@ -136,7 +139,8 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (browserOpen) setBrowserOpen(false);
+        if (diagnosticsOpen) setDiagnosticsOpen(false);
+        else if (browserOpen) setBrowserOpen(false);
         else if (settingsOpen) setSettingsOpen(false);
         else if (terminalOpen) setTerminalOpen(false);
         else if (chatOpen) setChatOpen(false);
@@ -154,10 +158,12 @@ export default function App() {
         else os.pause();
       }
       if (e.key === 't' || e.key === 'T' || e.key === '/') {
-        if (voiceUnavailable) {
-          e.preventDefault();
-          setChatOpen(true);
-        }
+        e.preventDefault();
+        setChatOpen((v) => !v);
+      }
+      if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        setDiagnosticsOpen((v) => !v);
       }
       if (e.key === '`' || e.key === '~') {
         e.preventDefault();
@@ -166,13 +172,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onMic, browserOpen, chatOpen, settingsOpen, terminalOpen, os, voiceUnavailable]);
-
-  useEffect(() => {
-    if (!voiceUnavailable && chatOpen) {
-      setChatOpen(false);
-    }
-  }, [voiceUnavailable, chatOpen]);
+  }, [onMic, browserOpen, chatOpen, settingsOpen, terminalOpen, diagnosticsOpen, os]);
 
   const health = glFailed ? 'error' : os.health;
 
@@ -218,11 +218,12 @@ export default function App() {
         active={state !== 'ambient' || status === 'live'}
         settingsOpen={settingsOpen}
         onSettings={() => setSettingsOpen((v) => !v)}
+        onDiagnostics={() => setDiagnosticsOpen(true)}
       />
       <Identity layout={layout} state={state} docked={docked} />
       <OrbDock visible={docked && !glFailed} state={state} />
 
-      {chatOpen && voiceUnavailable && (
+      {chatOpen && (
         <ChatPanel status={status} onClose={() => setChatOpen(false)} onSend={(t) => os.sendText(t)} />
       )}
       {!booted && (
@@ -233,6 +234,14 @@ export default function App() {
       {booted && settingsOpen && <SettingsSheet os={os} status={status} onClose={() => setSettingsOpen(false)} />}
       {booted && <Terminal os={os} open={terminalOpen} onToggle={() => setTerminalOpen((v) => !v)} />}
       {browserOpen && <BrowserPanel onClose={() => setBrowserOpen(false)} />}
+      {diagnosticsOpen && <DiagnosticsModal os={os} onClose={() => setDiagnosticsOpen(false)} />}
+      {micModalOpen && (
+        <MicPermissionModal
+          os={os}
+          onClose={() => setMicModalOpen(false)}
+          onOpenChat={() => setChatOpen(true)}
+        />
+      )}
 
       <Dock
         state={state}
@@ -241,8 +250,6 @@ export default function App() {
         onChat={() => setChatOpen((v) => !v)}
         chatOpen={chatOpen}
         paused={paused}
-        micError={voiceUnavailable}
-        audioAvailable={!voiceUnavailable}
         browserOpen={browserOpen}
         onToggleBrowser={() => setBrowserOpen((v) => !v)}
       />

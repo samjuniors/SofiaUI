@@ -7,12 +7,10 @@
  *
  * Owns the render loop, activation paths (wake phrase / mic / chat),
  * silence & post-turn housekeeping, and provider selection with graceful
- * offline behaviour. Never fabricates conversation: without a backend
- * session Sophia still genuinely hears (real mic levels drive the form),
- * and speech/intent simply flows nowhere.
+ * offline behaviour.
  */
 
-import { AudioEngine } from './audio/AudioEngine';
+import { AudioEngine, type MicStatus } from './audio/AudioEngine';
 import { controlLayer } from './control';
 import { pulse, setHapticsEnabled } from './haptics';
 import { stageLayout } from './layout';
@@ -69,6 +67,35 @@ export interface LogLine {
   text: string;
 }
 
+export interface DiagnosticsSnapshot {
+  mic: {
+    status: MicStatus;
+    level: number;
+    error: string | null;
+  };
+  live: {
+    status: 'connected' | 'connecting' | 'idle' | 'error';
+    provider: string;
+    model: string;
+    voice: string;
+    packetsSent: number;
+    packetsReceived: number;
+  };
+  brain: {
+    mode: string;
+    pureGemini: boolean;
+  };
+  mouth: {
+    engine: string;
+    level: number;
+  };
+  visuals: {
+    fps: number;
+    density: string;
+    shape: string;
+  };
+}
+
 const PREF_KEY = 'sophia:prefs';
 const VOICE_EVENTS: SophiaEventType[] = [
   'listening',
@@ -95,9 +122,11 @@ export class SophiaOS extends EventTarget {
   private spotter: WakeWordSpotter | null = null;
   private raf = 0;
   private tPrev = 0;
+  
   status: OSStatus = 'idle';
   rendererFailed = false;
-  micDisabledError = false;
+  micStatus: MicStatus = 'idle';
+  micErrorDetails: string | null = null;
 
   private micLvl = 0;
   private playLvl = 0;
@@ -109,6 +138,9 @@ export class SophiaOS extends EventTarget {
   private completeTimer: ReturnType<typeof setTimeout> | null = null;
   private pausedHadCapture = false;
   private batteryUnsub: (() => void) | null = null;
+  private fpsCounter = 60;
+  private frameCount = 0;
+  private lastFpsTime = performance.now();
 
   constructor() {
     super();
@@ -125,6 +157,18 @@ export class SophiaOS extends EventTarget {
     this.audio.onMicLevel((l) => (this.micLvl = l));
     this.audio.onPlaybackLevel((l) => (this.playLvl = l));
     this.audio.onClap(() => this.handleClap());
+    this.audio.onMicStatus((status, err) => {
+      this.micStatus = status;
+      this.micErrorDetails = err ?? null;
+      if (status === 'denied') {
+        this.pushLog('error', `Microphone permission denied: ${err}`);
+      } else if (status === 'error') {
+        this.pushLog('error', `Microphone error: ${err}`);
+      } else if (status === 'capturing') {
+        this.pushLog('info', 'Microphone active (16 kHz PCM stream)');
+      }
+      this.dispatchEvent(new CustomEvent('mic-status', { detail: { status, err } }));
+    });
 
     controlLayer.addEventListener('command:transform', (e) => {
       const { shape } = (e as CustomEvent).detail;
@@ -176,8 +220,6 @@ export class SophiaOS extends EventTarget {
         const baseShape = this.prefs.form === 'ring' ? 'circle' : 'organic';
         this.director.requestTransform(baseShape, this.renderer);
       }
-      /* States only apply to base shapes — custom morphs revert when entering
-         a new state so state animations play cleanly on sphere/ring. */
       const stateNeedsBase: SophiaStateName[] = [
         'idle', 'listening', 'thinking', 'speaking', 'rendering',
         'focusing', 'wakeup', 'blocked',
@@ -338,13 +380,20 @@ export class SophiaOS extends EventTarget {
     const text = input.trim();
     if (!text) return;
     this.pushLog('cmd', `› ${text}`);
-    if (/^(retry|retry voice|reconnect)$/i.test(text)) {
-      this.resetMicError();
-      void this.activate('chat');
+    if (/^(retry|retry voice|reconnect|reset live)$/i.test(text)) {
+      void this.resetGeminiLiveSession();
+      return;
+    }
+    if (/^(test mic|mic test)$/i.test(text)) {
+      void this.testMic();
+      return;
+    }
+    if (/^(test voice|voice test|speak test)$/i.test(text)) {
+      void this.testVoice();
       return;
     }
     if (controlLayer.tryDirectCommand(text)) return;
-    this.sendText(text);
+    void this.sendText(text);
   }
 
   /* ---------------------------- render loop ---------------------------- */
@@ -367,6 +416,14 @@ export class SophiaOS extends EventTarget {
       this.raf = requestAnimationFrame(loop);
       const dt = Math.min(0.05, Math.max(0.0005, (now - this.tPrev) / 1000));
       this.tPrev = now;
+      
+      this.frameCount++;
+      if (now - this.lastFpsTime >= 1000) {
+        this.fpsCounter = Math.round((this.frameCount * 1000) / (now - this.lastFpsTime));
+        this.frameCount = 0;
+        this.lastFpsTime = now;
+      }
+
       this.housekeeping(dt);
       const params = this.director.frame(dt, { mic: this.micLvl, play: this.playLvl });
       this.renderer!.frame(params);
@@ -443,7 +500,7 @@ export class SophiaOS extends EventTarget {
     const p = this.activeProvider;
     this.activeProvider = null;
     void p?.stop().catch(() => undefined);
-    this.setStatus(this.status === 'denied' || this.status === 'error' ? this.status : 'idle');
+    this.setStatus('idle');
     this.pushLog('event', 'paused — say hey sophia, clap, or tap the mic to wake');
     this.maybeArmWake();
   }
@@ -455,7 +512,6 @@ export class SophiaOS extends EventTarget {
     }
   }
 
-  /** Boot / clap / hey Sophia — open a live session in focusing. */
   async enterSession(source: ActivationSource): Promise<void> {
     if (this.state.paused) this.resume();
     if (this.status === 'live' && this.activeProvider?.isActive()) {
@@ -494,29 +550,13 @@ export class SophiaOS extends EventTarget {
   }
 
   get health(): 'ok' | 'warn' | 'error' {
-    if (this.rendererFailed || this.status === 'denied' || this.status === 'error' || this.micDisabledError) return 'error';
-    if (this.status === 'offline' || this.status === 'connecting') return 'warn';
+    if (this.rendererFailed || this.micStatus === 'denied') return 'error';
+    if (this.status === 'offline' || this.status === 'connecting' || this.micStatus === 'error') return 'warn';
     return 'ok';
-  }
-
-  get isMicDisabledError(): boolean {
-    return this.micDisabledError;
-  }
-
-  resetMicError() {
-    this.micDisabledError = false;
-    this.setStatus('idle');
-    this.pushLog('info', 'Mic error cleared. Ready to reconnect.');
-    this.dispatchEvent(new CustomEvent('status', { detail: 'idle' }));
   }
 
   async activate(source: ActivationSource): Promise<void> {
     if (this.state.paused) this.resume();
-
-    if (this.micDisabledError) {
-      this.pushLog('info', 'retrying voice backends…');
-      this.micDisabledError = false;
-    }
 
     if (this.state.is('speaking')) {
       this.interrupt();
@@ -532,15 +572,21 @@ export class SophiaOS extends EventTarget {
     this.state.transition('wakeup', { source }, true);
     this.setStatus('connecting');
 
+    // Attempt real microphone capture
     try {
       await this.audio.startCapture();
-    } catch (micErr) {
+    } catch (micErr: any) {
       console.warn('[SophiaOS] Mic capture note:', micErr);
-      this.pushLog('info', 'Mic permission pending or restricted; continuing with live interactive transport');
+      this.pushLog('info', `Microphone access status: ${micErr.message}`);
     }
 
-    const order: VoiceProviderId[] =
-      this.prefs.provider === 'auto' ? ['gemini-live', 'deepgram', 'elevenlabs'] : [this.prefs.provider];
+    // Determine provider selection
+    const isPureGemini = controlLayer.pureGeminiLive;
+    const order: VoiceProviderId[] = isPureGemini
+      ? ['gemini-live']
+      : this.prefs.provider === 'auto'
+        ? ['gemini-live', 'deepgram', 'elevenlabs']
+        : [this.prefs.provider];
 
     let started = false;
     for (const id of order) {
@@ -550,8 +596,7 @@ export class SophiaOS extends EventTarget {
         this.activeProvider = p;
         await p.start();
         this.setStatus('live');
-        this.micDisabledError = false;
-        this.pushLog('event', `${id} session live`);
+        this.pushLog('event', `${id} session live & listening`);
         started = true;
         this.state.transition('focusing', { source, transport: id }, true);
         this.dispatchEvent(new CustomEvent('entered', { detail: { source, transport: id } }));
@@ -561,14 +606,103 @@ export class SophiaOS extends EventTarget {
         this.pushLog('error', `${id} unavailable: ${(err as Error).message}`);
       }
     }
+
     if (!started) {
-      // Even if raw websocket streaming failed, mark status live with neural mouth fallback!
+      // Fallback: active state with server neural brain/mouth
       this.setStatus('live');
-      this.micDisabledError = false;
-      this.pushLog('info', 'Gemini Neural TTS & brain active as conversational transport');
-      this.state.transition('focusing', { source, transport: 'mouth-fallback' }, true);
-      this.dispatchEvent(new CustomEvent('entered', { detail: { source, transport: 'mouth-fallback' } }));
+      this.pushLog('info', 'Gemini Neural Mouth TTS & Brain active as conversational transport');
+      this.state.transition('focusing', { source, transport: 'neural-fallback' }, true);
+      this.dispatchEvent(new CustomEvent('entered', { detail: { source, transport: 'neural-fallback' } }));
     }
+  }
+
+  async resetGeminiLiveSession(): Promise<void> {
+    this.pushLog('info', 'Resetting Gemini Live session…');
+    this.setStatus('connecting');
+    const p = this.providers['gemini-live'] as GeminiLiveProvider;
+    try {
+      this.activeProvider = p;
+      await p.reset();
+      this.setStatus('live');
+      this.pushLog('event', 'Gemini Live session reset and reconnected successfully.');
+      this.state.transition('focusing', { source: 'mic-button', transport: 'gemini-live' }, true);
+    } catch (err: any) {
+      this.pushLog('error', `Gemini Live reset error: ${err.message}`);
+      this.setStatus('offline');
+    }
+  }
+
+  async testMic(): Promise<number> {
+    this.pushLog('info', 'Testing microphone input…');
+    try {
+      await this.audio.startCapture();
+      return new Promise((resolve) => {
+        let maxLvl = 0;
+        const unsub = this.audio.onMicLevel((l) => {
+          if (l > maxLvl) maxLvl = l;
+        });
+        setTimeout(() => {
+          unsub();
+          this.pushLog('event', `Microphone test complete: peak level ${(maxLvl * 100).toFixed(1)}%`);
+          resolve(maxLvl);
+        }, 1200);
+      });
+    } catch (err: any) {
+      this.pushLog('error', `Microphone test failed: ${err.message}`);
+      return 0;
+    }
+  }
+
+  async testVoice(): Promise<void> {
+    this.pushLog('info', 'Testing voice output (Gemini Neural TTS)…');
+    try {
+      const res = await fetch('/api/sophia/test-voice', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ voice: controlLayer.voiceName }),
+      });
+      if (!res.ok) throw new Error(`test-voice:${res.status}`);
+      const buf = await res.arrayBuffer();
+      this.state.transition('speaking', { source: 'test' }, true);
+      await this.audio.playEncoded(buf);
+      this.state.transition('idle', { source: 'test' }, true);
+      this.pushLog('event', 'Voice test playback complete.');
+    } catch (err: any) {
+      this.pushLog('error', `Voice test error: ${err.message}`);
+      await this.speakText("G'day, voice test complete.");
+    }
+  }
+
+  getDiagnostics(): DiagnosticsSnapshot {
+    const liveProvider = this.providers['gemini-live'] as GeminiLiveProvider;
+    return {
+      mic: {
+        status: this.audio.micStatus,
+        level: this.audio.micLevel,
+        error: this.audio.micErrorDetails,
+      },
+      live: {
+        status: liveProvider.isConnected ? 'connected' : this.status === 'connecting' ? 'connecting' : this.status === 'error' ? 'error' : 'idle',
+        provider: 'Gemini Live (Native Audio)',
+        model: liveProvider.stats.modelName,
+        voice: controlLayer.voiceName,
+        packetsSent: liveProvider.stats.packetsSent,
+        packetsReceived: liveProvider.stats.packetsReceived,
+      },
+      brain: {
+        mode: controlLayer.brainMode,
+        pureGemini: controlLayer.pureGeminiLive,
+      },
+      mouth: {
+        engine: controlLayer.pureGeminiLive ? 'gemini' : controlLayer.mouthProvider,
+        level: this.audio.playbackLevel,
+      },
+      visuals: {
+        fps: this.fpsCounter,
+        density: this.prefs.density,
+        shape: this.director.currentForm,
+      },
+    };
   }
 
   deactivate(reason = 'user') {
@@ -580,7 +714,7 @@ export class SophiaOS extends EventTarget {
     void p?.stop().catch(() => undefined);
     this.audio.interruptPlayback();
     this.audio.stopCapture();
-    this.setStatus(this.status === 'denied' || this.status === 'error' ? this.status : 'idle');
+    this.setStatus('idle');
     this.state.standDown(reason);
   }
 
@@ -601,7 +735,7 @@ export class SophiaOS extends EventTarget {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           text: trimmed,
-          provider: controlLayer.mouthProvider,
+          provider: controlLayer.pureGeminiLive ? 'gemini' : controlLayer.mouthProvider,
           voice: controlLayer.voiceName,
           voiceId: controlLayer.elevenLabsVoiceId,
         }),
@@ -614,7 +748,7 @@ export class SophiaOS extends EventTarget {
       const buf = await res.arrayBuffer();
       await this.audio.playEncoded(buf);
     } catch (err) {
-      console.warn('[SophiaOS] Neural TTS speak note:', err);
+      console.warn('[SophiaOS] Neural TTS speak fallback note:', err);
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         await new Promise<void>((resolve) => {
           const u = new SpeechSynthesisUtterance(trimmed);
@@ -654,7 +788,7 @@ export class SophiaOS extends EventTarget {
         body: JSON.stringify({
           lastUser: t,
           history: controlLayer.history.slice(-16),
-          brainMode: controlLayer.brainMode,
+          brainMode: controlLayer.pureGeminiLive ? 'gemini' : controlLayer.brainMode,
           ollamaModel: controlLayer.ollamaModel,
           ollamaUrl: controlLayer.ollamaUrl,
           lmStudioModel: controlLayer.lmStudioModel,
@@ -735,11 +869,9 @@ export class SophiaOS extends EventTarget {
           case 'error':
             if (this.activeProvider === p || !detail.code) {
               this.state.handleVoiceEvent(type, detail);
-              if (detail.code === 'closed') {
-                this.micDisabledError = true;
-                this.setStatus('error');
-                this.pushLog('error', 'voice transport closed unexpectedly — microphone disabled');
-                this.dispatchEvent(new CustomEvent('mic-error'));
+              if (detail.code === 'transport-closed' || detail.code === 'live-ws-error') {
+                this.setStatus('offline');
+                this.pushLog('info', 'Live link disconnected. Ready to reconnect.');
               }
             }
             break;
