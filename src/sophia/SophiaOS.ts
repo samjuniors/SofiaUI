@@ -162,6 +162,10 @@ export class SophiaOS extends EventTarget {
     this.audio.onMicLevel((l) => (this.micLvl = l));
     this.audio.onPlaybackLevel((l) => (this.playLvl = l));
     this.audio.onClap(() => this.handleClap());
+    this.audio.onBargeIn(() => {
+      this.pushLog('event', 'barge-in detected — interrupting Sophia');
+      this.interrupt();
+    });
     this.audio.onMicStatus((status, err) => {
       this.micStatus = status;
       this.micErrorDetails = err ?? null;

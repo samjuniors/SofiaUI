@@ -12,6 +12,7 @@ import type { StageLayout } from '../sophia/layout';
 import type { SophiaStateName } from '../sophia/types';
 import type { SophiaOS } from '../sophia/SophiaOS';
 import type { LiveConnectionMetrics } from '../sophia/voice/GeminiLiveProvider';
+export { SofiaStatusPill, type SofiaStatusPillProps } from './SofiaStatusPill';
 
 export function Brand() {
   return (

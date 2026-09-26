@@ -82,12 +82,16 @@ export class AudioEngine {
   private playbackHandlers = new Set<() => void>();
   private clapHandlers = new Set<() => void>();
   private micStatusHandlers = new Set<MicStatusHandler>();
+  private bargeInHandlers = new Set<() => void>();
   private lastClap = 0;
   private playRms = 0;
+  private speechStreakMs = 0;
+  private lastBargeCheck = performance.now();
   private output = new AudioOutput(
     (isPlaying) => {
       if (!isPlaying) {
         this.playRms = 0;
+        this.speechStreakMs = 0;
         this.playbackHandlers.forEach((fn) => fn());
       }
     },
@@ -125,6 +129,42 @@ export class AudioEngine {
   onMicStatus(fn: MicStatusHandler): () => void {
     this.micStatusHandlers.add(fn);
     return () => this.micStatusHandlers.delete(fn);
+  }
+  onBargeIn(fn: () => void): () => void {
+    this.bargeInHandlers.add(fn);
+    return () => this.bargeInHandlers.delete(fn);
+  }
+
+  private checkBargeIn() {
+    if (!controlLayer.asrInterruption || !this.output.getIsPlaying()) {
+      this.speechStreakMs = 0;
+      this.lastBargeCheck = performance.now();
+      return;
+    }
+
+    const now = performance.now();
+    const dt = Math.min(100, Math.max(1, now - this.lastBargeCheck));
+    this.lastBargeCheck = now;
+
+    // Acoustic echo suppression:
+    // When audio plays through speakers, mic picks up echo proportional to playRms.
+    // True user speech directly in front of the mic must significantly exceed the echo.
+    const dynamicThreshold = Math.max(0.42, this.playRms * 0.85 + 0.22);
+
+    if (this._mic > dynamicThreshold) {
+      this.speechStreakMs += dt;
+      // Require at least 160ms of continuous human voice to confirm intentional interruption
+      if (this.speechStreakMs >= 160) {
+        this.speechStreakMs = 0;
+        if (this.bargeInHandlers.size > 0) {
+          this.bargeInHandlers.forEach((fn) => fn());
+        } else {
+          this.interruptPlayback();
+        }
+      }
+    } else {
+      this.speechStreakMs = Math.max(0, this.speechStreakMs - dt * 2);
+    }
   }
 
   private setMicStatus(status: MicStatus, errorMsg?: string) {
@@ -196,9 +236,7 @@ export class AudioEngine {
             } else if (d.type === 'level') {
               this._mic = this._mic * 0.72 + Math.min(1, d.rms * 5.5) * 0.28;
               this.levelHandlers.forEach((fn) => fn(this._mic));
-              if (controlLayer.asrInterruption && this.output.getIsPlaying() && this._mic > 0.06) {
-                this.interruptPlayback();
-              }
+              this.checkBargeIn();
             } else if (d.type === 'clap') {
               const now = performance.now();
               if (now - this.lastClap > 1400) {
@@ -243,9 +281,7 @@ export class AudioEngine {
           const rms = Math.sqrt(sum / ch.length);
           this._mic = this._mic * 0.72 + Math.min(1, rms * 5.5) * 0.28;
           this.levelHandlers.forEach((fn) => fn(this._mic));
-          if (controlLayer.asrInterruption && this.output.getIsPlaying() && this._mic > 0.06) {
-            this.interruptPlayback();
-          }
+          this.checkBargeIn();
 
           if (peak > 0.55 && prevRms < 0.045 && peak / Math.max(rms, 0.001) > 5.5) {
             const now = performance.now();

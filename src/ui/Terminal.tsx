@@ -28,7 +28,17 @@ function stamp(ts: number): string {
 
 type Tab = 'system' | 'chat';
 
-export function Terminal({ os, open, onToggle }: { os: SophiaOS; open: boolean; onToggle: () => void }) {
+export function Terminal({
+  os,
+  open,
+  onToggle,
+  hideButton = false,
+}: {
+  os: SophiaOS;
+  open: boolean;
+  onToggle: () => void;
+  hideButton?: boolean;
+}) {
   const [tab, setTab] = useState<Tab>('system');
   const [lines, setLines] = useState<LogLine[]>(() => [...os.log]);
   const [turns, setTurns] = useState<Turn[]>(() => [...controlLayer.history]);
@@ -247,32 +257,34 @@ export function Terminal({ os, open, onToggle }: { os: SophiaOS; open: boolean; 
         </section>
       )}
 
-      <button
-        type="button"
-        aria-label={open ? 'Close terminal' : 'Open terminal'}
-        aria-pressed={open}
-        onClick={onToggle}
-        title="Terminal"
-        className={`dock-btn fixed bottom-[44px] left-7 z-10 sm:bottom-[52px] sm:left-11 ${
-          open ? 'text-sky-300 drop-shadow-[0_0_12px_rgba(56,189,248,0.5)]' : ''
-        }`}
-      >
-        <svg
-          width="19"
-          height="19"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+      {!hideButton && (
+        <button
+          type="button"
+          aria-label={open ? 'Close terminal' : 'Open terminal'}
+          aria-pressed={open}
+          onClick={onToggle}
+          title="Terminal"
+          className={`dock-btn fixed bottom-[44px] left-7 z-10 sm:bottom-[52px] sm:left-11 ${
+            open ? 'text-sky-300 drop-shadow-[0_0_12px_rgba(56,189,248,0.5)]' : ''
+          }`}
         >
-          <rect x="3" y="4" width="18" height="16" rx="2.5" />
-          <path d="m7 9 3 3-3 3" />
-          <path d="M13 15h4" />
-        </svg>
-      </button>
+          <svg
+            width="19"
+            height="19"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="4" width="18" height="16" rx="2.5" />
+            <path d="m7 9 3 3-3 3" />
+            <path d="M13 15h4" />
+          </svg>
+        </button>
+      )}
     </>
   );
 }

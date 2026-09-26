@@ -8,7 +8,7 @@ import { dockLayout, stageLayout, type StageLayout } from './sophia/layout';
 import { getSophiaOS, type OSStatus } from './sophia/SophiaOS';
 import type { SophiaStateName } from './sophia/types';
 import { ChatPanel } from './ui/ChatPanel';
-import { Brand, Dock, Identity, OrbDock, StatusCluster } from './ui/Hud';
+import { Brand, Dock, Identity, OrbDock, SofiaStatusPill, StatusCluster } from './ui/Hud';
 import { BootScreen } from './ui/BootScreen';
 import { BrowserPanel } from './ui/BrowserPanel';
 import { DiagnosticsModal } from './ui/DiagnosticsModal';
@@ -249,7 +249,7 @@ export default function App() {
         </div>
       )}
       {booted && settingsOpen && <SettingsSheet os={os} status={status} onClose={() => setSettingsOpen(false)} />}
-      {booted && <Terminal os={os} open={terminalOpen} onToggle={() => setTerminalOpen((v) => !v)} />}
+      {booted && <Terminal os={os} open={terminalOpen} onToggle={() => setTerminalOpen((v) => !v)} hideButton />}
       {browserOpen && <BrowserPanel onClose={() => setBrowserOpen(false)} />}
       {diagnosticsOpen && <DiagnosticsModal os={os} onClose={() => setDiagnosticsOpen(false)} />}
       {micModalOpen && (
@@ -259,6 +259,44 @@ export default function App() {
           onOpenChat={() => setChatOpen(true)}
         />
       )}
+
+      {/* Bottom-left corner: Sofia real-time Status Pill + Terminal console */}
+      <div className="fixed bottom-[44px] left-7 z-10 flex items-center gap-2.5 transition-all duration-500 sm:bottom-[52px] sm:left-11">
+        <SofiaStatusPill
+          state={state}
+          paused={paused}
+          onClick={toggleShapePause}
+        />
+
+        {booted && (
+          <button
+            type="button"
+            aria-label={terminalOpen ? 'Close terminal' : 'Open terminal'}
+            aria-pressed={terminalOpen}
+            onClick={() => setTerminalOpen((v) => !v)}
+            title="Terminal"
+            className={`dock-btn ${
+              terminalOpen ? 'text-sky-300 drop-shadow-[0_0_12px_rgba(56,189,248,0.5)]' : ''
+            }`}
+          >
+            <svg
+              width="19"
+              height="19"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="3" y="4" width="18" height="16" rx="2.5" />
+              <path d="m7 9 3 3-3 3" />
+              <path d="M13 15h4" />
+            </svg>
+          </button>
+        )}
+      </div>
 
       <Dock
         state={state}

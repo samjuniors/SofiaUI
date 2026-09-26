@@ -9,6 +9,7 @@ export class AudioOutput {
   private onLevelChange?: (level: number) => void;
   private sampleRate = 24000; // Gemini Live API default output rate
   private currentRms = 0;
+  private drainTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     onPlaybackStateChange?: (isPlaying: boolean) => void,
@@ -173,6 +174,12 @@ export class AudioOutput {
       this.currentRms = this.currentRms * 0.55 + rms * 0.45;
       this.onLevelChange?.(this.currentRms);
 
+      // Clear any pending drain timeout since new audio has arrived
+      if (this.drainTimer) {
+        clearTimeout(this.drainTimer);
+        this.drainTimer = null;
+      }
+
       const audioBuffer = this.audioContext.createBuffer(1, float32.length, this.sampleRate);
       audioBuffer.getChannelData(0).set(float32);
 
@@ -181,11 +188,17 @@ export class AudioOutput {
       source.connect(this.analyserNode);
 
       const now = this.audioContext.currentTime;
-      // Resync if queue drifted behind real time
-      if (this.nextPlayTime < now - 0.05) {
-        this.nextPlayTime = now + 0.02;
+      let t: number;
+
+      if (this.isPlaying && this.nextPlayTime > now) {
+        // Continuous streaming: seamless sample-accurate chaining without artificial gaps!
+        t = this.nextPlayTime;
+      } else {
+        // Starting fresh from silence, or recovering from buffer starvation:
+        // Provide 50ms buffer lead time to absorb packet delivery jitter.
+        t = now + 0.05;
       }
-      const t = Math.max(now + 0.02, this.nextPlayTime);
+
       source.start(t);
       this.nextPlayTime = t + audioBuffer.duration;
 
@@ -198,10 +211,16 @@ export class AudioOutput {
           this.activeSourceNodes.splice(index, 1);
         }
         if (this.activeSourceNodes.length === 0) {
-          this.currentRms = 0;
-          this.onLevelChange?.(0);
-          this.updatePlayingState(false);
-          this.nextPlayTime = 0;
+          // Debounce queue empty state by 120ms so network packet arrival gaps don't toggle isPlaying
+          if (this.drainTimer) clearTimeout(this.drainTimer);
+          this.drainTimer = setTimeout(() => {
+            if (this.activeSourceNodes.length === 0) {
+              this.currentRms = 0;
+              this.onLevelChange?.(0);
+              this.updatePlayingState(false);
+              this.nextPlayTime = 0;
+            }
+          }, 120);
         }
       };
 
@@ -216,6 +235,10 @@ export class AudioOutput {
    * Stops all currently playing and queued audio immediately on interruption.
    */
   stopImmediately() {
+    if (this.drainTimer) {
+      clearTimeout(this.drainTimer);
+      this.drainTimer = null;
+    }
     for (const source of this.activeSourceNodes) {
       try {
         source.onended = null;
@@ -249,6 +272,10 @@ export class AudioOutput {
   }
 
   destroy() {
+    if (this.drainTimer) {
+      clearTimeout(this.drainTimer);
+      this.drainTimer = null;
+    }
     this.stopImmediately();
     if (this.audioContext && this.audioContext.state !== 'closed') {
       try {
