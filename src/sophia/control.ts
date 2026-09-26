@@ -56,6 +56,11 @@ export const ALL_SHAPES: SophiaShape[] = [
 export class ControlLayer extends EventTarget {
   /** Single source of truth for the running conversation. */
   readonly history: Turn[] = [];
+
+  reset() {
+    this.history.length = 0;
+    this.dispatchEvent(new CustomEvent('reset'));
+  }
   
   /** Pure Gemini Live All-in-One mode toggle */
   pureGeminiLive = false;

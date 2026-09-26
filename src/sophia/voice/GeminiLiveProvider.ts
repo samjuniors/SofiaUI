@@ -46,6 +46,7 @@ export class GeminiLiveProvider extends VoiceProvider {
   private inBuf = '';
   private lastSendTime = 0;
   private latencyHistory: number[] = [24, 28, 22, 26, 25, 29, 23];
+  private isLocalLiveWs = false;
 
   public stats = {
     connectedAt: 0,
@@ -65,10 +66,88 @@ export class GeminiLiveProvider extends VoiceProvider {
     return this.ws !== null && this.ws.readyState === WebSocket.OPEN && this.setupDone;
   }
 
+  private tryConnectLocalLiveWs(voice: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      try {
+        if (typeof window === 'undefined') {
+          resolve(false);
+          return;
+        }
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/api/live-ws`;
+        const ws = new WebSocket(wsUrl);
+        this.ws = ws;
+        let settled = false;
+
+        const timeout = setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            try { ws.close(); } catch {}
+            this.ws = null;
+            resolve(false);
+          }
+        }, 3000);
+
+        ws.onopen = () => {
+          this.stats.connectedAt = Date.now();
+        };
+
+        ws.onerror = () => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            try { ws.close(); } catch {}
+            this.ws = null;
+            resolve(false);
+          }
+        };
+
+        ws.onclose = (e) => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            this.ws = null;
+            resolve(false);
+          } else {
+            this.handleClosed(e.code);
+          }
+        };
+
+        ws.onmessage = (ev) => {
+          this.stats.packetsReceived++;
+          void this.handleMessage(ev.data, () => {
+            if (!settled) {
+              settled = true;
+              clearTimeout(timeout);
+              this.isLocalLiveWs = true;
+              this.setupDone = true;
+              this.active = true;
+              this.stats.connectedAt = Date.now();
+              resolve(true);
+            }
+          });
+        };
+      } catch {
+        resolve(false);
+      }
+    });
+  }
+
   async start(): Promise<void> {
     await this.stop();
+    this.isLocalLiveWs = false;
 
     const voice = controlLayer.voiceName || 'Aoede';
+    this.stats.voiceName = voice;
+    this.stats.modelName = 'gemini-3.8-live';
+
+    // 1. Try local Sofia Live WebSocket first
+    const connectedLocally = await this.tryConnectLocalLiveWs(voice);
+    if (connectedLocally) {
+      return;
+    }
+
+    // 2. Fallback to direct Gemini Live ticket session
     const res = await fetch('/api/sophia/live/session', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -85,9 +164,7 @@ export class GeminiLiveProvider extends VoiceProvider {
     await new Promise<void>((resolve, reject) => {
       const isAuthToken =
         ticket.token.startsWith('auth_tokens/') ||
-        ticket.token.startsWith('AQ.') ||
-        ticket.token.startsWith('ya29.') ||
-        !ticket.token.startsWith('AIza');
+        ticket.token.startsWith('ya29.');
       const param = isAuthToken ? 'access_token' : 'key';
       const cleanToken = ticket.token.replace(/^auth_tokens\//, '');
       const wsUrl = `${ticket.wsUrl}?${param}=${encodeURIComponent(cleanToken)}`;
@@ -241,6 +318,51 @@ export class GeminiLiveProvider extends VoiceProvider {
       return;
     }
 
+    // Local /api/live-ws protocol support
+    if (msg.type === 'ready') {
+      this.isLocalLiveWs = true;
+      onSetup();
+      this.attachMic();
+      this.emit('listening', { source: this.id });
+      return;
+    }
+    if (msg.type === 'audio' && msg.audio) {
+      if (!this.responseLive) {
+        this.responseLive = true;
+        this.emit('response_started', { source: this.id });
+        this.emit('audio_started', { source: this.id });
+      }
+      const level = this.audio.playPCM24(msg.audio);
+      this.emit('audio_chunk', { level, source: this.id });
+      return;
+    }
+    if (msg.type === 'transcript' && msg.text) {
+      this.outBuf += msg.text;
+      controlLayer.addSophiaTurn(this.outBuf, false);
+      this.emit('transcript', { role: 'sophia', text: this.outBuf, final: false, source: this.id });
+      return;
+    }
+    if (msg.type === 'interrupted') {
+      this.audio.interruptPlayback();
+      this.responseLive = false;
+      this.flushTranscripts(true);
+      this.emit('interrupted', { source: this.id });
+      this.emit('listening', { source: this.id });
+      return;
+    }
+    if (msg.type === 'turn_complete') {
+      this.flushTranscripts(true);
+      this.responseLive = false;
+      this.emit('response_finished', { source: this.id });
+      this.emit('listening', { source: this.id });
+      return;
+    }
+    if (msg.type === 'error') {
+      this.emit('error', { code: 'live-ws', message: msg.error || 'Live session error', source: this.id });
+      return;
+    }
+
+    // Direct Google Gemini Live protocol support
     if (msg.setupComplete) {
       onSetup();
       this.attachMic();
@@ -268,7 +390,7 @@ export class GeminiLiveProvider extends VoiceProvider {
               this.emit('response_started', { source: this.id });
               this.emit('audio_started', { source: this.id });
             }
-            const level = this.audio.playPCM24(base64Decode(inline.data));
+            const level = this.audio.playPCM24(inline.data);
             this.emit('audio_chunk', { level, source: this.id });
           }
           if (typeof p.text === 'string' && p.text.trim() && !p.thought) {
@@ -340,18 +462,22 @@ export class GeminiLiveProvider extends VoiceProvider {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupDone) return;
       const b64 = base64Encode(new Uint8Array(pcm));
       this.lastSendTime = performance.now();
-      this.ws.send(
-        JSON.stringify({
-          realtimeInput: {
-            mediaChunks: [
-              {
-                mimeType: 'audio/pcm;rate=16000',
-                data: b64,
-              },
-            ],
-          },
-        }),
-      );
+      if (this.isLocalLiveWs) {
+        this.ws.send(JSON.stringify({ type: 'audio', audio: b64 }));
+      } else {
+        this.ws.send(
+          JSON.stringify({
+            realtimeInput: {
+              mediaChunks: [
+                {
+                  mimeType: 'audio/pcm;rate=16000',
+                  data: b64,
+                },
+              ],
+            },
+          }),
+        );
+      }
       this.stats.packetsSent++;
     });
   }
@@ -364,19 +490,49 @@ export class GeminiLiveProvider extends VoiceProvider {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupDone) return;
     this.emit('thinking', { source: this.id });
     this.lastSendTime = performance.now();
-    this.ws.send(
-      JSON.stringify({
-        clientContent: {
-          turns: [
-            {
-              role: 'user',
-              parts: [{ text: trimmed }],
-            },
-          ],
-          turnComplete: true,
-        },
-      }),
-    );
+    if (this.isLocalLiveWs) {
+      this.ws.send(JSON.stringify({ type: 'text', text: trimmed }));
+    } else {
+      this.ws.send(
+        JSON.stringify({
+          clientContent: {
+            turns: [
+              {
+                role: 'user',
+                parts: [{ text: trimmed }],
+              },
+            ],
+            turnComplete: true,
+          },
+        }),
+      );
+    }
+    this.stats.packetsSent++;
+  }
+
+  sendPrompt(promptText: string) {
+    const trimmed = promptText.trim();
+    if (!trimmed) return;
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupDone) return;
+    this.emit('thinking', { source: this.id });
+    this.lastSendTime = performance.now();
+    if (this.isLocalLiveWs) {
+      this.ws.send(JSON.stringify({ type: 'text', text: trimmed }));
+    } else {
+      this.ws.send(
+        JSON.stringify({
+          clientContent: {
+            turns: [
+              {
+                role: 'user',
+                parts: [{ text: trimmed }],
+              },
+            ],
+            turnComplete: true,
+          },
+        }),
+      );
+    }
     this.stats.packetsSent++;
   }
 
@@ -384,7 +540,11 @@ export class GeminiLiveProvider extends VoiceProvider {
     this.audio.interruptPlayback();
     this.responseLive = false;
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+      if (this.isLocalLiveWs) {
+        this.ws.send(JSON.stringify({ type: 'interrupt' }));
+      } else {
+        this.ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+      }
       this.stats.packetsSent++;
     }
   }

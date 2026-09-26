@@ -147,11 +147,21 @@ function sophiaApiPlugin(): Plugin {
     name: "app-builder:sophia-api",
     apply: "serve",
     configureServer(server) {
+      if (server.httpServer) {
+        server.ssrLoadModule("/src/lib/sophia-live-server.ts").then((mod: any) => {
+          if (typeof mod.setupLiveWebSocketServer === "function" && server.httpServer) {
+            mod.setupLiveWebSocketServer(server.httpServer);
+          }
+        }).catch((err) => {
+          console.error("[app-builder] Failed to setup Live WebSocket server:", err);
+        });
+      }
+
       server.middlewares.use(async (req, res, next) => {
         try {
           const rawUrl = req.url ?? "";
           const pathOnly = rawUrl.split("?", 1)[0] ?? "";
-          if (!pathOnly.startsWith("/api/sophia")) {
+          if (!pathOnly.startsWith("/api/sophia") && !["/api/status", "/api/tts", "/api/chat"].includes(pathOnly)) {
             next();
             return;
           }
@@ -233,6 +243,9 @@ export default defineConfig(({ command, isPreview }) => ({
     host: "0.0.0.0",
     port: 3000,
     allowedHosts: true,
+    watch: {
+      ignored: ["**/sofiaui/**", "**/*.zip"],
+    },
   },
   preview: {
     host: "127.0.0.1",

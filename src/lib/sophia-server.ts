@@ -16,12 +16,30 @@ const GEMINI_MODEL = process.env.GEMINI_LIVE_MODEL?.trim() || "models/gemini-3.8
 const GEMINI_TEXT_MODEL = "gemini-3.8-flash";
 const GEMINI_TTS_MODEL = "gemini-3.8-flash-lite-tts";
 const LIVE_WS =
-  "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained";
+  "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
 const GROK_MODEL = "grok-4.5";
 const CLAUDE_MODEL = "claude-3-5-sonnet-20241022";
 const OPENAI_MODEL = "gpt-4o";
 
+let envLoaded = false;
+function loadEnvOnce() {
+  if (envLoaded) return;
+  envLoaded = true;
+  if (typeof process.loadEnvFile === 'function') {
+    try {
+      process.loadEnvFile('.env.local');
+    } catch {
+      try {
+        process.loadEnvFile('.env');
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
 function key(name: string): string | undefined {
+  loadEnvOnce();
   const v = process.env[name]?.trim();
   return v && v !== "your_xai_api_key_here" && v !== "your_claude_api_key_here" && v !== "your_openai_api_key_here"
     ? v
@@ -336,11 +354,7 @@ async function chatWithLMStudio(body: ChatBody): Promise<Response | null> {
 
 function getGeminiFetchParams(apiKey: string, model: string, endpoint = "generateContent") {
   const cleanKey = apiKey.replace(/^auth_tokens\//, "").trim();
-  const isAuthToken =
-    apiKey.startsWith("auth_tokens/") ||
-    apiKey.startsWith("AQ.") ||
-    apiKey.startsWith("ya29.") ||
-    !apiKey.startsWith("AIza");
+  const isAuthToken = apiKey.startsWith("auth_tokens/") || apiKey.startsWith("ya29.");
 
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (isAuthToken) {
@@ -363,32 +377,47 @@ async function chatWithGemini(body: ChatBody, apiKey: string): Promise<Response>
   if (contents.length === 0 && body.lastUser) {
     contents.push({ role: "user", parts: [{ text: body.lastUser }] });
   }
-  const { url, headers } = getGeminiFetchParams(apiKey, GEMINI_TEXT_MODEL);
-  const res = await fetch(
-    url,
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SOPHIA_SYSTEM }] },
-        tools: [{ functionDeclarations: FUNCTION_DECLARATIONS }],
-        contents,
-      }),
-    },
-  );
-  if (!res.ok) return json({ error: `generate:${res.status}` }, { status: 502 });
-  const data = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<Record<string, unknown>> } }>;
-  };
-  const parts = data.candidates?.[0]?.content?.parts ?? [];
-  let text = "";
-  const toolCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
-  for (const p of parts) {
-    if (typeof p.text === "string") text += p.text;
-    const fc = p.functionCall as { name?: string; args?: Record<string, unknown> } | undefined;
-    if (fc?.name) toolCalls.push({ name: fc.name, args: fc.args ?? {} });
+
+  const models = [GEMINI_TEXT_MODEL, "gemini-3.5-flash", "gemini-2.5-flash-lite"];
+  let lastStatus = 502;
+
+  for (const model of models) {
+    const { url, headers } = getGeminiFetchParams(apiKey, model);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SOPHIA_SYSTEM }] },
+          tools: [{ functionDeclarations: FUNCTION_DECLARATIONS }],
+          contents,
+        }),
+      });
+
+      if (!res.ok) {
+        lastStatus = res.status;
+        console.warn(`[sophia-server] Gemini chat (${model}) returned status ${res.status}`);
+        continue;
+      }
+
+      const data = (await res.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<Record<string, unknown>> } }>;
+      };
+      const parts = data.candidates?.[0]?.content?.parts ?? [];
+      let text = "";
+      const toolCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+      for (const p of parts) {
+        if (typeof p.text === "string") text += p.text;
+        const fc = p.functionCall as { name?: string; args?: Record<string, unknown> } | undefined;
+        if (fc?.name) toolCalls.push({ name: fc.name, args: fc.args ?? {} });
+      }
+      return json({ text: text.trim(), toolCalls, brain: "gemini" });
+    } catch (err) {
+      console.warn(`[sophia-server] Gemini chat (${model}) fetch error:`, err);
+    }
   }
-  return json({ text: text.trim(), toolCalls, brain: "gemini" });
+
+  return json({ error: `generate:${lastStatus}` }, { status: 502 });
 }
 
 async function chat(req: Request): Promise<Response> {
@@ -575,6 +604,29 @@ async function elevenLabsVoices(): Promise<Response> {
   }
 }
 
+function wrapPcmWithWavHeader(pcmBuffer: Buffer, sampleRate = 24000, channels = 1, bitsPerSample = 16): Buffer {
+  if (pcmBuffer.length >= 12 && pcmBuffer.subarray(0, 4).toString('utf8') === 'RIFF') {
+    return pcmBuffer;
+  }
+  const byteRate = (sampleRate * channels * bitsPerSample) / 8;
+  const blockAlign = (channels * bitsPerSample) / 8;
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + pcmBuffer.length, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(pcmBuffer.length, 40);
+  return Buffer.concat([header, pcmBuffer]);
+}
+
 async function geminiSpeak(req: Request): Promise<Response> {
   const apiKey = geminiKey();
   if (!apiKey) return json({ error: "GEMINI_API_KEY/GOOGLE_API_KEY not configured" }, { status: 503 });
@@ -645,11 +697,12 @@ async function geminiSpeak(req: Request): Promise<Response> {
         continue;
       }
 
-      const binaryBuffer = Buffer.from(inlineData.data, "base64");
-      return new Response(binaryBuffer, {
+      const rawBuffer = Buffer.from(inlineData.data, "base64");
+      const wavBuffer = wrapPcmWithWavHeader(rawBuffer, 24000);
+      return new Response(new Uint8Array(wavBuffer), {
         headers: {
-          "content-type": inlineData.mimeType || "audio/wav",
-          "content-length": String(binaryBuffer.length),
+          "content-type": "audio/wav",
+          "content-length": String(wavBuffer.length),
         },
       });
     } catch (err: any) {
@@ -738,8 +791,22 @@ async function testVoice(req: Request): Promise<Response> {
   return geminiSpeak(fakeReq);
 }
 
+import { handleStatusRequest, handleTtsRequest, handleChatRequest } from './sophia-live-server';
+
 export async function handleSophiaRequest(req: Request): Promise<Response> {
   const url = new URL(req.url);
+  const fullPath = url.pathname;
+
+  if (fullPath === "/api/status") {
+    return handleStatusRequest();
+  }
+  if (fullPath === "/api/tts") {
+    return handleTtsRequest(req);
+  }
+  if (fullPath === "/api/chat") {
+    return handleChatRequest(req);
+  }
+
   const path = url.pathname.replace(/^.*\/api\/sophia/, "") || "/";
 
   if (req.method === "GET" && (path === "/" || path === "/status" || path === "")) {

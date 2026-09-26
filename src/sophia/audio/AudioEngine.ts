@@ -10,6 +10,7 @@
  */
 
 import { controlLayer } from '../control';
+import { AudioOutput } from '../../core/AudioOutput';
 
 type PCMHandler = (pcm: ArrayBuffer) => void;
 type LevelHandler = (level: number) => void;
@@ -82,10 +83,19 @@ export class AudioEngine {
   private clapHandlers = new Set<() => void>();
   private micStatusHandlers = new Set<MicStatusHandler>();
   private lastClap = 0;
-  private playCtx: AudioContext | null = null;
-  private nextStart = 0;
-  private active: AudioBufferSourceNode[] = [];
   private playRms = 0;
+  private output = new AudioOutput(
+    (isPlaying) => {
+      if (!isPlaying) {
+        this.playRms = 0;
+        this.playbackHandlers.forEach((fn) => fn());
+      }
+    },
+    (level) => {
+      this.playRms = level;
+      this.playbackLevelHandlers.forEach((fn) => fn(level));
+    }
+  );
   
   capturing = false;
   micStatus: MicStatus = 'idle';
@@ -186,7 +196,7 @@ export class AudioEngine {
             } else if (d.type === 'level') {
               this._mic = this._mic * 0.72 + Math.min(1, d.rms * 5.5) * 0.28;
               this.levelHandlers.forEach((fn) => fn(this._mic));
-              if (controlLayer.asrInterruption && this.active.length > 0 && this._mic > 0.06) {
+              if (controlLayer.asrInterruption && this.output.getIsPlaying() && this._mic > 0.06) {
                 this.interruptPlayback();
               }
             } else if (d.type === 'clap') {
@@ -233,7 +243,7 @@ export class AudioEngine {
           const rms = Math.sqrt(sum / ch.length);
           this._mic = this._mic * 0.72 + Math.min(1, rms * 5.5) * 0.28;
           this.levelHandlers.forEach((fn) => fn(this._mic));
-          if (controlLayer.asrInterruption && this.active.length > 0 && this._mic > 0.06) {
+          if (controlLayer.asrInterruption && this.output.getIsPlaying() && this._mic > 0.06) {
             this.interruptPlayback();
           }
 
@@ -302,93 +312,49 @@ export class AudioEngine {
 
   /* ------------------------------ playback ------------------------------ */
 
-  private ensurePlayCtx(): AudioContext {
-    if (!this.playCtx || this.playCtx.state === 'closed') this.playCtx = new AudioContext();
-    if (this.playCtx.state === 'suspended') void this.playCtx.resume();
-    return this.playCtx;
+  async unlockAudio(): Promise<void> {
+    await this.output.init();
+    await this.output.unlock();
+    if (this.ctx && this.ctx.state === 'suspended') {
+      try {
+        await this.ctx.resume();
+      } catch {}
+    }
   }
 
   /** Queue a 24 kHz PCM16 chunk (Gemini Live native audio). Returns its RMS level. */
-  playPCM24(input: ArrayBuffer | Uint8Array): number {
-    const ctx = this.ensurePlayCtx();
-    let u8: Uint8Array;
-    if (input instanceof Uint8Array) {
-      u8 = input;
-    } else if (input instanceof ArrayBuffer) {
-      u8 = new Uint8Array(input);
-    } else {
-      return 0;
-    }
-
-    const sampleCount = Math.floor(u8.length / 2);
-    if (sampleCount === 0) return 0;
-
-    // Use DataView for endian-safe 16-bit signed PCM conversion
-    const view = new DataView(u8.buffer, u8.byteOffset, sampleCount * 2);
-    const buf = ctx.createBuffer(1, sampleCount, 24000);
-    const data = buf.getChannelData(0);
-    let sum = 0;
-
-    for (let i = 0; i < sampleCount; i++) {
-      const sample16 = view.getInt16(i * 2, true); // Little endian
-      const s = sample16 / 0x8000;
-      data[i] = s;
-      if ((i & 7) === 0) sum += s * s;
-    }
-
-    this.playRms = this.playRms * 0.55 + Math.min(1, Math.sqrt(sum / Math.max(1, sampleCount / 8)) * 3.2) * 0.45;
-    this.playbackLevelHandlers.forEach((fn) => fn(this.playRms));
-    this.schedule(buf);
-    return this.playRms;
+  playPCM24(input: ArrayBuffer | Uint8Array | string): number {
+    return this.output.playChunk(input);
   }
 
   /** Play an encoded buffer (mpeg/wav…) — used by TTS fallback paths. */
   async playEncoded(data: ArrayBuffer): Promise<void> {
-    const ctx = this.ensurePlayCtx();
-    try {
-      const buf = await ctx.decodeAudioData(data.slice(0));
-      this.schedule(buf);
-    } catch {
-      /* undecodable chunk — skip silently */
-    }
-  }
-
-  private schedule(buf: AudioBuffer) {
-    const ctx = this.ensurePlayCtx();
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.connect(ctx.destination);
-
-    // Prevent latency drift or scheduling gaps
-    if (this.nextStart < ctx.currentTime - 0.05) {
-      this.nextStart = ctx.currentTime + 0.03;
-    }
-    const t = Math.max(ctx.currentTime + 0.03, this.nextStart);
-    src.start(t);
-    this.nextStart = t + buf.duration;
-    this.active.push(src);
-
-    src.onended = () => {
-      this.active = this.active.filter((s) => s !== src);
-      if (this.active.length === 0 && this.nextStart <= ctx.currentTime + 0.06) {
-        this.playRms = 0;
-        this.playbackHandlers.forEach((fn) => fn());
+    await this.output.init();
+    const ctx = this.output.getAudioContext();
+    if (ctx && ctx.state !== 'closed') {
+      try {
+        const buf = await ctx.decodeAudioData(data.slice(0));
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const analyser = this.output.getAnalyserNode();
+        if (analyser) {
+          src.connect(analyser);
+        } else {
+          src.connect(ctx.destination);
+        }
+        const now = ctx.currentTime;
+        src.start(now + 0.02);
+        return;
+      } catch {
+        /* If decodeAudioData fails (raw PCM), play directly through AudioOutput */
       }
-    };
+    }
+    this.output.playChunk(data);
   }
 
   /** Barge-in: kill everything that is playing or queued. Immediately. */
   interruptPlayback() {
-    this.active.forEach((s) => {
-      s.onended = null;
-      try {
-        s.stop();
-      } catch {
-        /* already stopped */
-      }
-    });
-    this.active = [];
-    if (this.playCtx) this.nextStart = this.playCtx.currentTime;
+    this.output.stopImmediately();
     this.playRms = 0;
     this.playbackLevelHandlers.forEach((fn) => fn(0));
   }
@@ -396,7 +362,6 @@ export class AudioEngine {
   dispose() {
     this.stopCapture();
     this.interruptPlayback();
-    void this.playCtx?.close().catch(() => undefined);
-    this.playCtx = null;
+    this.output.destroy();
   }
 }

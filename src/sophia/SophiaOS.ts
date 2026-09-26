@@ -32,6 +32,9 @@ import { ElevenLabsVoiceProvider } from './voice/ElevenLabsVoiceProvider';
 import type { VoiceProvider } from './voice/VoiceProvider';
 import { WakeWordSpotter } from './voice/wake';
 import { VisualDirector } from './VisualDirector';
+import { EmotionEngine } from '../core/EmotionEngine';
+import { WakeWordDetection } from '../core/WakeWordDetection';
+import type { Emotion } from '../types/sofia';
 
 export type OSStatus = 'idle' | 'connecting' | 'live' | 'offline' | 'denied' | 'error';
 export type ProviderPref = VoiceProviderId | 'auto';
@@ -114,12 +117,14 @@ export class SophiaOS extends EventTarget {
   readonly state = new SophiaState();
   readonly director = new VisualDirector();
   readonly audio = new AudioEngine();
+  readonly emotionEngine = new EmotionEngine();
   readonly prefs: Prefs;
 
   private renderer: ParticleRenderer | null = null;
   private providers: Record<VoiceProviderId, VoiceProvider>;
   private activeProvider: VoiceProvider | null = null;
   private spotter: WakeWordSpotter | null = null;
+  private wakeDetector: WakeWordDetection | null = null;
   private raf = 0;
   private tPrev = 0;
   
@@ -513,6 +518,7 @@ export class SophiaOS extends EventTarget {
   }
 
   async enterSession(source: ActivationSource): Promise<void> {
+    await this.audio.unlockAudio();
     if (this.state.paused) this.resume();
     if (this.status === 'live' && this.activeProvider?.isActive()) {
       this.director.playWake();
@@ -555,6 +561,16 @@ export class SophiaOS extends EventTarget {
     return 'ok';
   }
 
+  get isMicDisabledError(): boolean {
+    return this.micStatus === 'denied' || this.micStatus === 'error';
+  }
+
+  resetMicError() {
+    this.micStatus = 'idle';
+    this.micErrorDetails = null;
+    this.dispatchEvent(new CustomEvent('mic-status', { detail: { status: 'idle', err: null } }));
+  }
+
   getGeminiLiveMetrics(): LiveConnectionMetrics {
     const gemini = this.providers['gemini-live'] as GeminiLiveProvider | undefined;
     return gemini
@@ -573,6 +589,7 @@ export class SophiaOS extends EventTarget {
   }
 
   async activate(source: ActivationSource): Promise<void> {
+    await this.audio.unlockAudio();
     if (this.state.paused) this.resume();
 
     if (this.state.is('speaking')) {
@@ -617,6 +634,19 @@ export class SophiaOS extends EventTarget {
         started = true;
         this.state.transition('focusing', { source, transport: id }, true);
         this.dispatchEvent(new CustomEvent('entered', { detail: { source, transport: id } }));
+
+        // Trigger immediate greeting so user hears Sofia's Australian voice on boot/connect
+        if (source === 'boot' || source === 'mic-button') {
+          setTimeout(() => {
+            if (this.activeProvider && this.activeProvider.isActive()) {
+              if (this.activeProvider instanceof GeminiLiveProvider) {
+                this.activeProvider.sendPrompt("Introduce yourself briefly in one friendly sentence with your Australian accent and ask how you can help today.");
+              } else {
+                this.activeProvider.sendText("Hello Sofia!");
+              }
+            }
+          }, 400);
+        }
         break;
       } catch (err) {
         this.activeProvider = null;
@@ -630,6 +660,9 @@ export class SophiaOS extends EventTarget {
       this.pushLog('info', 'Gemini Neural Mouth TTS & Brain active as conversational transport');
       this.state.transition('focusing', { source, transport: 'neural-fallback' }, true);
       this.dispatchEvent(new CustomEvent('entered', { detail: { source, transport: 'neural-fallback' } }));
+      if (source === 'boot' || source === 'mic-button') {
+        void this.speakText("G'day! I'm Sofia. I'm right here with you. What's on your mind today?");
+      }
     }
   }
 
@@ -672,6 +705,7 @@ export class SophiaOS extends EventTarget {
 
   async testVoice(): Promise<void> {
     this.pushLog('info', 'Testing voice output (Gemini Neural TTS)…');
+    await this.audio.unlockAudio();
     try {
       const res = await fetch('/api/sophia/test-voice', {
         method: 'POST',
@@ -755,6 +789,7 @@ export class SophiaOS extends EventTarget {
   async speakText(text: string): Promise<void> {
     const trimmed = text.trim();
     if (!trimmed) return;
+    await this.audio.unlockAudio();
 
     try {
       const res = await fetch('/api/sophia/mouth/speak', {
@@ -880,6 +915,19 @@ export class SophiaOS extends EventTarget {
       });
     }
     this.spotter.start();
+
+    if (!this.wakeDetector && typeof window !== 'undefined') {
+      this.wakeDetector = new WakeWordDetection({
+        onWake: (trigger) => {
+          this.pushLog('event', `wake trigger: ${trigger}`);
+          void this.enterSession(trigger === 'clap' ? 'clap' : 'wake-word');
+        },
+        onClapDetected: () => {
+          this.handleClap();
+        },
+      });
+    }
+    this.wakeDetector?.startWakeWordRecognizer();
   }
 
   /* --------------------------- provider events -------------------------- */
@@ -892,6 +940,16 @@ export class SophiaOS extends EventTarget {
         if (type !== 'error' && type !== 'listening') this.cancelFocusing();
         this.logVoiceEvent(p.id, type, detail);
         switch (type) {
+          case 'transcript':
+            if (detail.text) {
+              const inferred = this.emotionEngine.inferEmotionFromText(detail.text);
+              if (inferred !== this.emotionEngine.getEmotion()) {
+                this.emotionEngine.setEmotion(inferred);
+                this.dispatchEvent(new CustomEvent('emotion', { detail: inferred }));
+              }
+            }
+            this.state.handleVoiceEvent(type, detail);
+            break;
           case 'speech_started':
             if (this.postTurnTimer) clearTimeout(this.postTurnTimer);
             if (this.completeTimer) clearTimeout(this.completeTimer);

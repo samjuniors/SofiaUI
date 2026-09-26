@@ -39,6 +39,7 @@ export function BootScreen({ os, onEnter }: { os: SophiaOS; onEnter: () => void 
 
   const handleStartWithMic = async () => {
     setBooting(true);
+    await os.audio.unlockAudio();
     try {
       await os.enterSession('boot');
     } catch (err) {
@@ -48,7 +49,9 @@ export function BootScreen({ os, onEnter }: { os: SophiaOS; onEnter: () => void 
     }
   };
 
-  const handleStartTextOnly = () => {
+  const handleStartTextOnly = async () => {
+    await os.audio.unlockAudio();
+    void os.enterSession('chat');
     onEnter();
   };
 

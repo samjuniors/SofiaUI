@@ -113,7 +113,22 @@ export default function App() {
     };
   }, [os]);
 
+  useEffect(() => {
+    const unlock = () => {
+      void os.audio.unlockAudio();
+    };
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, [os]);
+
   const onMic = useCallback(() => {
+    void os.audio.unlockAudio();
     if (os.rendererFailed) return;
     if (os.audio.micStatus === 'denied') {
       setMicModalOpen(true);
@@ -128,6 +143,7 @@ export default function App() {
   }, [os, paused]);
 
   const toggleShapePause = useCallback(() => {
+    void os.audio.unlockAudio();
     if (os.isPaused || paused) {
       os.resume();
       void os.enterSession('mic-button');
