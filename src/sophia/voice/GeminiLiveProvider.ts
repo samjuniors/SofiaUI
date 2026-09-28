@@ -15,7 +15,7 @@ import { AudioEngine } from '../audio/AudioEngine';
 import { controlLayer } from '../control';
 import type { FunctionCall } from '../control';
 import type { VoiceProviderId } from '../types';
-import { VoiceProvider, base64Decode, base64Encode } from './VoiceProvider';
+import { VoiceProvider, base64Encode } from './VoiceProvider';
 
 interface LiveSessionTicket {
   token: string;
@@ -74,7 +74,7 @@ export class GeminiLiveProvider extends VoiceProvider {
           return;
         }
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/api/live-ws`;
+        const wsUrl = `${protocol}//${window.location.host}/api/live-ws?voice=${encodeURIComponent(voice || 'Aoede')}`;
         const ws = new WebSocket(wsUrl);
         this.ws = ws;
         let settled = false;
@@ -82,7 +82,7 @@ export class GeminiLiveProvider extends VoiceProvider {
         const timeout = setTimeout(() => {
           if (!settled) {
             settled = true;
-            try { ws.close(); } catch {}
+            try { ws.close(); } catch (_e) {}
             this.ws = null;
             resolve(false);
           }
@@ -96,7 +96,7 @@ export class GeminiLiveProvider extends VoiceProvider {
           if (!settled) {
             settled = true;
             clearTimeout(timeout);
-            try { ws.close(); } catch {}
+            try { ws.close(); } catch (_e) {}
             this.ws = null;
             resolve(false);
           }
@@ -164,7 +164,8 @@ export class GeminiLiveProvider extends VoiceProvider {
     await new Promise<void>((resolve, reject) => {
       const isAuthToken =
         ticket.token.startsWith('auth_tokens/') ||
-        ticket.token.startsWith('ya29.');
+        ticket.token.startsWith('ya29.') ||
+        ticket.token.startsWith('AQ.');
       const param = isAuthToken ? 'access_token' : 'key';
       const cleanToken = ticket.token.replace(/^auth_tokens\//, '');
       const wsUrl = `${ticket.wsUrl}?${param}=${encodeURIComponent(cleanToken)}`;
@@ -359,6 +360,33 @@ export class GeminiLiveProvider extends VoiceProvider {
     }
     if (msg.type === 'error') {
       this.emit('error', { code: 'live-ws', message: msg.error || 'Live session error', source: this.id });
+      return;
+    }
+    // Local WS tool_call: server forwards Gemini tool calls to client for execution
+    if (msg.type === 'tool_call' && msg.functionCalls) {
+      this.emit('thinking', { source: this.id });
+      const calls: FunctionCall[] = msg.functionCalls;
+      void (async () => {
+        const responses = await Promise.all(
+          calls.map(async (c: FunctionCall) => {
+            // Signal rendering state for image generation
+            if (c.name === 'generate_image') {
+              this.emit('rendering' as any, { source: this.id });
+            }
+            const result = await controlLayer.execute(c);
+            return { id: c.id, name: c.name, response: { result } };
+          }),
+        );
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(
+            JSON.stringify({
+              type: 'tool_response',
+              functionResponses: responses,
+            }),
+          );
+          this.stats.packetsSent++;
+        }
+      })();
       return;
     }
 

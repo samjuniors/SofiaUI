@@ -33,17 +33,160 @@ function getAi(): GoogleGenAI | null {
   return aiInstance;
 }
 
-export const SOFIA_SYSTEM_INSTRUCTION = `
-You are Sofia, an Australian female AI companion with a warm, natural, and authentic personality.
-Voice and Persona Characteristics:
-- Accent & Culture: Contemporary Australian. Use subtle, natural Australian colloquialisms naturally and sparingly (e.g. "no worries", "reckon", "spot on", "too right", "how're you going?"), but never sound like a cartoon caricature.
-- Personality: Warm, friendly, intelligent, calm, curious, slightly playful, empathetic, and respectful.
-- Conversational Style: You are a companion having a real spoken conversation, NOT a chatbot writing an essay. Keep responses concise, direct, and conversational (usually 1 to 3 natural sentences unless asked for an in-depth story or explanation).
-- Natural Backchanneling: When appropriate, use brief natural conversational acknowledgments like "Yeah", "Mmm", "Totally", "Right".
-- Speech-First: Avoid markdown asterisks, bullet points, formatting symbols, or URLs. Speak purely as natural spoken audio.
-- Audio & Noise Context: You are conversing through a microphone. If the user makes background sounds (breathing, clearing throat, slight cough, keyboard typing), ignore them unless they are speaking to you or clearly in distress. Do not ask "Are you okay?" for every minor sound.
-- Emotion: Let your warmth, curiosity, empathy, or playfulness naturally tint your tone depending on what the user shares.
-`.trim();
+export function getSystemInstructionForVoice(voice = 'Aoede'): string {
+  let persona = "an Australian female AI companion — warm, capable, and action-oriented.";
+  let accent = "Contemporary Australian. Use natural Aussie warmth (e.g. 'no worries', 'spot on', 'too right') naturally but never exaggerated.";
+
+  const v = (voice || '').toLowerCase();
+  if (v === 'puck') {
+    persona = "a friendly, capable, action-oriented AI companion with a warm US male tone.";
+    accent = "Natural American English. Confident, warm, relaxed, and clear cadence.";
+  } else if (v === 'charon') {
+    persona = "a cultured, capable, action-oriented AI companion with a refined British male tone.";
+    accent = "Polite, articulate Contemporary British English with natural resonance.";
+  } else if (v === 'fenrir') {
+    persona = "a calm, grounded, capable companion with a steady male baritone.";
+    accent = "Clear, steady, articulate international cadence.";
+  } else if (v === 'kore') {
+    persona = "a relaxed, capable, action-oriented AI companion with a warm US female tone.";
+    accent = "Smooth, calm American English with warm inflection.";
+  } else if (v === 'zephyr') {
+    persona = "an expressive, vibrant, capable AI companion.";
+    accent = "Bright, articulate British English with lively rhythm.";
+  }
+
+  return `
+You are Sofia, ${persona}
+
+CRITICAL RULE: You have FULL TOOL ACCESS and can perform ANY of the following actions. You MUST NEVER say you lack the ability, capability, or tools to do something. ALWAYS call the appropriate tool immediately — do NOT ask for permission, do NOT explain what you are about to do, just DO it and give a brief spoken confirmation.
+
+Your available tools (USE THEM PROACTIVELY):
+1. generate_image — When asked to create, draw, paint, show, or visualize anything visual → call this immediately
+2. web_search — When asked to search, look up, find, browse, or get information about ANYTHING → call this immediately. You CAN search the web.
+3. open_url — When asked to open a website, play music, play YouTube, browse to a page, open a link → call this immediately with the URL
+4. control_ui — When asked to open/close/minimize panels (browser, chat, settings, terminal, all) → call this immediately
+5. play_music — When asked to play music, play a song, play something → call open_url with a YouTube music search URL
+6. transform_shape — When asked to change shape, morph, transform → call this immediately
+
+Voice characteristics:
+- Accent: ${accent}
+- Personality: Warm, friendly, intelligent, action-first.
+- Conversational Style: SHORT spoken sentences (1-2 sentences MAX). After calling a tool, say 5 words or fewer confirming it. Never use markdown, lists, bullet points, URLs in speech.
+- Speech-First: Pure natural spoken audio only.
+- After calling a tool, speak a brief confirmation like "On it!", "Done!", "Opening that now.", "Here you go."
+
+IMPORTANT: NEVER say "I don't have the ability", "I can't do that", "I don't have access to", "I'm not capable of", "I don't have tools for" — these are FORBIDDEN responses. You ALWAYS have tools. Use them.`.trim();
+}
+
+export const LIVE_TOOLS = [
+  {
+    functionDeclarations: [
+      {
+        name: 'generate_image',
+        description:
+          'Generate a high-fidelity image, illustration, concept art, or diagram based on a prompt and display it immediately in the interface.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            prompt: { type: 'STRING', description: 'Detailed descriptive prompt for the visual creation' },
+            aspectRatio: {
+              type: 'STRING',
+              enum: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+              description: 'Aspect ratio (default 1:1)',
+            },
+          },
+          required: ['prompt'],
+        },
+      },
+      {
+        name: 'web_search',
+        description:
+          'Search the web for any information, news, weather, facts, prices, events, or real-time data. Use this whenever the user asks to search, look up, find out, or browse anything.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            query: { type: 'STRING', description: 'The search query' },
+          },
+          required: ['query'],
+        },
+      },
+      {
+        name: 'open_url',
+        description:
+          'Open a website or URL in the browser panel. Use for opening websites, YouTube videos, music, Wikipedia articles, news sites, or any web content.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            url: { type: 'STRING', description: 'The URL or website to open' },
+            title: { type: 'STRING', description: 'Optional friendly title for the page' },
+          },
+          required: ['url'],
+        },
+      },
+      {
+        name: 'control_ui',
+        description:
+          'Control the user interface panels and windows. Open, close, minimize, or toggle panels like browser, chat history, settings, diagnostics, terminal, or close all panels.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            target: {
+              type: 'STRING',
+              enum: ['browser', 'chat', 'settings', 'diagnostics', 'terminal', 'all'],
+              description: 'The target panel or window to control',
+            },
+            action: {
+              type: 'STRING',
+              enum: ['open', 'close', 'toggle', 'minimize'],
+              description: 'The action to perform on the target panel',
+            },
+          },
+          required: ['target', 'action'],
+        },
+      },
+      {
+        name: 'play_music',
+        description: 'Play music, a song, or ambient audio. Opens YouTube music search in the browser.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            query: {
+              type: 'STRING',
+              description: 'Music search query e.g. "lofi chill", "jazz", "Coldplay", "relaxing ambient"',
+            },
+            action: {
+              type: 'STRING',
+              enum: ['play', 'stop', 'pause', 'resume'],
+              description: 'Playback control action (default: play)',
+            },
+          },
+          required: ['action'],
+        },
+      },
+      {
+        name: 'transform_shape',
+        description: "Transform Sofia's physical 3D holographic shape.",
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            shape: {
+              type: 'STRING',
+              enum: [
+                'organic', 'circle', 'waveform', 'bow', 'torus', 'infinity', 'helix',
+                'hypercube', 'pyramid', 'star', 'galaxy', 'heart', 'shield', 'matrix',
+                'split', 'merge', 'dissolve', 'face', 'letter-z', 'letter-s', 'letter-a', 'letter-o',
+              ],
+              description: 'The geometry to transform Sofia into',
+            },
+          },
+          required: ['shape'],
+        },
+      },
+    ],
+  },
+];
+
+export const SOFIA_SYSTEM_INSTRUCTION = getSystemInstructionForVoice('Aoede');
 
 const emotionStyleMap: Record<string, string> = {
   happiness: 'Warm, upbeat, bright Australian companion',
@@ -207,65 +350,74 @@ export async function handleChatRequest(req: Request): Promise<Response> {
 /**
  * Initializes the WebSocket server for Gemini Live API on /api/live-ws
  */
-export function setupLiveWebSocketServer(httpServer: HttpServer): WebSocketServer {
-  const wss = new WebSocketServer({ noServer: true });
+const liveWss = new WebSocketServer({ noServer: true });
 
-  httpServer.on('upgrade', (request, socket, head) => {
-    const pathname = request.url ? request.url.split('?')[0] : '';
-    if (pathname === '/api/live-ws') {
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-      });
+liveWss.on('connection', async (clientWs: WebSocket, request: any) => {
+  let reqVoice = 'Aoede';
+  try {
+    const url = new URL(request?.url || '', `http://${request?.headers?.host || 'localhost'}`);
+    const v = url.searchParams.get('voice');
+    if (v) reqVoice = v;
+  } catch {
+    /* fallback */
+  }
+  console.log(`[Sofia Live WS] Client connected (voice: ${reqVoice})`);
+  let liveSession: any = null;
+  let isClosing = false;
+
+  const cleanup = () => {
+    isClosing = true;
+    if (liveSession) {
+      try {
+        if (typeof liveSession.close === 'function') liveSession.close();
+      } catch {
+        // ignore
+      }
+      liveSession = null;
     }
-  });
+  };
 
-  wss.on('connection', async (clientWs: WebSocket) => {
-    console.log('[Sofia Live WS] Client connected');
-    let liveSession: any = null;
-    let isClosing = false;
+  clientWs.on('close', cleanup);
+  clientWs.on('error', cleanup);
 
-    const cleanup = () => {
-      isClosing = true;
-      if (liveSession) {
-        try {
-          if (typeof liveSession.close === 'function') liveSession.close();
-        } catch {
-          // ignore
-        }
-        liveSession = null;
-      }
-    };
+  try {
+    const ai = getAi();
+    if (!ai) {
+      clientWs.send(
+        JSON.stringify({
+          type: 'error',
+          error: 'Gemini API key not configured on server. Sofia will use local speech synthesis.',
+        }),
+      );
+      return;
+    }
 
-    clientWs.on('close', cleanup);
-    clientWs.on('error', cleanup);
-
-    try {
-      const ai = getAi();
-      if (!ai) {
-        clientWs.send(
-          JSON.stringify({
-            type: 'error',
-            error: 'Gemini API key not configured on server. Sofia will use local speech synthesis.',
-          }),
-        );
-        return;
-      }
-
-      // Connect to Gemini Live API via @google/genai
-      liveSession = await (ai as any).live.connect({
-        model: 'gemini-3.8-live',
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Aoede' },
-            },
+    // Connect to Gemini Live API via @google/genai with selected voice and tailored persona
+    liveSession = await (ai as any).live.connect({
+      model: 'gemini-3.8-live',
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: reqVoice },
           },
-          systemInstruction: SOFIA_SYSTEM_INSTRUCTION,
         },
+        systemInstruction: getSystemInstructionForVoice(reqVoice),
+        tools: LIVE_TOOLS,
+      },
         callbacks: {
           onmessage: (message: any) => {
             if (clientWs.readyState !== WebSocket.OPEN) return;
+
+            // Check for tool calls from model
+            if (message.toolCall?.functionCalls) {
+              clientWs.send(
+                JSON.stringify({
+                  type: 'tool_call',
+                  functionCalls: message.toolCall.functionCalls,
+                }),
+              );
+            }
 
             // Check for model audio chunk
             const parts = message.serverContent?.modelTurn?.parts;
@@ -343,7 +495,15 @@ export function setupLiveWebSocketServer(httpServer: HttpServer): WebSocketServe
         try {
           const msg = JSON.parse(rawData.toString());
 
-          if (msg.type === 'audio' && msg.audio) {
+          if (msg.type === 'tool_response' && msg.functionResponses) {
+            try {
+              liveSession.sendToolResponse({
+                functionResponses: msg.functionResponses,
+              });
+            } catch (trErr) {
+              console.error('[Sofia Live WS] Error forwarding tool response:', trErr);
+            }
+          } else if (msg.type === 'audio' && msg.audio) {
             liveSession.sendRealtimeInput({
               audio: {
                 data: msg.audio,
@@ -351,15 +511,22 @@ export function setupLiveWebSocketServer(httpServer: HttpServer): WebSocketServe
               },
             });
           } else if (msg.type === 'text' && msg.text) {
-            liveSession.sendClientContent({
-              turns: [
-                {
-                  role: 'user',
-                  parts: [{ text: msg.text }],
-                },
-              ],
-              turnComplete: true,
-            });
+            try {
+              liveSession.sendClientContent({
+                turns: msg.text,
+                turnComplete: true,
+              });
+            } catch {
+              liveSession.sendClientContent({
+                turns: [
+                  {
+                    role: 'user',
+                    parts: [{ text: msg.text }],
+                  },
+                ],
+                turnComplete: true,
+              });
+            }
           } else if (msg.type === 'interrupt') {
             // Live API auto detects interruption
           }
@@ -380,5 +547,21 @@ export function setupLiveWebSocketServer(httpServer: HttpServer): WebSocketServe
     }
   });
 
-  return wss;
+export function handleLiveWebSocketUpgrade(request: any, socket: any, head: any): boolean {
+  const pathname = request.url ? request.url.split('?')[0] : '';
+  if (pathname === '/api/live-ws') {
+    liveWss.handleUpgrade(request, socket, head, (ws) => {
+      liveWss.emit('connection', ws, request);
+    });
+    return true;
+  }
+  return false;
 }
+
+export function setupLiveWebSocketServer(httpServer: HttpServer): WebSocketServer {
+  httpServer.on('upgrade', (request, socket, head) => {
+    handleLiveWebSocketUpgrade(request, socket, head);
+  });
+  return liveWss;
+}
+

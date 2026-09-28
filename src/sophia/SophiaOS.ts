@@ -34,7 +34,7 @@ import { WakeWordSpotter } from './voice/wake';
 import { VisualDirector } from './VisualDirector';
 import { EmotionEngine } from '../core/EmotionEngine';
 import { WakeWordDetection } from '../core/WakeWordDetection';
-import type { Emotion } from '../types/sofia';
+import { scoreEngine } from './audio/ScoreEngine';
 
 export type OSStatus = 'idle' | 'connecting' | 'live' | 'offline' | 'denied' | 'error';
 export type ProviderPref = VoiceProviderId | 'auto';
@@ -105,6 +105,7 @@ const VOICE_EVENTS: SophiaEventType[] = [
   'speech_started',
   'transcript',
   'thinking',
+  'rendering',
   'response_started',
   'audio_started',
   'audio_chunk',
@@ -210,6 +211,7 @@ export class SophiaOS extends EventTarget {
     setHapticsEnabled(this.prefs.haptics);
 
     this.state.subscribe((s, prev, meta) => {
+      scoreEngine.syncToState(s);
       this.director.state = s;
       this.dispatchEvent(new CustomEvent('state', { detail: { state: s, prev, ...meta } }));
       const why = typeof meta?.reason === 'string' ? ` (${(meta as { reason: string }).reason})` : '';
@@ -221,8 +223,16 @@ export class SophiaOS extends EventTarget {
         if (this.wakeTimer) clearTimeout(this.wakeTimer);
         this.wakeTimer = setTimeout(() => {
           if (this.state.is('wakeup')) this.state.transition('focusing', { reason: 'wake-complete' }, true);
-        }, 1850);
-      } else if (s === 'ambient' && prev !== 'transforming') {
+        }, 1200);
+      } else if (s === 'focusing') {
+        if (this.focusingTimer) clearTimeout(this.focusingTimer);
+        this.focusingTimer = setTimeout(() => {
+          if (this.state.is('focusing')) {
+            this.state.transition('listening', { reason: 'focus-complete' }, true);
+            this.pushLog('event', 'focused — listening for speech');
+          }
+        }, 550);
+      } else if ((s === 'ambient' || s === 'idle') && prev !== 'transforming') {
         this.maybeArmWake();
       }
       if (s === 'completed' && this.renderer && this.director.isCustomMorphActive) {
@@ -244,6 +254,16 @@ export class SophiaOS extends EventTarget {
 
     this.mediaQuery.addEventListener('change', () => this.applyMotion());
     this.applyMotion();
+
+    // Voice-driven music commands dispatched from App.tsx via controlLayer
+    this.addEventListener('music:play', () => {
+      scoreEngine.syncToState(this.state.current);
+      this.pushLog('event', 'music: resumed by voice command');
+    });
+    this.addEventListener('music:stop', () => {
+      scoreEngine.stopAll();
+      this.pushLog('event', 'music: stopped by voice command');
+    });
   }
 
   /* ------------------------------- prefs ------------------------------- */
@@ -443,11 +463,26 @@ export class SophiaOS extends EventTarget {
         ?.query({ name: 'microphone' as PermissionName })
         .then((p) => {
           if (p.state === 'granted') this.maybeArmWake();
+          p.onchange = () => {
+            if (p.state === 'granted') {
+              this.spotter?.unblock();
+              this.maybeArmWake();
+            }
+          };
         })
         .catch(() => undefined);
-      const once = () => {
+      const once = async () => {
         window.removeEventListener('pointerdown', once);
         window.removeEventListener('keydown', once);
+        if (navigator.mediaDevices?.getUserMedia) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach((t) => t.stop());
+            this.spotter?.unblock();
+          } catch {
+            /* cancelled or prompt pending */
+          }
+        }
         this.maybeArmWake();
       };
       window.addEventListener('pointerdown', once);
@@ -506,17 +541,19 @@ export class SophiaOS extends EventTarget {
     this.pausedHadCapture = Boolean(this.activeProvider?.isActive());
     this.state.pause('user');
     this.audio.interruptPlayback();
+    scoreEngine.stopAll();
     const p = this.activeProvider;
     this.activeProvider = null;
     void p?.stop().catch(() => undefined);
     this.setStatus('idle');
-    this.pushLog('event', 'paused — say hey sophia, clap, or tap the mic to wake');
+    this.pushLog('event', 'paused — say hey sofia, clap, or tap the mic to wake');
     this.maybeArmWake();
   }
 
   resume() {
     if (this.state.paused) {
       this.state.resume('user');
+      scoreEngine.syncToState(this.state.current);
       this.pushLog('event', 'resumed');
     }
   }
@@ -605,6 +642,7 @@ export class SophiaOS extends EventTarget {
       return;
     }
     this.spotter?.suspend();
+    this.wakeDetector?.stopWakeWordRecognizer();
     this.pushLog('info', `waking sophia (${source})`);
     this.director.playWake();
     this.state.transition('wakeup', { source }, true);
@@ -618,17 +656,26 @@ export class SophiaOS extends EventTarget {
       this.pushLog('info', `Microphone access status: ${micErr.message}`);
     }
 
-    // Determine provider selection
-    const isPureGemini = controlLayer.pureGeminiLive;
-    const order: VoiceProviderId[] = isPureGemini
-      ? ['gemini-live']
-      : this.prefs.provider === 'auto'
-        ? ['gemini-live', 'deepgram', 'elevenlabs']
-        : [this.prefs.provider];
+    // Determine provider selection: honor user's chosen Mouth TTS engine & transport
+    let primary: VoiceProviderId = 'gemini-live';
+    if (!controlLayer.pureGeminiLive) {
+      if (controlLayer.mouthProvider === 'elevenlabs') {
+        primary = 'elevenlabs';
+      } else if (controlLayer.mouthProvider === 'deepgram') {
+        primary = 'deepgram';
+      } else if (this.prefs.provider !== 'auto') {
+        primary = this.prefs.provider;
+      }
+    }
+
+    const order: VoiceProviderId[] = Array.from(
+      new Set([primary, 'gemini-live', 'elevenlabs', 'deepgram'])
+    );
 
     let started = false;
     for (const id of order) {
       const p = this.providers[id];
+      if (!p) continue;
       try {
         this.pushLog('info', `connecting ${id}…`);
         this.activeProvider = p;
@@ -639,17 +686,21 @@ export class SophiaOS extends EventTarget {
         this.state.transition('focusing', { source, transport: id }, true);
         this.dispatchEvent(new CustomEvent('entered', { detail: { source, transport: id } }));
 
-        // Trigger immediate greeting so user hears Sofia's Australian voice on boot/connect
-        if (source === 'boot' || source === 'mic-button') {
+        // Trigger immediate greeting so user hears Sofia's voice on boot/connect/wake
+        if (source === 'boot' || source === 'mic-button' || source === 'wake-word') {
           setTimeout(() => {
             if (this.activeProvider && this.activeProvider.isActive()) {
               if (this.activeProvider instanceof GeminiLiveProvider) {
-                this.activeProvider.sendPrompt("Introduce yourself briefly in one friendly sentence with your Australian accent and ask how you can help today.");
+                this.activeProvider.sendPrompt(
+                  source === 'wake-word'
+                    ? "Your friend just said 'Hey Sofia' to wake you up. Greet them in one short, warm spoken sentence and ask how you can help."
+                    : "Introduce yourself briefly in one friendly sentence and ask how you can help today."
+                );
               } else {
-                this.activeProvider.sendText("Hello Sofia!");
+                this.activeProvider.sendText(source === 'wake-word' ? "I'm listening!" : "Hello Sofia!");
               }
             }
-          }, 400);
+          }, 350);
         }
         break;
       } catch (err) {
@@ -660,30 +711,55 @@ export class SophiaOS extends EventTarget {
 
     if (!started) {
       // Fallback: active state with server neural brain/mouth
-      this.setStatus('live');
-      this.pushLog('info', 'Gemini Neural Mouth TTS & Brain active as conversational transport');
-      this.state.transition('focusing', { source, transport: 'neural-fallback' }, true);
-      this.dispatchEvent(new CustomEvent('entered', { detail: { source, transport: 'neural-fallback' } }));
-      if (source === 'boot' || source === 'mic-button') {
-        void this.speakText("G'day! I'm Sofia. I'm right here with you. What's on your mind today?");
+      const fallbackProvider = this.providers.elevenlabs;
+      try {
+        this.activeProvider = fallbackProvider;
+        await fallbackProvider.start();
+        this.setStatus('live');
+        this.pushLog('info', 'Gemini Neural Mouth TTS & Brain active as conversational transport');
+        this.state.transition('focusing', { source, transport: 'neural-fallback' }, true);
+        this.dispatchEvent(new CustomEvent('entered', { detail: { source, transport: 'neural-fallback' } }));
+        if (source === 'boot' || source === 'mic-button' || source === 'wake-word') {
+          void fallbackProvider.sendText(source === 'wake-word' ? "I'm listening!" : "Hello Sofia!");
+        }
+      } catch (_fbErr) {
+        this.setStatus('live');
+        this.state.transition('listening', { source }, true);
+        if (source === 'boot' || source === 'mic-button' || source === 'wake-word') {
+          void this.speakText(
+            source === 'wake-word'
+              ? "G'day! I'm right here with you, how can I help?"
+              : "Hello! I'm Sofia. I'm right here with you. What's on your mind today?"
+          );
+        }
       }
     }
   }
 
-  async resetGeminiLiveSession(): Promise<void> {
-    this.pushLog('info', 'Resetting Gemini Live session…');
-    this.setStatus('connecting');
-    const p = this.providers['gemini-live'] as GeminiLiveProvider;
-    try {
-      this.activeProvider = p;
-      await p.reset();
-      this.setStatus('live');
-      this.pushLog('event', 'Gemini Live session reset and reconnected successfully.');
-      this.state.transition('focusing', { source: 'mic-button', transport: 'gemini-live' }, true);
-    } catch (err: any) {
-      this.pushLog('error', `Gemini Live reset error: ${err.message}`);
-      this.setStatus('offline');
+  async applyVoiceSettings(): Promise<void> {
+    const primaryVoice = controlLayer.voiceName || 'Aoede';
+    const mouth = controlLayer.mouthProvider;
+    this.pushLog('info', `Switched voice to: ${primaryVoice} (${mouth})`);
+
+    if (this.activeProvider) {
+      const p = this.activeProvider;
+      this.activeProvider = null;
+      try {
+        await p.stop();
+      } catch (err) {
+        console.warn('[SophiaOS] Error stopping provider on voice change:', err);
+      }
     }
+    this.audio.interruptPlayback();
+
+    if (this.status === 'live' || this.status === 'connecting') {
+      this.setStatus('connecting');
+      await this.activate('mic-button');
+    }
+  }
+
+  async resetGeminiLiveSession(): Promise<void> {
+    await this.applyVoiceSettings();
   }
 
   async testMic(): Promise<number> {
@@ -708,23 +784,26 @@ export class SophiaOS extends EventTarget {
   }
 
   async testVoice(): Promise<void> {
-    this.pushLog('info', 'Testing voice output (Gemini Neural TTS)…');
+    const voice = controlLayer.voiceName || 'Aoede';
+    const provider = controlLayer.pureGeminiLive ? 'gemini' : controlLayer.mouthProvider;
+    const voiceId = controlLayer.elevenLabsVoiceId;
+    this.pushLog('info', `Testing voice: ${voice} via ${provider}…`);
     await this.audio.unlockAudio();
     try {
       const res = await fetch('/api/sophia/test-voice', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ voice: controlLayer.voiceName }),
+        body: JSON.stringify({ voice, provider, voiceId }),
       });
       if (!res.ok) throw new Error(`test-voice:${res.status}`);
       const buf = await res.arrayBuffer();
       this.state.transition('speaking', { source: 'test' }, true);
       await this.audio.playEncoded(buf);
-      this.state.transition('idle', { source: 'test' }, true);
+      this.state.transition('ambient', { source: 'test' }, true);
       this.pushLog('event', 'Voice test playback complete.');
     } catch (err: any) {
       this.pushLog('error', `Voice test error: ${err.message}`);
-      await this.speakText("G'day, voice test complete.");
+      await this.speakText("G'day! Sofia voice test complete.");
     }
   }
 
@@ -772,6 +851,7 @@ export class SophiaOS extends EventTarget {
 
   deactivate(reason = 'user') {
     if (this.focusingTimer) clearTimeout(this.focusingTimer);
+    if (this.wakeTimer) clearTimeout(this.wakeTimer);
     if (this.postTurnTimer) clearTimeout(this.postTurnTimer);
     if (this.completeTimer) clearTimeout(this.completeTimer);
     const p = this.activeProvider;
@@ -781,6 +861,7 @@ export class SophiaOS extends EventTarget {
     this.audio.stopCapture();
     this.setStatus('idle');
     this.state.standDown(reason);
+    this.maybeArmWake();
   }
 
   interrupt() {
@@ -882,18 +963,43 @@ export class SophiaOS extends EventTarget {
       const out = (await res.json()) as {
         text: string;
         toolCalls?: Array<{ name: string; args: Record<string, unknown> }>;
+        sources?: Array<{ title: string; url: string }>;
       };
 
+      let generatedImg: { url: string; prompt: string } | undefined;
+
       for (const tc of out.toolCalls ?? []) {
-        await controlLayer.execute(tc);
+        if (tc.name === 'generate_image') {
+          this.state.transition('rendering', { source: 'tool' }, true);
+          this.pushLog('event', 'visual: generating image via Imagen 3…');
+        }
+        const toolRes = await controlLayer.execute(tc);
+        if (tc.name === 'generate_image' && toolRes.status === 'success' && typeof toolRes.url === 'string') {
+          generatedImg = { url: toolRes.url, prompt: String(toolRes.prompt || '') };
+          this.pushLog('event', 'visual: image generated successfully');
+        }
       }
 
-      if (out.text) {
-        controlLayer.addSophiaTurn(out.text, true);
-        this.dispatchEvent(new CustomEvent('transcript', { detail: { role: 'sophia', text: out.text, final: true } }));
+      if (out.text || generatedImg) {
+        const spoken = out.text || (generatedImg ? "I've generated that image for you." : "");
+        controlLayer.addSophiaTurn(spoken, true, {
+          imageUrl: generatedImg?.url,
+          imagePrompt: generatedImg?.prompt,
+          sources: out.sources,
+        });
+        this.dispatchEvent(new CustomEvent('transcript', {
+          detail: {
+            role: 'sophia',
+            text: spoken,
+            final: true,
+            imageUrl: generatedImg?.url,
+            imagePrompt: generatedImg?.prompt,
+            sources: out.sources,
+          }
+        }));
         this.state.transition('speaking', { source: 'text' }, true);
         this.pushLog('event', 'mouth: speaking response');
-        await this.speakText(out.text);
+        await this.speakText(spoken);
       }
 
       this.state.transition('idle', { source: 'text' }, true);
@@ -912,26 +1018,16 @@ export class SophiaOS extends EventTarget {
   }
 
   private maybeArmWake() {
-    if (!this.prefs.wake || this.status === 'live') return;
+    if (!this.prefs.wake) return;
+    if (this.status === 'live' && !this.state.is('ambient', 'idle', 'paused')) return;
     if (!this.spotter) {
       this.spotter = new WakeWordSpotter(() => {
         void this.enterSession('wake-word');
       });
     }
+    this.spotter.unblock();
     this.spotter.start();
-
-    if (!this.wakeDetector && typeof window !== 'undefined') {
-      this.wakeDetector = new WakeWordDetection({
-        onWake: (trigger) => {
-          this.pushLog('event', `wake trigger: ${trigger}`);
-          void this.enterSession(trigger === 'clap' ? 'clap' : 'wake-word');
-        },
-        onClapDetected: () => {
-          this.handleClap();
-        },
-      });
-    }
-    this.wakeDetector?.startWakeWordRecognizer();
+    this.pushLog('info', 'wake-word spotter active ("Hey Sofia")');
   }
 
   /* --------------------------- provider events -------------------------- */
@@ -977,6 +1073,11 @@ export class SophiaOS extends EventTarget {
               }
             }
             break;
+          case 'rendering':
+            // Image generation tool invoked — show rendering state
+            this.state.transition('rendering', { source: 'tool', reason: 'image-gen' }, true);
+            this.pushLog('event', 'visual: creating image…');
+            break;
           default:
             this.state.handleVoiceEvent(type, detail);
         }
@@ -999,6 +1100,9 @@ export class SophiaOS extends EventTarget {
         return;
       case 'thinking':
         this.pushLog('event', `${id}: thinking…`);
+        return;
+      case 'rendering':
+        this.pushLog('event', `${id}: rendering image…`);
         return;
       case 'audio_started':
       case 'response_started':

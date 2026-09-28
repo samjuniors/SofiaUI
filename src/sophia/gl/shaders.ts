@@ -34,15 +34,15 @@ vec3 adjustSat(vec3 color, float sat){
   return mix(vec3(luma), color, sat);
 }
 vec3 rimColor(float ang){
-  // Multi-ribbon palette inspired by the reference: cyan → mint → violet → magenta
-  vec3 c = vec3(0.18, 0.55, 1.0);
+  // Harmonious celestial palette: electric cyan → sapphire → soft astral violet → celestial mint
+  vec3 c = vec3(0.18, 0.58, 1.0);
   float vw = clamp(0.95 + uHue * 0.85, 0.0, 2.0);
   float cw = clamp(0.90 - uHue * 0.60, 0.0, 1.5);
-  c = mix(c, vec3(0.35, 0.95, 0.72), gauss(angDiff(ang, 0.15), 0.55) * 0.85); // mint
-  c = mix(c, vec3(0.95, 0.42, 0.88), gauss(angDiff(ang, 1.15), 0.58) * vw);   // magenta
-  c = mix(c, vec3(0.55, 0.38, 1.0),  gauss(angDiff(ang, 2.40), 0.65) * 0.9);  // violet
-  c = mix(c, vec3(0.22, 0.88, 1.0),  gauss(angDiff(ang, 3.85), 0.70) * cw);   // cyan
-  c = mix(c, vec3(0.70, 0.55, 1.0),  gauss(angDiff(ang, 5.20), 0.60) * 0.7);  // soft lilac
+  c = mix(c, vec3(0.28, 0.94, 0.82), gauss(angDiff(ang, 0.20), 0.70) * 0.75); // celestial mint
+  c = mix(c, vec3(0.78, 0.46, 0.98), gauss(angDiff(ang, 1.35), 0.75) * 0.75 * vw); // soft astral violet
+  c = mix(c, vec3(0.48, 0.42, 1.00), gauss(angDiff(ang, 2.45), 0.80) * 0.80); // deep sapphire violet
+  c = mix(c, vec3(0.22, 0.88, 1.00), gauss(angDiff(ang, 3.85), 0.75) * 0.85 * cw); // electric cyan
+  c = mix(c, vec3(0.65, 0.60, 1.00), gauss(angDiff(ang, 5.25), 0.70) * 0.60); // luminous pearl
   c = adjustSat(c, uSaturation);
   return max(c, vec3(0.02, 0.05, 0.12));
 }
@@ -262,23 +262,12 @@ uniform float uShapeGlow;
 out vec4 frag;
 ${COMMON}
 ${ATMOSPHERE}
-vec2 hash22(vec2 p){
-  vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
-  p3 += dot(p3, p3.yzx + 33.33);
-  return fract((p3.xx + p3.yz) * p3.zy);
-}
 float rimLight(float ang, float focusAng){
-  float l = 0.50 + 0.50 * max(gauss(angDiff(ang, 0.80), 0.92), gauss(angDiff(ang, 3.75), 1.15));
-  l += uFocusAmt * 0.42 * gauss(angDiff(ang, focusAng), 0.85);
-  l += uThink * 0.75 * gauss(angDiff(ang, uArc), 0.40);
-  l += uRender * 0.55 * gauss(angDiff(ang, mod(uTime * 4.0, TAU)), 0.35);
+  float l = 0.65 + 0.35 * max(gauss(angDiff(ang, 0.80), 0.95), gauss(angDiff(ang, 3.75), 1.15));
+  l += uFocusAmt * 0.38 * gauss(angDiff(ang, focusAng), 0.85);
+  l += uThink * 0.65 * gauss(angDiff(ang, uArc), 0.45);
+  l += uRender * 0.45 * gauss(angDiff(ang, mod(uTime * 4.0, TAU)), 0.35);
   return l;
-}
-vec3 node(vec2 p, vec2 c, float sizePx, vec3 color, float k){
-  float dpx = length(p - c) * uR / uDpr;
-  float core = exp(-dpx*dpx/(sizePx*sizePx*0.5));
-  float halo = exp(-dpx*dpx/(sizePx*sizePx*18.0)) * 0.08;
-  return color * (core*1.5 + halo) * k;
 }
 
 void main(){
@@ -299,45 +288,16 @@ void main(){
 
   float dS = length(p);
 
-  // stars
-  {
-    float cs = 96.0 * uDpr;
-    vec2 cell = floor(fc / cs);
-    vec2 h = hash22(cell);
-    vec2 h2 = hash22(cell + 17.0);
-    if (h.x < 0.16) {
-      vec2 sp = (cell + 0.12 + 0.76*h2) * cs;
-      float dd = length(fc - sp) / uDpr;
-      float sz = 0.8 + h.y*0.9;
-      float tw = 0.7 + 0.3*sin(uStarT*(0.5+h2.x) + h.x*40.0);
-      float st = exp(-dd*dd/(sz*sz)) * tw * (0.30 + 0.5*h.y) * smoothstep(1.02, 1.2, dS);
-      col += mix(vec3(0.62, 0.78, 1.0), vec3(0.80, 0.72, 1.0), h2.y) * st;
-    }
+  // Ethereal celestial resonance halo when orbits enabled (whisper-thin, elegant light resonance)
+  if (uOrbits > 0.01) {
+    float haloDist = abs(dS - 1.22);
+    float haloThin = exp(-haloDist * haloDist / (2.0 * 0.0045 * 0.0045));
+    float haloSoft = exp(-haloDist / 0.075);
+    vec3 orbCol = mix(vec3(0.38, 0.72, 1.0), uShapeTint, uShapeTintAmt * 0.75);
+    col += orbCol * (haloThin * 0.38 + haloSoft * 0.10) * uOrbits * uShapeGlow;
   }
 
-  // orbit rings + nodes (state-tinted)
-  float px1 = uDpr / uR;
-  float o1 = gauss(dS - 1.30, 0.55*px1);
-  float o2 = gauss(dS - 1.52, 0.55*px1);
-  vec2 pe = rot2(p, 0.42);
-  pe.y /= 0.80;
-  float o3 = gauss(length(pe) - 1.70, 0.55*px1);
-  vec3 orbCol = mix(vec3(0.32, 0.50, 0.95), uShapeTint, uShapeTintAmt * 0.7);
-  col += orbCol * (o1*0.22 + o2*0.16 + o3*0.07) * uOrbits;
-
-  float ph = uOrbitPhase;
-  vec2 n0 = 1.52 * vec2(cos(2.25 + ph*0.050), sin(2.25 + ph*0.050));
-  vec2 n1 = 1.30 * vec2(cos(3.25 - ph*0.035), sin(3.25 - ph*0.035));
-  vec2 n2 = 1.30 * vec2(cos(-0.12 + ph*0.042), sin(-0.12 + ph*0.042));
-  vec2 n3 = rot2(vec2(cos(5.1 + ph*0.06), sin(5.1 + ph*0.06)*0.80) * 1.70, -0.42);
-  vec3 ndCol = mix(vec3(1.0), uShapeTint * 1.6, uShapeTintAmt * 0.55);
-  col += node(p, n0, 4.6, vec3(0.86, 0.84, 1.0) * ndCol, uOrbits);
-  col += node(p, n1, 4.0, vec3(0.30, 0.55, 1.0) * ndCol, 0.9 * uOrbits);
-  col += node(p, n2, 4.0, vec3(0.62, 0.90, 1.0) * ndCol, 0.9 * uOrbits);
-  col += node(p, n3, 2.4, vec3(0.70, 0.55, 1.0) * ndCol, 0.6 * uOrbits);
-
-  // ---- sphere ⇄ ring body ----
-  // Deep U-bow for idle/pause so the SDF rim also reads as the hanging ribbon.
+  // ---- sphere ⇄ ring body geometry ----
   vec2 pb = p;
   pb.y += 0.14 * uBow;
   pb.y /= mix(1.0, 0.68, uBow);
@@ -346,145 +306,103 @@ void main(){
   pb /= uBodyScale;
   float ang = atan(pb.y, pb.x);
   float wob = 1.0 + uMotion * (0.006*sin(ang*3.0 + uWavePhase*0.9) + 0.004*sin(ang*5.0 - uWavePhase*0.6)) * (1.0 + 2.0*uLevel*uSpeak);
-  // Idle: serene undulating harmonic surface wave
-  wob += (0.008 * sin(ang * 4.0 + uTime * 0.8) + 0.005 * cos(ang * 2.0 - uTime * 0.6)) * uIdle * uMotion;
+  // Serene undulating harmonic surface wave
+  wob += (0.007 * sin(ang * 4.0 + uTime * 0.8) + 0.004 * cos(ang * 2.0 - uTime * 0.6)) * uIdle * uMotion;
   float d = length(pb) / wob;
   float e = d - 1.0;
   float focusAng = atan(uFocusDir.y, uFocusDir.x);
 
-  // state-tinted body colour
+  // State-tinted body & rim colour
   vec3 rc = mix(rimColor(ang), uShapeTint, uShapeTintAmt);
   float li = rimLight(ang, focusAng);
 
-  // in dock mode, auto-adjust band thickness and sharpness for smaller radius
-  float sBand = mix(0.026, 0.019, uForm) * uRimWidth * mix(1.0, 1.35, uDock);
-  float sCore = mix(0.009, 0.0065, uForm) * uRimWidth * mix(1.0, 1.25, uDock);
+  // ================= SILK-SMOOTH LUMINOUS FRESNEL RIM =================
+  float sBand = mix(0.018, 0.013, uForm) * uRimWidth * mix(1.0, 1.25, uDock);
+  float sCore = mix(0.0068, 0.0050, uForm) * uRimWidth * mix(1.0, 1.15, uDock);
   float band = gauss(e, sBand);
   float core = gauss(e, sCore);
-  float haloOut = exp(-max(e, 0.0) / (mix(0.085, 0.065, uForm) * mix(1.0, 0.75, uDock))) * step(0.0, e);
-  float haloIn = exp(-max(-e, 0.0) / 0.17) * step(e, 0.0) * (1.0 - uForm*0.78);
-  float gain = mix(1.0, 1.32, uForm) * (0.92 + 0.08*uEnergy + 0.25*uLevel) * uGlow * uShapeGlow * mix(1.0, 1.15, uDock);
+  float outerBloom = exp(-max(e, 0.0) / (mix(0.075, 0.050, uForm) * mix(1.0, 0.75, uDock))) * step(0.0, e);
+  float innerFresnel = pow(smoothstep(0.35, 0.995, d), 3.2) * (1.0 - smoothstep(0.995, 1.015, d));
+  float gain = mix(1.0, 1.26, uForm) * (0.94 + 0.06*uEnergy + 0.2*uLevel) * uGlow * uShapeGlow * mix(1.0, 1.15, uDock);
 
-  vec3 rim = rc * (band*1.5 + core*0.9 + haloOut*0.46) * li * gain;
-  rim += mix(vec3(0.92, 0.97, 1.0), uShapeTint * 1.25, uShapeTintAmt * 0.6) * core * 0.45 * li*li * gain;
-  vec3 inner = rc * haloIn * 0.30 * li * (1.0 - uForm);
+  // Unified optical rim composition: smooth core + radiant bloom + internal Fresnel reflection
+  vec3 rim = rc * (band * 1.35 + core * 0.85 + outerBloom * 0.42 + innerFresnel * 0.50) * li * gain;
+  rim += mix(vec3(0.94, 0.98, 1.0), uShapeTint * 1.20, uShapeTintAmt * 0.5) * core * 0.45 * li * gain;
 
-  float inside = 1.0 - smoothstep(0.975, 1.0, d);
-  float lowFill = (1.0 - smoothstep(-0.95, 0.25, pb.y)) * inside;
-  // while thinking the glass recedes so the crystalline particle core reads
-  vec3 interior = mix(vec3(0.05, 0.16, 0.62), uShapeTint * 0.55, uShapeTintAmt) * lowFill * (0.22 + 0.22*uLevel) * (1.0 - uForm) * (1.0 - 0.55*uThink);
-  interior += vec3(0.02, 0.03, 0.09) * inside * (1.0 - uForm) * 0.5 * (1.0 - 0.55*uThink);
+  // ================= CRYSTAL VOLUMETRIC BODY CORE =================
+  float inside = 1.0 - smoothstep(0.982, 1.0, d);
+  float radialDepth = exp(-d * d * 2.2) * inside;
+  // Deep ethereal crystal interior: illuminates the 3D volume without muddying the particle ribbons
+  vec3 interior = mix(vec3(0.03, 0.10, 0.26), uShapeTint * 0.35, uShapeTintAmt) * radialDepth;
+  interior *= (0.35 + 0.25 * uEnergy + 0.25 * uLevel) * (1.0 - uForm);
 
-  vec2 restL = normalize(vec2(-0.62, 0.72));
-  vec2 lightDir = normalize(mix(restL, uFocusDir, uFocusAmt*0.55));
-  vec2 hpos = lightDir * 0.60;
-  float spec = exp(-dot(pb - hpos, pb - hpos) / (2.0*0.21*0.21)) * inside;
-  float facing = max(0.0, dot(normalize(pb + vec2(1e-4, 0.0)), lightDir));
-  float cres = gauss(d - 0.905, 0.045) * facing * facing * inside;
-  vec3 light = (mix(vec3(0.55, 0.76, 1.0), uShapeTint, uShapeTintAmt*0.5) * spec * 0.20
-             +  mix(vec3(0.70, 0.86, 1.0), uShapeTint, uShapeTintAmt*0.5) * cres * 0.30) * (1.0 - uForm);
+  // Soft crystalline specular refraction
+  vec2 restL = normalize(vec2(-0.55, 0.70));
+  vec2 lightDir = normalize(mix(restL, uFocusDir, uFocusAmt * 0.55));
+  vec2 hpos = lightDir * 0.55;
+  float spec = exp(-dot(pb - hpos, pb - hpos) / (2.0 * 0.16 * 0.16)) * inside;
+  float crescent = gauss(d - 0.915, 0.040) * pow(max(0.0, dot(normalize(pb + vec2(1e-4, 0.0)), lightDir)), 2.2) * inside;
+  vec3 light = (mix(vec3(0.68, 0.86, 1.0), uShapeTint, uShapeTintAmt * 0.5) * spec * 0.22
+             +  mix(vec3(0.62, 0.84, 1.0), uShapeTint, uShapeTintAmt * 0.5) * crescent * 0.26) * (1.0 - uForm);
 
-  // ================= 8-STATE SHADER EXTENSIONS ON BODY =================
-  // 1. LISTENING — INWARD ABSORPTION from left and right
+  // ================= ORGANIC 8-STATE SHADER EXTENSIONS =================
+  // 1. LISTENING — Luminous voice-reactive edge breathing
   if (uListen > 0.01) {
-    float waveDistL = abs(pb.x + 0.92);
-    float waveDistR = abs(pb.x - 0.92);
-    float inWaveL = gauss(waveDistL - mod(uTime * 1.8, 1.3), 0.08) * smoothstep(-1.3, -0.3, pb.x);
-    float inWaveR = gauss(waveDistR - mod(uTime * 1.8, 1.3), 0.08) * smoothstep(1.3, 0.3, pb.x);
-    float inAbsorb = (inWaveL + inWaveR) * (0.6 + 0.8 * uInputAudio) * uListen;
-    rim += vec3(0.35, 0.85, 1.0) * inAbsorb * 1.6;
-    float flankImpact = smoothstep(0.4, 0.95, abs(pb.x)) * (0.3 + 0.7 * uInputAudio) * uListen;
-    rim += vec3(0.4, 0.9, 1.0) * flankImpact * 0.85;
+    float listenAudio = 0.35 + 0.65 * uInputAudio;
+    float listenPulse = (band + innerFresnel) * listenAudio * uListen;
+    rim += vec3(0.35, 0.88, 1.0) * listenPulse * 1.15;
+    interior += vec3(0.18, 0.62, 0.95) * radialDepth * listenAudio * uListen * 0.50;
   }
 
-  // 2. THINKING — INTERNAL REORGANIZATION
+  // 2. THINKING — Ethereal rotating prism refraction in core
   if (uThink > 0.01) {
-    vec2 tp = rot2(pb, 0.35 + sin(uTime * 0.22) * 0.08) * 5.2;
-    vec2 cell = floor(tp);
-    vec2 f = fract(tp) - 0.5;
-    float nd = exp(-dot(f, f) * 16.0);
-    float h = hash21(cell + floor(uTime * 0.45));
-    float thinkNode = nd * step(0.66, h);
-    interior += vec3(0.55, 0.45, 1.0) * thinkNode * 2.2 * inside * uThink * (1.0 - uForm);
+    float thinkRot = ang + uTime * 0.75;
+    float prism = sin(thinkRot * 3.0) * 0.5 + 0.5;
+    vec3 thinkCol = mix(vec3(0.55, 0.45, 1.0), vec3(0.35, 0.75, 1.0), prism);
+    rim += thinkCol * core * 0.75 * uThink;
+    interior += thinkCol * radialDepth * (0.50 + 0.50 * sin(uTime * 2.2)) * uThink * 0.70 * (1.0 - uForm);
   }
 
-  // 3. RENDERING — CONSTRUCTIVE SCAN PASSES
+  // 3. RENDERING — Smooth constructive scan passes
   if (uRender > 0.01) {
     float scanY = mod(uTime * 0.9, 2.4) - 1.2;
-    float scanPass = gauss(pb.y - scanY, 0.075) * 2.2;
-    float diagPass = gauss(pb.x * 0.55 + pb.y - mod(uTime * 1.25, 2.6) + 1.3, 0.065) * 0.9;
-    float renderConstruct = (scanPass + diagPass) * uRender;
-    rim += vec3(0.32, 1.0, 0.88) * renderConstruct * 1.6;
-    interior += vec3(0.22, 0.92, 0.78) * renderConstruct * 0.7 * inside * (1.0 - uForm);
+    float scanPass = gauss(pb.y - scanY, 0.065) * 1.6;
+    rim += vec3(0.32, 1.0, 0.88) * scanPass * uRender * 1.2;
+    interior += vec3(0.22, 0.92, 0.78) * scanPass * radialDepth * uRender * 0.55 * (1.0 - uForm);
   }
 
-  // 4. SPEAKING — OUTWARD EMISSION
+  // 4. SPEAKING — Outward harmonic acoustic pulse ripples
   if (uSpeak > 0.01) {
-    float rad = length(pb);
-    float outWave = sin(rad * 9.0 - uTime * 8.5) * (0.35 + 0.65 * uOutputAudio) * uSpeak;
-    float ribbonL = gauss(pb.y - 0.22 * sin(pb.x * 4.2 - uTime * 6.0), 0.08) * smoothstep(-0.6, -1.6, pb.x);
-    float ribbonR = gauss(pb.y - 0.22 * sin(pb.x * 4.2 - uTime * 6.0), 0.08) * smoothstep(0.6, 1.6, pb.x);
-    vec3 emitCol = mix(vec3(0.32, 0.78, 1.0), vec3(0.85, 0.45, 1.0), 0.35);
-    col += emitCol * (ribbonL + ribbonR) * (0.5 + 0.9 * uOutputAudio) * uSpeak * 0.85;
-    rim += vec3(0.40, 0.82, 1.0) * max(0.0, outWave) * 0.85;
+    float acoustic = (sin(d * 14.0 - uTime * 11.0) * 0.5 + 0.5) * (0.32 + 0.68 * uOutputAudio) * uSpeak;
+    vec3 speakCol = mix(vec3(0.35, 0.78, 1.0), vec3(0.78, 0.45, 1.0), 0.35);
+    rim += speakCol * (innerFresnel + band) * acoustic * 0.88;
+    interior += speakCol * radialDepth * (0.35 + 0.65 * uOutputAudio) * uSpeak * 0.60 * (1.0 - uForm);
   }
 
-  // 5. PAUSE — TRANQUIL SETTLING
+  // 5. PAUSE — Tranquil dimming
   if (uPause > 0.01) {
-    rim *= mix(1.0, 0.72, uPause);
-    interior *= mix(1.0, 0.55, uPause);
+    rim *= mix(1.0, 0.68, uPause);
+    interior *= mix(1.0, 0.48, uPause);
   }
 
-  // 6. COMPLETED — GREEN SUCCESS EVENT (CYAN -> CONVERGE -> GREEN -> CALM)
+  // 6. COMPLETED — Emerald aurora convergence
   if (uCompleted > 0.01) {
-    float cp = uCompletedProgress;
-    float greenFlash = smoothstep(0.20, 0.42, cp) * (1.0 - smoothstep(0.65, 0.92, cp)) * uCompleted;
+    float greenFlash = smoothstep(0.20, 0.42, uCompletedProgress) * (1.0 - smoothstep(0.65, 0.92, uCompletedProgress)) * uCompleted;
     vec3 greenCol = vec3(0.25, 0.98, 0.55);
-    rim = mix(rim, greenCol * (band * 2.2 + core * 1.6), greenFlash * 0.90);
-    interior += greenCol * greenFlash * 0.6 * inside * (1.0 - uForm);
+    rim = mix(rim, greenCol * (band * 1.8 + core * 1.4), greenFlash * 0.90);
+    interior += greenCol * radialDepth * greenFlash * 0.70 * (1.0 - uForm);
   }
 
-  // 7. BLOCKED — RESTRAINED RESISTANCE
+  // 7. BLOCKED — Restrained crimson tension
   if (uBlocked > 0.01) {
     vec3 roseCol = vec3(0.95, 0.28, 0.38);
-    float resistNotch = 1.0 - 0.10 * sin(ang * 14.0) * uBlocked;
-    float resistPulse = 1.0 + 0.08 * sin(uTime * 12.0) * uBlocked;
-    rim = mix(rim * resistNotch * resistPulse, roseCol * (band * 1.8 + core * 1.2), uBlocked * 0.65);
-    interior += roseCol * 0.25 * inside * uBlocked * (1.0 - uForm);
+    float resistPulse = 1.0 + 0.08 * sin(uTime * 10.0) * uBlocked;
+    rim = mix(rim * resistPulse, roseCol * (band * 1.5 + core * 1.2), uBlocked * 0.65);
+    interior += roseCol * radialDepth * 0.32 * uBlocked * (1.0 - uForm);
   }
 
-  // membrane waves — state-tinted
-  vec3 waves = vec3(0.0);
-  {
-    float wp = uWavePhase;
-    float la = 1.0 + 1.1*uLevel;
-    float env = inside * (1.0 - smoothstep(0.86, 1.0, abs(pb.x)));
-    vec3 wA = mix(vec3(0.25, 0.70, 1.0), uShapeTint, uShapeTintAmt*0.55);
-    vec3 wB = mix(vec3(0.46, 0.40, 1.0), uShapeTint, uShapeTintAmt*0.55);
-    vec3 wC = mix(vec3(0.32, 0.86, 1.0), uShapeTint, uShapeTintAmt*0.55);
-    vec3 wD = mix(vec3(0.20, 0.48, 1.0), uShapeTint, uShapeTintAmt*0.55);
-    float y0 = -0.30 + 0.19*la*sin(pb.x*2.6 + 1.2 + wp*0.55) + 0.05*sin(pb.x*5.1 - wp*0.3);
-    float w0 = pb.y - y0;
-    float m0 = 0.65 + 0.35*cos(pb.x*2.6 + 1.2 + wp*0.55);
-    waves += wA * (gauss(w0, 0.045*(1.0+0.5*uLevel))*0.42*m0 + (1.0 - smoothstep(-0.40, 0.02, w0))*0.10);
-    float y1 = -0.40 + 0.15*la*sin(pb.x*2.1 + 2.5 - wp*0.42);
-    float w1 = pb.y - y1;
-    float m1 = 0.6 + 0.4*cos(pb.x*2.1 + 2.5 - wp*0.42);
-    waves += wB * gauss(w1, 0.032) * 0.30 * m1;
-    float y2 = -0.20 + 0.13*la*sin(pb.x*3.1 + 0.4 + wp*0.36);
-    float w2 = pb.y - y2;
-    waves += wC * gauss(w2, 0.028) * 0.24;
-    float y3 = -0.52 + 0.10*la*sin(pb.x*1.8 + 3.7 + wp*0.48);
-    float w3 = pb.y - y3;
-    waves += wD * (gauss(w3, 0.06)*0.22 + (1.0 - smoothstep(-0.4, 0.02, w3))*0.08);
-    waves *= env * (1.0 - uForm) * (0.85 + 0.15*uEnergy + 0.6*uLevel) * uWaveAmp * uShapeGlow * (1.0 - 0.6*uThink);
-  }
-
-  float fy = pb.y + 1.12;
-  float refl = gauss(fy, 0.04) * gauss(pb.x, 0.60) * 0.50 + gauss(fy - 0.08, 0.20) * gauss(pb.x, 0.95) * 0.14;
-  vec3 pool = mix(vec3(0.18, 0.42, 1.0), uShapeTint, uShapeTintAmt*0.6) * refl * (1.0 - uForm) * (1.0 - uDock);
-
-  vec3 shapeCol = (rim + inner + interior + light + waves + pool) * uBody;
+  // Final shape color: cohesive luminous glass rim + glowing volumetric core + crystal light
+  vec3 shapeCol = (rim + interior + light) * uBody;
   shapeCol = adjustSat(shapeCol, uSaturation);
   if (uPaused > 0.01) {
     float sLuma = dot(shapeCol, vec3(0.2126, 0.7152, 0.0722));
@@ -492,8 +410,7 @@ void main(){
   }
   col += shapeCol;
 
-
-  // pause: serene frosted desaturation
+  // Pause atmosphere desaturation
   if (uPaused > 0.01) {
     float cLuma = dot(col, vec3(0.2126, 0.7152, 0.0722));
     col = mix(col, vec3(cLuma * 0.82), uPaused * 0.90);

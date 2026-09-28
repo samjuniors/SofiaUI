@@ -11,6 +11,8 @@
  */
 
 import { ALL_SHAPES, SOPHIA_SYSTEM } from "../sophia/control";
+import { handleMediaProxy } from "./media-proxy";
+import { generateImage } from "./image-gen";
 
 const GEMINI_MODEL = process.env.GEMINI_LIVE_MODEL?.trim() || "models/gemini-3.8-live";
 const GEMINI_TEXT_MODEL = "gemini-3.8-flash";
@@ -61,6 +63,23 @@ const FUNCTION_DECLARATIONS = [
         shape: { type: "STRING", enum: [...ALL_SHAPES] },
       },
       required: ["shape"],
+    },
+  },
+  {
+    name: "generate_image",
+    description:
+      "Generate a photo, illustration, concept art, diagram, or artwork using Imagen 3 when asked to create, paint, draw, or visualize an image.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        prompt: { type: "STRING", description: "Detailed descriptive prompt for the image creation" },
+        aspectRatio: {
+          type: "STRING",
+          enum: ["1:1", "16:9", "9:16", "4:3", "3:4"],
+          description: "Aspect ratio for the generated image (default 1:1)",
+        },
+      },
+      required: ["prompt"],
     },
   },
 ];
@@ -200,6 +219,25 @@ const OPENAI_TOOLS = [
           shape: { type: "string", enum: [...ALL_SHAPES] },
         },
         required: ["shape"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_image",
+      description: FUNCTION_DECLARATIONS[1].description,
+      parameters: {
+        type: "object",
+        properties: {
+          prompt: { type: "string", description: "Detailed descriptive prompt for image generation" },
+          aspectRatio: {
+            type: "string",
+            enum: ["1:1", "16:9", "9:16", "4:3", "3:4"],
+            description: "Aspect ratio (default 1:1)",
+          },
+        },
+        required: ["prompt"],
       },
     },
   },
@@ -381,18 +419,40 @@ async function chatWithGemini(body: ChatBody, apiKey: string): Promise<Response>
   const models = [GEMINI_TEXT_MODEL, "gemini-3.5-flash", "gemini-2.5-flash-lite"];
   let lastStatus = 502;
 
+  const isLiveSearchQuery = Boolean(
+    body.lastUser &&
+    /\b(who|what|when|where|why|how|weather|news|today|latest|score|stock|price|current|search|happened|live|forecast|update|match)\b/i.test(body.lastUser)
+  );
+
   for (const model of models) {
     const { url, headers } = getGeminiFetchParams(apiKey, model);
     try {
-      const res = await fetch(url, {
+      const toolsPayload: any[] = isLiveSearchQuery
+        ? [{ functionDeclarations: FUNCTION_DECLARATIONS }, { googleSearch: {} }]
+        : [{ functionDeclarations: FUNCTION_DECLARATIONS }];
+
+      let res = await fetch(url, {
         method: "POST",
         headers,
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: SOPHIA_SYSTEM }] },
-          tools: [{ functionDeclarations: FUNCTION_DECLARATIONS }],
+          tools: toolsPayload,
           contents,
         }),
       });
+
+      // Fallback without googleSearch if the model rejects combining tools
+      if (!res.ok && isLiveSearchQuery) {
+        res = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SOPHIA_SYSTEM }] },
+            tools: [{ functionDeclarations: FUNCTION_DECLARATIONS }],
+            contents,
+          }),
+        });
+      }
 
       if (!res.ok) {
         lastStatus = res.status;
@@ -401,9 +461,16 @@ async function chatWithGemini(body: ChatBody, apiKey: string): Promise<Response>
       }
 
       const data = (await res.json()) as {
-        candidates?: Array<{ content?: { parts?: Array<Record<string, unknown>> } }>;
+        candidates?: Array<{
+          content?: { parts?: Array<Record<string, unknown>> };
+          groundingMetadata?: {
+            webSearchQueries?: string[];
+            groundingChunks?: Array<{ web?: { uri?: string; title?: string } }>;
+          };
+        }>;
       };
-      const parts = data.candidates?.[0]?.content?.parts ?? [];
+      const candidate = data.candidates?.[0];
+      const parts = candidate?.content?.parts ?? [];
       let text = "";
       const toolCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
       for (const p of parts) {
@@ -411,7 +478,18 @@ async function chatWithGemini(body: ChatBody, apiKey: string): Promise<Response>
         const fc = p.functionCall as { name?: string; args?: Record<string, unknown> } | undefined;
         if (fc?.name) toolCalls.push({ name: fc.name, args: fc.args ?? {} });
       }
-      return json({ text: text.trim(), toolCalls, brain: "gemini" });
+
+      const sources = (candidate?.groundingMetadata?.groundingChunks ?? [])
+        .map((c) => c.web)
+        .filter((w): w is { uri: string; title: string } => Boolean(w?.uri && w?.title))
+        .map((w) => ({ title: w.title, url: w.uri }));
+
+      return json({
+        text: text.trim(),
+        toolCalls,
+        sources: sources.length > 0 ? sources : undefined,
+        brain: "gemini",
+      });
     } catch (err) {
       console.warn(`[sophia-server] Gemini chat (${model}) fetch error:`, err);
     }
@@ -775,20 +853,24 @@ async function mouthSpeak(req: Request): Promise<Response> {
 
 async function testVoice(req: Request): Promise<Response> {
   let voice = "Aoede";
+  let provider = "auto";
+  let voiceId = "";
   try {
-    const b = (await req.json()) as { voice?: string };
+    const b = (await req.json()) as { voice?: string; provider?: string; voiceId?: string };
     if (b.voice) voice = b.voice;
+    if (b.provider) provider = b.provider;
+    if (b.voiceId) voiceId = b.voiceId;
   } catch {
     /* empty */
   }
 
-  const sampleGreeting = "G'day! Sophia here. All audio systems, microphone, and Gemini live link are functioning perfectly.";
+  const sampleGreeting = "G'day! I am Sofia. All audio systems and voice output are functioning properly.";
   const fakeReq = new Request(req.url, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ text: sampleGreeting, voice }),
+    body: JSON.stringify({ text: sampleGreeting, voice, provider, voiceId }),
   });
-  return geminiSpeak(fakeReq);
+  return mouthSpeak(fakeReq);
 }
 
 import { handleStatusRequest, handleTtsRequest, handleChatRequest } from './sophia-live-server';
@@ -809,6 +891,13 @@ export async function handleSophiaRequest(req: Request): Promise<Response> {
 
   const path = url.pathname.replace(/^.*\/api\/sophia/, "") || "/";
 
+  if (fullPath === "/img" || path === "/img" || path.startsWith("/img?")) {
+    return handleMediaProxy(req, 'img');
+  }
+  if (fullPath === "/media" || path === "/media" || path.startsWith("/media?")) {
+    return handleMediaProxy(req, 'media');
+  }
+
   if (req.method === "GET" && (path === "/" || path === "/status" || path === "")) {
     return json(statusPayload());
   }
@@ -825,6 +914,18 @@ export async function handleSophiaRequest(req: Request): Promise<Response> {
       return deepgramSession();
     case "/chat":
       return chat(req);
+    case "/image/generate": {
+      try {
+        const b = (await req.json()) as { prompt?: string; aspectRatio?: string };
+        if (!b.prompt?.trim()) {
+          return json({ error: "Missing prompt" }, { status: 400 });
+        }
+        const img = await generateImage(b.prompt, (b.aspectRatio as any) || "1:1");
+        return json(img);
+      } catch (err: any) {
+        return json({ error: err.message || "Failed to generate image" }, { status: 500 });
+      }
+    }
     case "/gemini/speak":
       return geminiSpeak(req);
     case "/mouth/speak":

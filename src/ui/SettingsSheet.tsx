@@ -13,13 +13,14 @@
  *   - Save as Default and Reset to Factory Settings
  */
 
-import { Bookmark, Check, ChevronDown, RotateCcw, X } from 'lucide-react';
+import { Bookmark, Check, ChevronDown, Music, RotateCcw, Volume2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { DensityPref, OSStatus, ProviderPref, SophiaOS } from '../sophia/SophiaOS';
 import type { ShapeTune } from '../sophia/VisualDirector';
 import type { SophiaForm } from '../sophia/ShapeGenerator';
 import type { SophiaShape, SophiaStateName } from '../sophia/types';
 import { ALL_SHAPES, controlLayer } from '../sophia/control';
+import { scoreEngine } from '../sophia/audio/ScoreEngine';
 
 function SegRow<T extends string>({
   label,
@@ -452,6 +453,10 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
   const [isCustomSelected, setIsCustomSelected] = useState(
     !DEFAULT_ELEVENLABS_VOICES.some((v) => v.id === controlLayer.elevenLabsVoiceId && v.id !== 'custom'),
   );
+  const [testingVoice, setTestingVoice] = useState(false);
+  const [scoreEnabled, setScoreEnabled] = useState(scoreEngine.isEnabled);
+  const [scoreAmbientLoop, setScoreAmbientLoop] = useState(scoreEngine.isAmbientLoopEnabled);
+  const [scoreVolume, setScoreVolume] = useState(scoreEngine.getMasterVolume());
 
   useEffect(() => {
     os.addEventListener('prefs', rerender);
@@ -515,6 +520,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
 
     setIsCustomSelected(false);
     rerender();
+    void os.applyVoiceSettings();
   };
 
   const handleVoiceSelect = (id: string) => {
@@ -525,6 +531,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
       controlLayer.elevenLabsVoiceId = id;
       controlLayer.saveControlPrefs();
       rerender();
+      void os.applyVoiceSettings();
     }
   };
 
@@ -535,6 +542,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
       controlLayer.elevenLabsVoiceId = trimmed;
       controlLayer.saveControlPrefs();
       rerender();
+      void os.applyVoiceSettings();
     }
   };
 
@@ -733,10 +741,29 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                 </select>
                 <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sky-300/70" />
               </div>
-              <p className="text-[8.5px] leading-relaxed text-sky-200/70">
-                {TTS_VOICE_PROFILES.find((vp) => vp.id === (p.voiceProfile || controlLayer.voiceProfile))?.description ??
-                  'Select voice personality and accent (Australian female, US male/female, British, etc.). Persisted in OS configuration.'}
-              </p>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <p className="text-[8.5px] leading-relaxed text-sky-200/70">
+                  {TTS_VOICE_PROFILES.find((vp) => vp.id === (p.voiceProfile || controlLayer.voiceProfile))?.description ??
+                    'Select voice personality and accent (Australian female, US male/female, British, etc.). Persisted in OS configuration.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setTestingVoice(true);
+                    try {
+                      await os.testVoice();
+                    } finally {
+                      setTestingVoice(false);
+                    }
+                  }}
+                  disabled={testingVoice}
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-500/15 px-2.5 py-1 text-[9.5px] font-medium text-sky-200 transition hover:border-sky-400/60 hover:bg-sky-500/25 active:scale-95 disabled:opacity-50"
+                  title="Play sample in selected voice"
+                >
+                  <Volume2 size={12} className={testingVoice ? 'animate-pulse text-amber-300' : ''} />
+                  <span>{testingVoice ? 'Playing…' : 'Play Sample'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Gemini Live Voice Selection */}
@@ -753,6 +780,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                   controlLayer.voiceName = e.target.value;
                   controlLayer.saveControlPrefs();
                   rerender();
+                  void os.applyVoiceSettings();
                 }}
                 className="w-full rounded-lg border border-white/10 bg-[#080d1a] px-2.5 py-1.5 text-[11px] text-white/90 outline-none focus:border-sky-400"
               >
@@ -777,6 +805,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                     controlLayer.mouthProvider = 'gemini';
                     controlLayer.saveControlPrefs();
                     rerender();
+                    void os.applyVoiceSettings();
                   }}
                   className={`h-7 flex-1 rounded-lg text-[9px] font-normal tracking-[0.08em] transition-all duration-200 ${
                     controlLayer.mouthProvider === 'gemini' || controlLayer.mouthProvider === 'auto'
@@ -792,6 +821,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                     controlLayer.mouthProvider = 'elevenlabs';
                     controlLayer.saveControlPrefs();
                     rerender();
+                    void os.applyVoiceSettings();
                   }}
                   className={`h-7 flex-1 rounded-lg text-[9px] font-normal tracking-[0.08em] transition-all duration-200 ${
                     controlLayer.mouthProvider === 'elevenlabs'
@@ -807,6 +837,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                     controlLayer.mouthProvider = 'deepgram';
                     controlLayer.saveControlPrefs();
                     rerender();
+                    void os.applyVoiceSettings();
                   }}
                   className={`h-7 flex-1 rounded-lg text-[9px] font-normal tracking-[0.08em] transition-all duration-200 ${
                     controlLayer.mouthProvider === 'deepgram'
@@ -881,6 +912,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                     controlLayer.dgVoice = e.target.value;
                     controlLayer.saveControlPrefs();
                     rerender();
+                    void os.applyVoiceSettings();
                   }}
                   className="w-full rounded-lg border border-white/10 bg-[#080d1a] px-2.5 py-1.5 text-[11px] text-white/90 outline-none focus:border-sky-400"
                 >
@@ -892,6 +924,75 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                 </select>
               </div>
             )}
+
+            {/* Boot Music & Acoustic Score */}
+            <div className="mt-3 space-y-2.5 rounded-xl border border-sky-500/20 bg-sky-950/20 p-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Music size={12} className="text-sky-300" />
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-sky-200">Boot & Wake Audio Score</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !scoreEnabled;
+                    setScoreEnabled(next);
+                    scoreEngine.setEnabled(next);
+                  }}
+                  className={`rounded-full px-2 py-0.5 text-[8.5px] font-mono uppercase tracking-wider transition ${
+                    scoreEnabled
+                      ? 'border border-emerald-400/40 bg-emerald-500/20 text-emerald-200'
+                      : 'border border-white/10 bg-white/5 text-white/40'
+                  }`}
+                >
+                  {scoreEnabled ? 'Enabled' : 'Muted'}
+                </button>
+              </div>
+
+              <p className="text-[8.5px] text-white/50 leading-relaxed">
+                Plays a short wake flourish on awakening (customizable via <code className="text-sky-300 font-mono">public/audio/boot-music.mp3</code>) with dynamic voice ducking. Continuous music is disabled by default.
+              </p>
+
+              {scoreEnabled && (
+                <div className="space-y-2 pt-1 border-t border-white/[0.06]">
+                  <div className="flex items-center justify-between text-[8px] font-mono text-white/60">
+                    <span>Flourish Volume</span>
+                    <span>{Math.round(scoreVolume * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={scoreVolume}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      setScoreVolume(v);
+                      scoreEngine.setMasterVolume(v);
+                    }}
+                    className="w-full accent-sky-400 cursor-pointer"
+                  />
+                  <div className="flex items-center justify-between pt-1 text-[8px] text-white/60">
+                    <span className="font-mono">Loop Ambient Bed in Standby</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !scoreAmbientLoop;
+                        setScoreAmbientLoop(next);
+                        scoreEngine.setAmbientLoopEnabled(next);
+                      }}
+                      className={`rounded px-1.5 py-0.5 text-[8px] font-mono ${
+                        scoreAmbientLoop
+                          ? 'border border-sky-400/40 bg-sky-400/20 text-sky-200'
+                          : 'border border-white/10 bg-white/5 text-white/40'
+                      }`}
+                    >
+                      {scoreAmbientLoop ? 'ON' : 'OFF (Default)'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </AccordionSection>
 
           {/* INTELLECT: BRAIN & LOCAL LLMS */}
@@ -1144,7 +1245,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
             onToggle={() => toggleSection('system')}
           >
             <ToggleRow
-              label="Hey Sophia wake-word"
+              label="Hey Sofia wake-word"
               hint="background microphone detection"
               on={p.wake}
               onChange={(wake) => os.savePrefs({ wake })}

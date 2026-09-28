@@ -3,7 +3,7 @@
  * An operating environment, not a page: the substance is the interface.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { dockLayout, stageLayout, type StageLayout } from './sophia/layout';
 import { getSophiaOS, type OSStatus } from './sophia/SophiaOS';
 import type { SophiaStateName } from './sophia/types';
@@ -16,6 +16,7 @@ import { MicPermissionModal } from './ui/MicPermissionModal';
 import { SettingsSheet } from './ui/SettingsSheet';
 import { Terminal } from './ui/Terminal';
 import { controlLayer } from './sophia/control';
+import { navigateBrowserTo } from './lib/browser-bridge';
 
 function isTyping(): boolean {
   const el = document.activeElement;
@@ -67,8 +68,78 @@ export default function App() {
       setBrowserOpen(open);
     };
     controlLayer.addEventListener('command:browser', onBrowserCmd);
-    return () => controlLayer.removeEventListener('command:browser', onBrowserCmd);
-  }, []);
+
+    // Voice-driven panel control (control_ui tool)
+    const onUiCmd = (e: Event) => {
+      const { target, action } = (e as CustomEvent).detail as { target: string; action: string };
+      const open = action === 'open';
+      const close = action === 'close';
+      const toggle = action === 'toggle' || action === 'minimize';
+
+      const apply = (setter: Dispatch<SetStateAction<boolean>>) => {
+        if (toggle) setter((v) => !v);
+        else if (open) setter(true);
+        else if (close) setter(false);
+      };
+
+      if (target === 'browser') apply(setBrowserOpen);
+      else if (target === 'chat') apply(setChatOpen);
+      else if (target === 'settings') apply(setSettingsOpen);
+      else if (target === 'diagnostics') apply(setDiagnosticsOpen);
+      else if (target === 'terminal') apply(setTerminalOpen);
+      else if (target === 'all' && (close || toggle)) {
+        setBrowserOpen(false);
+        setChatOpen(false);
+        setSettingsOpen(false);
+        setDiagnosticsOpen(false);
+        setTerminalOpen(false);
+      }
+    };
+    controlLayer.addEventListener('command:ui', onUiCmd);
+
+    // Music commands
+    const onMusicCmd = (e: Event) => {
+      const { action } = (e as CustomEvent).detail as { action: string };
+      if (action === 'play' || action === 'resume') {
+        os.audio.unlockAudio().then(() => {
+          // scoreEngine is available via os internally
+          os.dispatchEvent(new CustomEvent('music:play'));
+        }).catch(() => undefined);
+      } else if (action === 'stop' || action === 'pause') {
+        os.dispatchEvent(new CustomEvent('music:stop'));
+      }
+    };
+    controlLayer.addEventListener('command:music', onMusicCmd);
+
+    // Rendering state when image generation starts (from GeminiLiveProvider tool_call)
+    const onImageGen = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.url) {
+        // Image complete — show in chat
+        setChatOpen(true);
+      }
+    };
+    controlLayer.addEventListener('image:generated', onImageGen);
+
+    // Web navigation commands (web_search, open_url, play_music)
+    const onNavCmd = (e: Event) => {
+      const { url, query, title } = (e as CustomEvent).detail as { url?: string; query?: string; title?: string };
+      const target = url || (query ? `https://www.google.com/search?q=${encodeURIComponent(query)}` : '');
+      if (target) {
+        setBrowserOpen(true);
+        navigateBrowserTo(target, title);
+      }
+    };
+    controlLayer.addEventListener('command:navigate', onNavCmd);
+
+    return () => {
+      controlLayer.removeEventListener('command:browser', onBrowserCmd);
+      controlLayer.removeEventListener('command:ui', onUiCmd);
+      controlLayer.removeEventListener('command:music', onMusicCmd);
+      controlLayer.removeEventListener('image:generated', onImageGen);
+      controlLayer.removeEventListener('command:navigate', onNavCmd);
+    };
+  }, [os]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -134,8 +205,8 @@ export default function App() {
       setMicModalOpen(true);
       return;
     }
-    if (os.isPaused || paused) {
-      os.resume();
+    if (os.isPaused || paused || os.state.is('ambient', 'idle', 'completed')) {
+      if (os.isPaused || paused) os.resume();
       void os.enterSession('mic-button');
     } else {
       os.pause();
@@ -144,8 +215,13 @@ export default function App() {
 
   const toggleShapePause = useCallback(() => {
     void os.audio.unlockAudio();
-    if (os.isPaused || paused) {
-      os.resume();
+    if (os.rendererFailed) return;
+    if (os.audio.micStatus === 'denied' || os.isMicDisabledError) {
+      setMicModalOpen(true);
+      return;
+    }
+    if (os.isPaused || paused || os.state.is('ambient', 'idle', 'completed')) {
+      if (os.isPaused || paused) os.resume();
       void os.enterSession('mic-button');
     } else {
       os.pause();
@@ -266,6 +342,8 @@ export default function App() {
           state={state}
           paused={paused}
           onClick={toggleShapePause}
+          os={os}
+          onDiagnostics={() => setDiagnosticsOpen(true)}
         />
 
         {booted && (

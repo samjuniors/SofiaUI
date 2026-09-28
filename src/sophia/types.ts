@@ -26,6 +26,7 @@ export type SophiaEventType =
   | 'speech_started'
   | 'transcript'
   | 'thinking'
+  | 'rendering'
   | 'response_started'
   | 'audio_started'
   | 'audio_chunk'
@@ -82,4 +83,7 @@ export interface Turn {
   text: string;
   final: boolean;
   ts: number;
+  imageUrl?: string;
+  imagePrompt?: string;
+  sources?: Array<{ title: string; url: string }>;
 }

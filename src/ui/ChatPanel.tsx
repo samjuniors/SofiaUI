@@ -3,7 +3,7 @@
  * Includes a small mic button for live speech typing and real-time multi-language translation.
  */
 
-import { Globe, Languages, Mic, MicOff, Send, X } from 'lucide-react';
+import { Download, ExternalLink, Globe, Image as ImageIcon, Languages, Mic, MicOff, Send, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { controlLayer } from '../sophia/control';
 import type { OSStatus } from '../sophia/SophiaOS';
@@ -293,7 +293,57 @@ export function ChatPanel({
                     : 'rounded-2xl rounded-tl-sm border border-sky-400/25 bg-sky-400/[0.08] text-sky-100 shadow-[0_0_12px_rgba(56,189,248,0.08)]'
                 } ${t.final ? '' : 'opacity-65'}`}
               >
-                {t.text}
+                {t.text && <p>{t.text}</p>}
+
+                {/* Generated Image Card */}
+                {t.imageUrl && (
+                  <div className="mt-2 overflow-hidden rounded-xl border border-sky-400/30 bg-black/40 shadow-[0_0_15px_rgba(56,189,248,0.15)]">
+                    <div className="relative group">
+                      <img
+                        src={t.imageUrl}
+                        alt={t.imagePrompt || 'Generated image'}
+                        className="w-full max-h-[220px] object-cover rounded-t-xl transition-transform duration-300 group-hover:scale-[1.02]"
+                        loading="lazy"
+                      />
+                      <a
+                        href={t.imageUrl}
+                        download={`sophia-art-${t.ts}.jpg`}
+                        className="absolute bottom-2 right-2 flex items-center gap-1 rounded-lg border border-white/20 bg-black/70 px-2 py-1 text-[9px] font-mono text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/90"
+                        title="Download Image"
+                      >
+                        <Download size={11} />
+                        <span>Save</span>
+                      </a>
+                    </div>
+                    {t.imagePrompt && (
+                      <div className="p-2 px-2.5 flex items-center gap-1.5 text-[8.5px] font-mono text-sky-200/80 border-t border-white/[0.08]">
+                        <ImageIcon size={10} className="text-sky-400 shrink-0" />
+                        <span className="truncate">{t.imagePrompt}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Web Search Grounding Sources */}
+                {t.sources && t.sources.length > 0 && (
+                  <div className="mt-2 pt-1.5 border-t border-white/[0.08] space-y-1">
+                    <p className="text-[7.5px] uppercase tracking-wider text-sky-300/70 font-mono">Sources</p>
+                    <div className="flex flex-wrap gap-1">
+                      {t.sources.slice(0, 3).map((s, idx) => (
+                        <a
+                          key={`src-${idx}`}
+                          href={s.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md border border-sky-400/20 bg-sky-400/10 px-1.5 py-0.5 text-[8px] text-sky-200 transition hover:border-sky-400/50 hover:bg-sky-400/20"
+                        >
+                          <span className="max-w-[130px] truncate">{s.title}</span>
+                          <ExternalLink size={8} className="shrink-0 text-sky-300/60" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ),

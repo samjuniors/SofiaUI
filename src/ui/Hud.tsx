@@ -5,7 +5,7 @@
  * that receives the mini-orb when content owns the centre stage.
  */
 
-import { Activity, Mic, MicOff, Settings, Zap } from 'lucide-react';
+import { Mic, MicOff, Settings, Zap } from 'lucide-react';
 import { useEffect, useState, type RefObject } from 'react';
 import { controlLayer } from '../sophia/control';
 import type { StageLayout } from '../sophia/layout';
@@ -25,12 +25,6 @@ export function Brand() {
     </header>
   );
 }
-
-const HEALTH_META: Record<'ok' | 'warn' | 'error', { color: string; label: string }> = {
-  ok: { color: '#2fe6a0', label: 'All systems operational' },
-  warn: { color: '#ffab4a', label: 'Connecting / Standby' },
-  error: { color: '#ff5468', label: 'Check Microphone or Keys' },
-};
 
 /**
  * ConnectionIndicator — displays real-time Gemini Live API latency and stability.
@@ -125,44 +119,18 @@ export function ConnectionIndicator({
 }
 
 export function StatusCluster({
-  health,
-  active,
-  onSettings,
-  onDiagnostics,
   settingsOpen,
-  os,
+  onSettings,
 }: {
-  health: 'ok' | 'warn' | 'error';
-  active: boolean;
-  onSettings: () => void;
-  onDiagnostics: () => void;
+  health?: 'ok' | 'warn' | 'error';
+  active?: boolean;
   settingsOpen: boolean;
+  onSettings: () => void;
+  onDiagnostics?: () => void;
   os?: SophiaOS;
 }) {
-  const meta = HEALTH_META[health];
   return (
     <div className="status-cluster absolute right-7 top-[26px] z-10 flex items-center gap-2.5 transition-all duration-500 sm:right-11 sm:top-[30px]">
-      {/* Real-time Gemini Live Connection Indicator */}
-      <ConnectionIndicator os={os} onClick={onDiagnostics} />
-
-      {/* Clickable System Health Pill */}
-      <button
-        type="button"
-        title="Open Live Diagnostics & System Health Monitor"
-        aria-label={`System health: ${meta.label}. Click for diagnostics.`}
-        onClick={onDiagnostics}
-        className="group hidden sm:flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 backdrop-blur-md transition-all hover:border-sky-400/40 hover:bg-sky-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50"
-      >
-        <span
-          className={`block size-[7px] rounded-full transition-colors duration-500 ${active && health === 'ok' ? 'status-breathe' : ''} ${health === 'error' ? 'status-alert' : ''}`}
-          style={{ background: meta.color, boxShadow: `0 0 8px 1px ${meta.color}88` }}
-        />
-        <span className="font-mono text-[9px] uppercase tracking-wider text-white/60 group-hover:text-sky-200">
-          {health === 'ok' ? 'Online' : health === 'warn' ? 'Live Link' : 'Fault'}
-        </span>
-        <Activity size={11} className="text-white/30 transition-transform group-hover:scale-110 group-hover:text-sky-300" />
-      </button>
-
       {/* Settings Button */}
       <button
         type="button"
@@ -294,12 +262,13 @@ export function Dock({
   onToggleBrowser?: () => void;
 }) {
   const on = state !== 'ambient' && state !== 'paused' && state !== 'idle' && state !== 'completed';
+  const isStandby = state === 'ambient' || state === 'idle' || state === 'completed';
   const isMicOff = paused;
   const micLabel = paused
-    ? 'System paused · Click to enable microphone & resume'
-    : state === 'speaking' || state === 'thinking'
-      ? 'Sophia is active · Click to pause system'
-      : 'Microphone active · Click to pause system';
+    ? 'System paused · Click to wake Sofia & resume'
+    : isStandby
+      ? 'Standby · Say “Hey Sofia” or click to speak'
+      : 'Sofia is active · Click to stand down';
 
   return (
     <div className="dock-cluster absolute bottom-[44px] right-7 z-10 flex items-center gap-[18px] transition-all duration-500 sm:bottom-[52px] sm:right-11">

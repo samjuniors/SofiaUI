@@ -148,12 +148,18 @@ function sophiaApiPlugin(): Plugin {
     apply: "serve",
     configureServer(server) {
       if (server.httpServer) {
-        server.ssrLoadModule("/src/lib/sophia-live-server.ts").then((mod: any) => {
-          if (typeof mod.setupLiveWebSocketServer === "function" && server.httpServer) {
-            mod.setupLiveWebSocketServer(server.httpServer);
+        server.httpServer.on("upgrade", async (request, socket, head) => {
+          const pathname = request.url ? request.url.split("?")[0] : "";
+          if (pathname === "/api/live-ws") {
+            try {
+              const mod = (await server.ssrLoadModule("/src/lib/sophia-live-server.ts")) as any;
+              if (typeof mod.handleLiveWebSocketUpgrade === "function") {
+                mod.handleLiveWebSocketUpgrade(request, socket, head);
+              }
+            } catch (err) {
+              console.error("[app-builder] Failed to handle live ws upgrade:", err);
+            }
           }
-        }).catch((err) => {
-          console.error("[app-builder] Failed to setup Live WebSocket server:", err);
         });
       }
 
@@ -161,7 +167,10 @@ function sophiaApiPlugin(): Plugin {
         try {
           const rawUrl = req.url ?? "";
           const pathOnly = rawUrl.split("?", 1)[0] ?? "";
-          if (!pathOnly.startsWith("/api/sophia") && !["/api/status", "/api/tts", "/api/chat"].includes(pathOnly)) {
+          if (
+            !pathOnly.startsWith("/api/sophia") &&
+            !["/api/status", "/api/tts", "/api/chat", "/img", "/media"].includes(pathOnly)
+          ) {
             next();
             return;
           }

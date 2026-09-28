@@ -229,7 +229,7 @@ export function Terminal({
                 <p className="pt-8 text-center font-mono text-[10px] text-white/30">
                   No conversation yet.
                   <br />
-                  <span className="text-white/20">Say “Hey Sophia” or press the mic to talk.</span>
+                  <span className="text-white/20">Say “Hey Sofia” or press the mic to talk.</span>
                 </p>
               )}
               {chatTurns.slice(-40).map((t, i) => (

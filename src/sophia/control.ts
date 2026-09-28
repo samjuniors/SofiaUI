@@ -8,19 +8,46 @@
 
 import type { SophiaShape, Turn } from './types';
 
-export const SOPHIA_SYSTEM = [
-  'You are Sophia, an upbeat, warm, and loyal Australian friend having a live voice conversation.',
-  'Speak with a natural, friendly Australian tone and cadence (e.g. conversational, casual warmth, occasional natural Aussie phrasing like "g\'day", "no worries", "spot on", "too easy", but always natural, never exaggerated or caricatured).',
-  'You are chatting with your close friend like two mates catching up.',
-  'Speak in short, punchy, spoken conversational sentences. Never use markdown, lists, or emoji.',
-  'Keep spoken answers under two sentences unless your friend asks you to tell a longer story or explain something in depth.',
-  'You have a physical form: a luminous computational substance that can morph into many geometric',
-  'and sacred forms (sphere, ring, waveform, bow, torus, infinity, helix, hypercube, pyramid, star, galaxy,',
-  'heart, shield, matrix, split, merge, dissolve, face, letters Z/S/A/O).',
-  'When the user asks you to change shape or enter states like rendering or thinking, call the',
-  'transform_shape tool immediately, then confirm verbally in five words or fewer.',
-  'When the user is done or says goodbye, stay warm, friendly, and brief.',
-].join(' ');
+export function getSophiaSystem(voiceName?: string, voiceProfile?: string): string {
+  let persona = 'an upbeat, warm, and loyal Australian friend having a live voice conversation.';
+  let cadence = 'Speak with a natural, friendly Australian tone and cadence (e.g. conversational, casual warmth, occasional natural Aussie phrasing like "g\'day", "no worries", "spot on", "too easy", but always natural, never exaggerated or caricatured).';
+
+  const v = (voiceName || '').toLowerCase();
+  const p = (voiceProfile || '').toLowerCase();
+
+  if (v === 'puck' || p === 'us-male') {
+    persona = 'a friendly, confident, and warm AI friend having a live voice conversation.';
+    cadence = 'Speak with a natural, friendly American tone and cadence — conversational, upbeat, clear, and relaxed.';
+  } else if (v === 'charon' || p === 'uk-male') {
+    persona = 'a refined, thoughtful, and articulate companion having a live voice conversation.';
+    cadence = 'Speak with a polished British tone and cadence — polite, cultured, warm, and resonant.';
+  } else if (v === 'fenrir' || p === 'us-male-calm' || p === 'nordic-male') {
+    persona = 'a calm, grounded, and authoritative companion having a live voice conversation.';
+    cadence = 'Speak with a steady, deep, and measured cadence — calm, articulate, and reliable.';
+  } else if (v === 'kore' || p === 'us-female') {
+    persona = 'a relaxed, calm, and natural companion having a live voice conversation.';
+    cadence = 'Speak with a smooth, natural American female cadence — soothing, conversational, and warm.';
+  } else if (v === 'zephyr' || p === 'uk-female') {
+    persona = 'an expressive, bright, and vibrant companion having a live voice conversation.';
+    cadence = 'Speak with an expressive British cadence — lively, clear, and engaging.';
+  }
+
+  return [
+    `You are Sophia, ${persona}`,
+    cadence,
+    'You are chatting with your close friend like two mates catching up.',
+    'Speak in short, punchy, spoken conversational sentences. Never use markdown, lists, or emoji.',
+    'Keep spoken answers under two sentences unless your friend asks you to tell a longer story or explain something in depth.',
+    'You have a physical form: a luminous computational substance that can morph into many geometric',
+    'and sacred forms (sphere, ring, waveform, bow, torus, infinity, helix, hypercube, pyramid, star, galaxy,',
+    'heart, shield, matrix, split, merge, dissolve, face, letters Z/S/A/O).',
+    'When the user asks you to change shape or enter states like rendering or thinking, call the',
+    'transform_shape tool immediately, then confirm verbally in five words or fewer.',
+    'When the user is done or says goodbye, stay warm, friendly, and brief.',
+  ].join(' ');
+}
+
+export const SOPHIA_SYSTEM = getSophiaSystem();
 
 export interface FunctionCall {
   name: string;
@@ -140,29 +167,50 @@ export class ControlLayer extends EventTarget {
     }
   }
 
-  private upsert(role: Turn['role'], text: string, final: boolean) {
+  private upsert(
+    role: Turn['role'],
+    text: string,
+    final: boolean,
+    extra?: { imageUrl?: string; imagePrompt?: string; sources?: Array<{ title: string; url: string }> }
+  ) {
     const last = this.history[this.history.length - 1];
     const t = Date.now();
     if (last && last.role === role && !last.final && !final) {
       last.text = text;
       last.ts = t;
+      if (extra?.imageUrl) last.imageUrl = extra.imageUrl;
+      if (extra?.imagePrompt) last.imagePrompt = extra.imagePrompt;
+      if (extra?.sources) last.sources = extra.sources;
     } else if (last && last.role === role && !last.final && final) {
       last.text = text;
       last.final = true;
       last.ts = t;
+      if (extra?.imageUrl) last.imageUrl = extra.imageUrl;
+      if (extra?.imagePrompt) last.imagePrompt = extra.imagePrompt;
+      if (extra?.sources) last.sources = extra.sources;
     } else {
-      this.history.push({ role, text, final, ts: t });
+      this.history.push({
+        role,
+        text,
+        final,
+        ts: t,
+        ...(extra || {}),
+      });
     }
     if (this.history.length > 60) this.history.splice(0, this.history.length - 60);
-    this.dispatchEvent(new CustomEvent('turn', { detail: { role, text, final } }));
+    this.dispatchEvent(new CustomEvent('turn', { detail: { role, text, final, ...(extra || {}) } }));
   }
 
   addUserTurn(text: string, final = true) {
     this.upsert('user', text, final);
   }
 
-  addSophiaTurn(text: string, final = true) {
-    this.upsert('sophia', text, final);
+  addSophiaTurn(
+    text: string,
+    final = true,
+    extra?: { imageUrl?: string; imagePrompt?: string; sources?: Array<{ title: string; url: string }> }
+  ) {
+    this.upsert('sophia', text, final, extra);
   }
 
   addSystemNote(text: string) {
@@ -171,9 +219,10 @@ export class ControlLayer extends EventTarget {
 
   /** Shared session configuration handed to any provider that connects. */
   sessionConfig(model: string) {
+    const prompt = getSophiaSystem(this.voiceName, this.voiceProfile);
     return {
       model,
-      systemInstruction: { parts: [{ text: SOPHIA_SYSTEM + this.contextNote() }] },
+      systemInstruction: { parts: [{ text: prompt + this.contextNote() }] },
       functionDeclarations: [
         {
           name: 'transform_shape',
@@ -190,12 +239,62 @@ export class ControlLayer extends EventTarget {
             required: ['shape'],
           },
         },
+        {
+          name: 'generate_image',
+          description:
+            'Generate a photorealistic image, concept art, diagram, or artwork using Imagen 3 when asked to create, paint, or draw an image.',
+          parameters: {
+            type: 'OBJECT',
+            properties: {
+              prompt: { type: 'STRING', description: 'Descriptive prompt for the visual creation' },
+              aspectRatio: {
+                type: 'STRING',
+                enum: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+                description: 'Aspect ratio (default 1:1)',
+              },
+            },
+            required: ['prompt'],
+          },
+        },
+        {
+          name: 'control_ui',
+          description:
+            'Open, close, or toggle UI panels like browser, chat, settings, diagnostics, terminal, or all panels.',
+          parameters: {
+            type: 'OBJECT',
+            properties: {
+              target: {
+                type: 'STRING',
+                enum: ['browser', 'chat', 'settings', 'diagnostics', 'terminal', 'all'],
+              },
+              action: {
+                type: 'STRING',
+                enum: ['open', 'close', 'toggle', 'minimize'],
+              },
+            },
+            required: ['target', 'action'],
+          },
+        },
+        {
+          name: 'play_music',
+          description: 'Play, pause, stop, or resume ambient music or score.',
+          parameters: {
+            type: 'OBJECT',
+            properties: {
+              action: {
+                type: 'STRING',
+                enum: ['play', 'stop', 'pause', 'resume'],
+              },
+            },
+            required: ['action'],
+          },
+        },
       ],
     };
   }
 
   private contextNote(): string {
-    return ' Physical form: organic sphere (default) and circular ring (alternate). Transforms on command.';
+    return ' Physical form: organic sphere (default) and circular ring (alternate). Transforms on command. Visual creation: capable of synthesizing photorealistic concept art and diagrams on command.';
   }
 
   /** Direct command matching for snappy local state shifts. */
@@ -238,6 +337,73 @@ export class ControlLayer extends EventTarget {
       }
       return { status: 'unknown_shape', requested: shape };
     }
+
+    if (call.name === 'generate_image') {
+      const prompt = String(call.args?.prompt ?? '');
+      const aspectRatio = String(call.args?.aspectRatio ?? '1:1');
+      try {
+        const res = await fetch('/api/sophia/image/generate', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ prompt, aspectRatio }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Failed' }));
+          return { error: err.error || 'Failed to generate image' };
+        }
+        const data = await res.json();
+        this.dispatchEvent(new CustomEvent('image:generated', { detail: data }));
+        // Add image turn to chat history so it appears in the chat panel
+        this.addSophiaTurn(data.prompt || 'Here you go!', true, {
+          imageUrl: data.url,
+          imagePrompt: data.prompt,
+        });
+        return { status: 'success', prompt: data.prompt, url: data.url };
+      } catch (err: any) {
+        return { error: err.message || 'Image generation network error' };
+      }
+    }
+
+    if (call.name === 'control_ui') {
+      const target = String(call.args?.target ?? '');
+      const action = String(call.args?.action ?? 'toggle');
+      this.dispatchEvent(new CustomEvent('command:ui', { detail: { target, action } }));
+      return { status: 'ui_controlled', target, action };
+    }
+
+    if (call.name === 'play_music') {
+      const action = String(call.args?.action ?? 'play');
+      const query = String(call.args?.query ?? '');
+      if (action === 'play' || action === 'resume') {
+        const musicQuery = query || 'lofi chill music';
+        const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(musicQuery)}`;
+        this.dispatchEvent(new CustomEvent('command:navigate', { detail: { url: ytUrl, title: `Music: ${musicQuery}` } }));
+        this.dispatchEvent(new CustomEvent('command:ui', { detail: { target: 'browser', action: 'open' } }));
+      }
+      this.dispatchEvent(new CustomEvent('command:music', { detail: { action, query } }));
+      return { status: 'music_controlled', action, query };
+    }
+
+    if (call.name === 'web_search') {
+      const query = String(call.args?.query ?? '');
+      if (!query) return { error: 'No search query provided' };
+      // Navigate browser to Google search
+      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+      this.dispatchEvent(new CustomEvent('command:navigate', { detail: { url: searchUrl, query, title: `Search: ${query}` } }));
+      // Also open browser panel if not open
+      this.dispatchEvent(new CustomEvent('command:ui', { detail: { target: 'browser', action: 'open' } }));
+      return { status: 'searching', query, url: searchUrl };
+    }
+
+    if (call.name === 'open_url') {
+      const url = String(call.args?.url ?? '');
+      const title = String(call.args?.title ?? '');
+      if (!url) return { error: 'No URL provided' };
+      this.dispatchEvent(new CustomEvent('command:navigate', { detail: { url, title } }));
+      this.dispatchEvent(new CustomEvent('command:ui', { detail: { target: 'browser', action: 'open' } }));
+      return { status: 'navigating', url };
+    }
+
     return { error: 'unknown_function', name: call.name };
   }
 }

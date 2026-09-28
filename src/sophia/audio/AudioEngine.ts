@@ -11,6 +11,7 @@
 
 import { controlLayer } from '../control';
 import { AudioOutput } from '../../core/AudioOutput';
+import { scoreEngine } from './ScoreEngine';
 
 type PCMHandler = (pcm: ArrayBuffer) => void;
 type LevelHandler = (level: number) => void;
@@ -89,6 +90,7 @@ export class AudioEngine {
   private lastBargeCheck = performance.now();
   private output = new AudioOutput(
     (isPlaying) => {
+      scoreEngine.setDucked(isPlaying);
       if (!isPlaying) {
         this.playRms = 0;
         this.speechStreakMs = 0;
@@ -351,10 +353,13 @@ export class AudioEngine {
   async unlockAudio(): Promise<void> {
     await this.output.init();
     await this.output.unlock();
+    void scoreEngine.unlock();
     if (this.ctx && this.ctx.state === 'suspended') {
       try {
         await this.ctx.resume();
-      } catch {}
+      } catch (_e) {
+        // ignore
+      }
     }
   }
 

@@ -147,17 +147,17 @@ export class SophiaState {
         if (this.is('focusing', 'rendering', 'wakeup')) this.transition('listening', { source: detail.source });
         break;
       case 'speech_started':
-        if (this.is('speaking', 'thinking', 'rendering', 'wakeup', 'completed')) {
+        if (this.is('speaking', 'thinking', 'rendering', 'wakeup', 'completed', 'focusing')) {
           this.transition('listening', { reason: 'barge-in' });
         }
         break;
       case 'thinking':
-        if (this.is('listening', 'ambient', 'idle', 'wakeup', 'completed')) this.transition('thinking');
+        if (this.is('listening', 'ambient', 'idle', 'wakeup', 'completed', 'focusing')) this.transition('thinking');
         break;
       case 'response_started':
       case 'audio_started':
       case 'audio_chunk':
-        if (this.is('thinking', 'listening', 'rendering', 'wakeup', 'completed')) this.transition('speaking');
+        if (this.is('thinking', 'listening', 'rendering', 'wakeup', 'completed', 'focusing')) this.transition('speaking');
         break;
       case 'interrupted':
         if (this.is('speaking', 'thinking', 'rendering', 'completed')) this.transition('listening', { reason: 'interrupted' });
