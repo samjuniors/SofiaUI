@@ -21,6 +21,7 @@ import { controlLayer } from '../sophia/control';
 import type { ITool, ToolCall, ToolResult, ToolLifecyclePayload, GeminiFunctionDeclaration } from './types';
 import { webSearchTool } from './web-search';
 import { uiControlTool } from './ui-control';
+import { systemControlTool } from './system-control';
 import { ALL_SHAPES } from '../sophia/control';
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
@@ -133,6 +134,40 @@ class ToolRegistry {
         },
       },
       {
+        name: 'system_control',
+        description:
+          'Control the physical device and native operating system. ' +
+          'Open the user\'s real desktop browser (Chrome/Edge/Firefox) to any URL or video, ' +
+          'perform searches in the desktop browser, stream music/video on YouTube or Spotify, ' +
+          'launch native apps (notepad, calc, explorer, terminal), or query the real device clock/time. ' +
+          'Always use this tool when the user asks to open something on their device or real browser.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            action: {
+              type: 'STRING',
+              enum: [
+                'open_browser',
+                'search_browser',
+                'stream_media',
+                'open_app',
+                'get_time',
+                'get_system_info',
+              ] as unknown as string[],
+              description: 'The native device action to perform.',
+            },
+            url: { type: 'STRING', description: 'URL to open in the native desktop browser.' },
+            query: { type: 'STRING', description: 'Search query or music title for search_browser / stream_media.' },
+            app: {
+              type: 'STRING',
+              enum: ['notepad', 'calc', 'calculator', 'explorer', 'files', 'cmd', 'terminal', 'chrome', 'edge', 'spotify'] as unknown as string[],
+              description: 'Application name to launch on the operating system.',
+            },
+          },
+          required: ['action'],
+        },
+      },
+      {
         name: 'generate_image',
         description:
           'Generate a high-quality image, illustration, concept art, diagram, or photo. ' +
@@ -171,8 +206,8 @@ class ToolRegistry {
         name: 'ui_control',
         description:
           'Control the Sofia application interface. ' +
-          'Open/close/toggle panels (browser, chat, settings, diagnostics, terminal), ' +
-          'navigate the browser to a URL, play music on YouTube, stop music, ' +
+          'Open/close/toggle panels, display dynamic rich review cards (weather, time, reviews, documents, stories), ' +
+          'scroll content up or down for the user, navigate the browser to a URL, play music on YouTube, stop music, ' +
           'show notifications, or control volume. ' +
           'IMPORTANT: never refuse a UI request — always call this tool.',
         parameters: {
@@ -183,6 +218,7 @@ class ToolRegistry {
               enum: [
                 'set_state',
                 'open_panel', 'close_panel', 'toggle_panel', 'close_all_panels',
+                'show_info_card', 'scroll_content', 'close_info_card',
                 'navigate_to_url', 'play_music', 'stop_music',
                 'show_notification', 'set_volume', 'update_status_text',
               ] as unknown as string[],
@@ -195,8 +231,20 @@ class ToolRegistry {
             },
             panel: {
               type: 'STRING',
-              enum: ['browser', 'chat', 'settings', 'diagnostics', 'terminal'] as unknown as string[],
+              enum: ['browser', 'chat', 'settings', 'diagnostics', 'terminal', 'info_card'] as unknown as string[],
               description: 'Target panel (required for open/close/toggle_panel).',
+            },
+            infoTitle: { type: 'STRING', description: 'Title of the dynamic info/review card.' },
+            infoContent: { type: 'STRING', description: 'Rich content/body text of the dynamic info card to display and scroll.' },
+            infoType: {
+              type: 'STRING',
+              enum: ['info', 'weather', 'time', 'review', 'story', 'document'] as unknown as string[],
+              description: 'Visual category of the info panel.',
+            },
+            scrollDirection: {
+              type: 'STRING',
+              enum: ['up', 'down', 'top', 'bottom'] as unknown as string[],
+              description: 'Direction to scroll the active dynamic card.',
             },
             url: { type: 'STRING', description: 'URL for navigate_to_url.' },
             query: { type: 'STRING', description: 'Music search query for play_music.' },
@@ -221,11 +269,12 @@ class ToolRegistry {
 
 function labelFor(name: string, args: Record<string, unknown>): string {
   switch (name) {
-    case 'web_search':    return `Searching for "${args.query}"…`;
+    case 'web_search':     return `Searching for "${args.query}"…`;
+    case 'system_control': return `Device: ${args.action}…`;
     case 'generate_image': return `Creating image: "${String(args.prompt ?? '').slice(0, 40)}"…`;
     case 'transform_shape': return `Transforming to ${args.shape}…`;
-    case 'ui_control':    return `UI: ${args.action}…`;
-    default:              return `Running ${name}…`;
+    case 'ui_control':     return `UI: ${args.action}…`;
+    default:               return `Running ${name}…`;
   }
 }
 
@@ -259,3 +308,5 @@ export const toolRegistry = new ToolRegistry();
 // Register all tools (order doesn't matter)
 toolRegistry.register(webSearchTool);
 toolRegistry.register(uiControlTool);
+toolRegistry.register(systemControlTool);
+

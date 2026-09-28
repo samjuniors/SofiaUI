@@ -15,6 +15,7 @@ import { LiveApiProvider } from './providers/LiveApiProvider';
 import { ModularProvider } from './providers/ModularProvider';
 import { VoiceActivityDetection } from './VoiceActivityDetection';
 import { WakeTrigger, WakeWordDetection } from './WakeWordDetection';
+import { sophiaMemory } from './SophiaMemory';
 
 export interface ConversationManagerCallbacks {
   onStateChange: (state: SofiaState) => void;
@@ -131,15 +132,31 @@ export class ConversationManager {
       onTurnComplete: () => {
         this.isProcessingTurn = false;
         if (this.activeTranscript.trim()) {
+          const cleanedText = this.personaEngine.cleanSpokenText(this.activeTranscript);
           const msg: SofiaMessage = {
             id: 'sofia-' + Date.now(),
             role: 'sofia',
-            text: this.personaEngine.cleanSpokenText(this.activeTranscript),
+            text: cleanedText,
             timestamp: Date.now(),
             emotion: this.emotionEngine.getEmotion()
           };
           this.messages.push(msg);
           this.callbacks.onMessageAdd(msg);
+
+          // Track story memory if Sofia was telling a story or continuing one
+          const currentStory = sophiaMemory.getStory();
+          if (currentStory && currentStory.isOngoing) {
+            sophiaMemory.updateStoryProgress(currentStory.currentScene || 'in progress', cleanedText);
+          } else if (/once upon a time|there was a|long ago|the legend of|chapter|tale of/i.test(cleanedText)) {
+            sophiaMemory.setStory({
+              title: 'Ongoing Tale',
+              summary: cleanedText.slice(0, 150),
+              currentScene: 'Introduction',
+              lastSpokenText: cleanedText,
+              isOngoing: true,
+            });
+          }
+
           this.activeTranscript = '';
         }
         if (!this.audioOutput.getIsPlaying()) {

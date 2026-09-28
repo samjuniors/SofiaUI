@@ -10,10 +10,13 @@
  *   GET  /api/sophia/status            → Backends, live models & diagnostics
  */
 
+import { exec } from "node:child_process";
+import os from "node:os";
 import { ALL_SHAPES, SOPHIA_SYSTEM } from "../sophia/control";
 import { handleMediaProxy } from "./media-proxy";
 import { generateImage } from "./image-gen";
 import { handleWebSearch, getSearchProviderStatus } from "./web-search-server";
+import { handleStatusRequest, handleTtsRequest, handleChatRequest } from './sophia-live-server';
 
 const GEMINI_MODEL = process.env.GEMINI_LIVE_MODEL?.trim() || "models/gemini-3.8-live";
 const GEMINI_TEXT_MODEL = "gemini-3.8-flash";
@@ -875,7 +878,122 @@ async function testVoice(req: Request): Promise<Response> {
   return mouthSpeak(fakeReq);
 }
 
-import { handleStatusRequest, handleTtsRequest, handleChatRequest } from './sophia-live-server';
+async function handleSystemAction(req: Request): Promise<Response> {
+  try {
+    const body = (await req.json()) as {
+      action: "open_browser" | "search_browser" | "stream_media" | "open_app" | "get_time" | "get_system_info";
+      url?: string;
+      query?: string;
+      app?: string;
+    };
+
+    const action = body.action;
+
+    if (action === "get_time") {
+      const now = new Date();
+      return json({
+        success: true,
+        time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        date: now.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        iso: now.toISOString(),
+      });
+    }
+
+    if (action === "get_system_info") {
+      return json({
+        success: true,
+        platform: process.platform,
+        hostname: os.hostname(),
+        arch: process.arch,
+        cpus: os.cpus().length,
+        totalMemMb: Math.round(os.totalmem() / (1024 * 1024)),
+        freeMemMb: Math.round(os.freemem() / (1024 * 1024)),
+        uptimeSeconds: Math.round(os.uptime()),
+      });
+    }
+
+    const isWindows = process.platform === "win32";
+    const isMac = process.platform === "darwin";
+
+    if (action === "open_browser" || action === "search_browser" || action === "stream_media") {
+      let targetUrl = body.url?.trim() || "";
+      if (action === "search_browser" && body.query) {
+        targetUrl = `https://www.google.com/search?q=${encodeURIComponent(body.query.trim())}`;
+      } else if (action === "stream_media" && body.query) {
+        targetUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(body.query.trim())}`;
+      } else if (!targetUrl && body.query) {
+        targetUrl = `https://www.google.com/search?q=${encodeURIComponent(body.query.trim())}`;
+      }
+
+      if (!targetUrl) {
+        return json({ error: "Missing url or query" }, { status: 400 });
+      }
+
+      if (!/^https?:\/\//i.test(targetUrl)) {
+        targetUrl = "https://" + targetUrl;
+      }
+
+      // Safe escape for command shell
+      const safeUrl = targetUrl.replace(/"/g, '""');
+      const cmd = isWindows
+        ? `start "" "${safeUrl}"`
+        : isMac
+        ? `open "${safeUrl}"`
+        : `xdg-open "${safeUrl}"`;
+
+      exec(cmd, (err) => {
+        if (err) console.error("[SystemAction] Failed to launch browser:", err);
+      });
+
+      return json({
+        success: true,
+        action,
+        url: targetUrl,
+        message: `Opened ${targetUrl} in your default desktop browser.`,
+      });
+    }
+
+    if (action === "open_app") {
+      const appName = (body.app || "").trim().toLowerCase();
+      const safeApps: Record<string, string> = {
+        notepad: isWindows ? "start notepad" : "open -a TextEdit",
+        calc: isWindows ? "start calc" : "open -a Calculator",
+        calculator: isWindows ? "start calc" : "open -a Calculator",
+        explorer: isWindows ? "start explorer" : "open .",
+        files: isWindows ? "start explorer" : "open .",
+        cmd: isWindows ? "start cmd" : "open -a Terminal",
+        terminal: isWindows ? "start wt || start cmd" : "open -a Terminal",
+        browser: isWindows ? 'start "" "https://www.google.com"' : 'open "https://www.google.com"',
+        chrome: isWindows ? 'start chrome || start "" "https://www.google.com"' : 'open -a "Google Chrome"',
+        edge: isWindows ? 'start msedge || start "" "https://www.google.com"' : 'open -a "Microsoft Edge"',
+        spotify: isWindows ? 'start spotify || start "" "https://open.spotify.com"' : 'open -a Spotify',
+      };
+
+      const launchCmd = safeApps[appName];
+      if (!launchCmd) {
+        return json(
+          { error: `App "${appName}" is not in the allowed launch list. Allowed: ${Object.keys(safeApps).join(", ")}` },
+          { status: 400 }
+        );
+      }
+
+      exec(launchCmd, (err) => {
+        if (err) console.error("[SystemAction] Failed to launch app:", err);
+      });
+
+      return json({
+        success: true,
+        app: appName,
+        message: `Launched ${appName} on your device.`,
+      });
+    }
+
+    return json({ error: `Unknown system action: ${action}` }, { status: 400 });
+  } catch (err: any) {
+    return json({ error: err.message || "Failed system action" }, { status: 500 });
+  }
+}
 
 export async function handleSophiaRequest(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -930,6 +1048,8 @@ export async function handleSophiaRequest(req: Request): Promise<Response> {
     }
     case "/tools/web-search":
       return handleWebSearch(req);
+    case "/system/action":
+      return handleSystemAction(req);
     case "/gemini/speak":
       return geminiSpeak(req);
     case "/mouth/speak":

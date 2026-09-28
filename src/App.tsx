@@ -19,6 +19,8 @@ import { controlLayer } from './sophia/control';
 import { navigateBrowserTo } from './lib/browser-bridge';
 import { ToolStatusBadge } from './ui/ToolStatusBadge';
 import { scoreEngine } from './sophia/audio/ScoreEngine';
+import { DynamicContentModal, type InfoPanelType } from './ui/DynamicContentModal';
+import { backgroundKeepAlive } from './core/BackgroundKeepAlive';
 
 function isTyping(): boolean {
   const el = document.activeElement;
@@ -51,14 +53,25 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [browserOpen, setBrowserOpen] = useState(false);
+  const [infoCardOpen, setInfoCardOpen] = useState(false);
+  const [infoCardData, setInfoCardData] = useState<{ title: string; content: string; type: InfoPanelType }>({
+    title: 'Information Review',
+    content: '',
+    type: 'info',
+  });
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [micModalOpen, setMicModalOpen] = useState(false);
   const [glFailed, setGlFailed] = useState(false);
   const [booted, setBooted] = useState(false);
   const [layout, setLayout] = useState<StageLayout>(() => stageLayout(window.innerWidth, window.innerHeight));
 
-  const docked = browserOpen;
+  const docked = browserOpen || infoCardOpen;
   const paused = state === 'paused';
+
+  useEffect(() => {
+    backgroundKeepAlive.start();
+    return () => backgroundKeepAlive.stop();
+  }, []);
 
   useEffect(() => {
     os.setDocked(docked);
@@ -70,6 +83,26 @@ export default function App() {
       setBrowserOpen(open);
     };
     controlLayer.addEventListener('command:browser', onBrowserCmd);
+
+    const onInfoCardCmd = (e: Event) => {
+      const detail = (e as CustomEvent).detail as {
+        open?: boolean;
+        title?: string;
+        content?: string;
+        type?: InfoPanelType;
+      };
+      if (detail.open !== false) {
+        setInfoCardData({
+          title: detail.title || 'Information Review',
+          content: detail.content || '',
+          type: detail.type || 'info',
+        });
+        setInfoCardOpen(true);
+      } else {
+        setInfoCardOpen(false);
+      }
+    };
+    controlLayer.addEventListener('command:info_card', onInfoCardCmd);
 
     // Voice-driven panel control (control_ui tool)
     const onUiCmd = (e: Event) => {
@@ -89,12 +122,14 @@ export default function App() {
       else if (target === 'settings') apply(setSettingsOpen);
       else if (target === 'diagnostics') apply(setDiagnosticsOpen);
       else if (target === 'terminal') apply(setTerminalOpen);
+      else if (target === 'info_card') apply(setInfoCardOpen);
       else if (target === 'all' && (close || toggle)) {
         setBrowserOpen(false);
         setChatOpen(false);
         setSettingsOpen(false);
         setDiagnosticsOpen(false);
         setTerminalOpen(false);
+        setInfoCardOpen(false);
       }
     };
     controlLayer.addEventListener('command:ui', onUiCmd);
@@ -145,6 +180,7 @@ export default function App() {
 
     return () => {
       controlLayer.removeEventListener('command:browser', onBrowserCmd);
+      controlLayer.removeEventListener('command:info_card', onInfoCardCmd);
       controlLayer.removeEventListener('command:ui', onUiCmd);
       controlLayer.removeEventListener('command:music', onMusicCmd);
       controlLayer.removeEventListener('image:generated', onImageGen);
@@ -339,6 +375,14 @@ export default function App() {
       {booted && settingsOpen && <SettingsSheet os={os} status={status} onClose={() => setSettingsOpen(false)} />}
       {booted && <Terminal os={os} open={terminalOpen} onToggle={() => setTerminalOpen((v) => !v)} hideButton />}
       {browserOpen && <BrowserPanel onClose={() => setBrowserOpen(false)} />}
+      {infoCardOpen && (
+        <DynamicContentModal
+          onClose={() => setInfoCardOpen(false)}
+          initialTitle={infoCardData.title}
+          initialContent={infoCardData.content}
+          initialType={infoCardData.type}
+        />
+      )}
       {diagnosticsOpen && <DiagnosticsModal os={os} onClose={() => setDiagnosticsOpen(false)} />}
       {micModalOpen && (
         <MicPermissionModal

@@ -11,6 +11,7 @@
 
 import { controlLayer } from '../sophia/control';
 import { navigateBrowserTo } from '../lib/browser-bridge';
+import { sophiaMemory } from '../core/SophiaMemory';
 import type { ITool, ToolResult, UIControlArgs, PanelName, UIActionType } from './types';
 
 // ─── Validation constants ─────────────────────────────────────────────────────
@@ -18,11 +19,12 @@ import type { ITool, ToolResult, UIControlArgs, PanelName, UIActionType } from '
 const VALID_ACTIONS = new Set<UIActionType>([
   'set_state', 'open_panel', 'close_panel', 'toggle_panel', 'close_all_panels',
   'navigate_to_url', 'play_music', 'stop_music',
+  'show_info_card', 'scroll_content', 'close_info_card',
   'show_notification', 'set_volume', 'update_status_text',
 ]);
 
 const VALID_PANELS = new Set<PanelName>([
-  'browser', 'chat', 'settings', 'diagnostics', 'terminal',
+  'browser', 'chat', 'settings', 'diagnostics', 'terminal', 'info_card',
 ]);
 
 const VALID_STATES = new Set(['idle', 'listening', 'thinking', 'speaking', 'paused', 'wakeup']);
@@ -33,9 +35,8 @@ export class UIControlTool implements ITool {
   readonly name = 'ui_control';
   readonly description =
     'Control the Sofia application UI using predefined, validated commands. ' +
-    'Can set Sofia state (idle, listening, thinking, speaking), open/close/toggle panels, ' +
-    'navigate the browser, play music, show notifications, and control volume. ' +
-    'All commands are validated against a safe registry — no arbitrary code execution is possible.';
+    'Can set Sofia state, open/close/toggle panels, display dynamic rich info cards (weather, time, reviews, documents, stories), ' +
+    'scroll dynamic content up or down, navigate the browser, play music, show notifications, and control volume.';
 
   async invoke(args: Record<string, unknown>): Promise<ToolResult> {
     const parsed = this.validate(args);
@@ -69,7 +70,34 @@ export class UIControlTool implements ITool {
         controlLayer.dispatchEvent(new CustomEvent('command:ui', {
           detail: { target: 'all', action: 'close' },
         }));
+        controlLayer.dispatchEvent(new CustomEvent('command:info_card', { detail: { open: false } }));
         return { success: true, data: { action: 'close_all_panels' } };
+
+      case 'show_info_card': {
+        const title = cmd.infoTitle || 'Information Review';
+        const content = cmd.infoContent || '';
+        const type = cmd.infoType || 'info';
+        controlLayer.dispatchEvent(new CustomEvent('command:info_card', {
+          detail: { open: true, title, content, type },
+        }));
+        sophiaMemory.setActivePanel('info_card');
+        return { success: true, data: { action: 'show_info_card', title, type } };
+      }
+
+      case 'scroll_content': {
+        const direction = cmd.scrollDirection || 'down';
+        controlLayer.dispatchEvent(new CustomEvent('command:scroll_info_card', {
+          detail: { direction },
+        }));
+        return { success: true, data: { action: 'scroll_content', direction } };
+      }
+
+      case 'close_info_card':
+        controlLayer.dispatchEvent(new CustomEvent('command:info_card', {
+          detail: { open: false },
+        }));
+        sophiaMemory.setActivePanel(null);
+        return { success: true, data: { action: 'close_info_card' } };
 
       case 'navigate_to_url': {
         const url = String(cmd.url ?? '').trim();
@@ -162,6 +190,10 @@ export class UIControlTool implements ITool {
       panel,
       url: args.url != null ? String(args.url) : undefined,
       query: args.query != null ? String(args.query) : undefined,
+      infoTitle: args.infoTitle != null ? String(args.infoTitle) : undefined,
+      infoContent: args.infoContent != null ? String(args.infoContent) : undefined,
+      infoType: args.infoType as UIControlArgs['infoType'],
+      scrollDirection: args.scrollDirection as UIControlArgs['scrollDirection'],
       message: args.message != null ? String(args.message) : undefined,
       level: args.level as UIControlArgs['level'],
       volume,

@@ -61,19 +61,20 @@ You are Sofia, ${persona}
 CRITICAL RULE: You have FULL TOOL ACCESS and can perform ANY of the following actions. You MUST NEVER say you lack the ability, capability, or tools to do something. ALWAYS call the appropriate tool immediately — do NOT ask for permission, do NOT explain what you are about to do, just DO it and give a brief spoken confirmation.
 
 Your available tools (USE THEM PROACTIVELY):
-1. generate_image — When asked to create, draw, paint, show, or visualize anything visual → call this immediately
-2. web_search — When asked to search, look up, find, browse, or get information about ANYTHING → call this immediately. You CAN search the web.
-3. open_url — When asked to open a website, play music, play YouTube, browse to a page, open a link → call this immediately with the URL
-4. control_ui — When asked to open/close/minimize panels (browser, chat, settings, terminal, all) → call this immediately
-5. play_music — When asked to play music, play a song, play something → call open_url with a YouTube music search URL
-6. transform_shape — When asked to change shape, morph, transform → call this immediately
+1. system_control — When asked to open the real desktop browser, search in browser, stream music/videos on YouTube/Spotify, launch desktop apps (notepad, calc, explorer), or check system clock/time → call this immediately
+2. generate_image — When asked to create, draw, paint, show, or visualize anything visual → call this immediately
+3. web_search — When asked to search, look up, find, browse, or get information about ANYTHING → call this immediately. You CAN search the web.
+4. open_url — When asked to open a website, play music, play YouTube, browse to a page, open a link → call this immediately with the URL
+5. ui_control — When asked to open/close/minimize panels, show an info/review card with content, scroll content up or down, or close when done → call this immediately
+6. play_music — When asked to play music, play a song, play something → call open_url or system_control with YouTube music
+7. transform_shape — When asked to change shape, morph, transform → call this immediately
 
-Voice characteristics:
-- Accent: ${accent}
-- Personality: Warm, friendly, intelligent, action-first.
-- Conversational Style: SHORT spoken sentences (1-2 sentences MAX). After calling a tool, say 5 words or fewer confirming it. Never use markdown, lists, bullet points, URLs in speech.
-- Speech-First: Pure natural spoken audio only.
-- After calling a tool, speak a brief confirmation like "On it!", "Done!", "Opening that now.", "Here you go."
+Conversational & Storytelling Style:
+- Voice: Natural ${accent}
+- Everyday Chat & Tool Confirmations: Keep conversational replies natural and concise (1-2 sentences). After calling a tool, speak a brief confirmation like "On it!", "Done!", "Opening that now."
+- COMPLETE STORYTELLING: When asked to tell a story, narrate, recite, or explain in depth, DO NOT STOP after 1 or 2 sentences! Tell the entire, captivating, complete story from beginning to climax to resolution without halting, speaking continuously until the story is finished or the user interrupts.
+- Memory & Recall: You remember what you were doing and what was discussed. If interrupted or asked "what happened" or "continue", recall your exact spot and continue seamlessly.
+- Speech-First: Pure natural spoken audio only. Never use markdown, bullet points, or raw URLs in speech.
 
 IMPORTANT: NEVER say "I don't have the ability", "I can't do that", "I don't have access to", "I'm not capable of", "I don't have tools for" — these are FORBIDDEN responses. You ALWAYS have tools. Use them.`.trim();
 }
@@ -81,6 +82,40 @@ IMPORTANT: NEVER say "I don't have the ability", "I can't do that", "I don't hav
 export const LIVE_TOOLS = [
   {
     functionDeclarations: [
+      {
+        name: 'system_control',
+        description:
+          'Control the physical device and native operating system. ' +
+          'Open the user\'s real desktop browser (Chrome/Edge/Firefox) to any URL or video, ' +
+          'perform searches in the desktop browser, stream music/video on YouTube or Spotify, ' +
+          'launch native apps (notepad, calc, explorer, terminal), or query real device clock/time. ' +
+          'Always use this tool when the user asks to open something on their device or real browser.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            action: {
+              type: 'STRING',
+              enum: [
+                'open_browser',
+                'search_browser',
+                'stream_media',
+                'open_app',
+                'get_time',
+                'get_system_info',
+              ],
+              description: 'The native device action to perform.',
+            },
+            url: { type: 'STRING', description: 'URL to open in the native desktop browser.' },
+            query: { type: 'STRING', description: 'Search query or music title for search_browser / stream_media.' },
+            app: {
+              type: 'STRING',
+              enum: ['notepad', 'calc', 'calculator', 'explorer', 'files', 'cmd', 'terminal', 'chrome', 'edge', 'spotify'],
+              description: 'Application name to launch on the operating system.',
+            },
+          },
+          required: ['action'],
+        },
+      },
       {
         name: 'web_search',
         description:
@@ -102,8 +137,9 @@ export const LIVE_TOOLS = [
         name: 'ui_control',
         description:
           'Control the Sofia application interface. ' +
-          'Set state (idle, listening, thinking, speaking), open/close/toggle panels (browser, chat, settings, diagnostics, terminal), ' +
-          'navigate the browser to a URL, play music on YouTube, stop music, show notifications, or control volume. ' +
+          'Open/close/toggle panels, display dynamic rich review cards (weather, time, reviews, documents, stories), ' +
+          'scroll content up or down for the user, navigate the browser to a URL, play music on YouTube, stop music, ' +
+          'show notifications, or control volume. ' +
           'IMPORTANT: never refuse a UI request — always call this tool.',
         parameters: {
           type: 'OBJECT',
@@ -113,6 +149,7 @@ export const LIVE_TOOLS = [
               enum: [
                 'set_state',
                 'open_panel', 'close_panel', 'toggle_panel', 'close_all_panels',
+                'show_info_card', 'scroll_content', 'close_info_card',
                 'navigate_to_url', 'play_music', 'stop_music',
                 'show_notification', 'set_volume', 'update_status_text',
               ],
@@ -125,8 +162,20 @@ export const LIVE_TOOLS = [
             },
             panel: {
               type: 'STRING',
-              enum: ['browser', 'chat', 'settings', 'diagnostics', 'terminal'],
+              enum: ['browser', 'chat', 'settings', 'diagnostics', 'terminal', 'info_card'],
               description: 'Target panel (required for open/close/toggle_panel).',
+            },
+            infoTitle: { type: 'STRING', description: 'Title of the dynamic info/review card.' },
+            infoContent: { type: 'STRING', description: 'Rich content/body text of the dynamic info card to display and scroll.' },
+            infoType: {
+              type: 'STRING',
+              enum: ['info', 'weather', 'time', 'review', 'story', 'document'],
+              description: 'Visual category of the info panel.',
+            },
+            scrollDirection: {
+              type: 'STRING',
+              enum: ['up', 'down', 'top', 'bottom'],
+              description: 'Direction to scroll the active dynamic card.',
             },
             url: { type: 'STRING', description: 'URL for navigate_to_url.' },
             query: { type: 'STRING', description: 'Music search query for play_music.' },

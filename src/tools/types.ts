@@ -11,6 +11,7 @@
 export type KnownToolName =
   | 'web_search'
   | 'ui_control'
+  | 'system_control'
   | 'generate_image'
   | 'transform_shape'
   | 'play_music'
@@ -58,7 +59,7 @@ export interface WebSearchData {
 
 // ─── UI control ───────────────────────────────────────────────────────────────
 
-export type PanelName = 'browser' | 'chat' | 'settings' | 'diagnostics' | 'terminal';
+export type PanelName = 'browser' | 'chat' | 'settings' | 'diagnostics' | 'terminal' | 'info_card';
 
 export type UIActionType =
   | 'set_state'
@@ -69,6 +70,9 @@ export type UIActionType =
   | 'navigate_to_url'
   | 'play_music'
   | 'stop_music'
+  | 'show_info_card'
+  | 'scroll_content'
+  | 'close_info_card'
   | 'show_notification'
   | 'set_volume'
   | 'update_status_text';
@@ -83,6 +87,14 @@ export interface UIControlArgs {
   url?: string;
   /** Music search query */
   query?: string;
+  /** Dynamic info card title */
+  infoTitle?: string;
+  /** Dynamic info card content (markdown/text) */
+  infoContent?: string;
+  /** Dynamic info card type */
+  infoType?: 'info' | 'weather' | 'time' | 'review' | 'story' | 'document';
+  /** Scroll direction for dynamic content */
+  scrollDirection?: 'up' | 'down' | 'top' | 'bottom';
   /** Notification message */
   message?: string;
   /** Notification level */
@@ -93,6 +105,15 @@ export interface UIControlArgs {
   text?: string;
   /** Duration in ms (for show_notification / update_status_text) */
   duration?: number;
+}
+
+// ─── System Control (Device / Native OS) ──────────────────────────────────────
+
+export interface SystemControlArgs {
+  action: 'open_browser' | 'search_browser' | 'stream_media' | 'open_app' | 'get_time' | 'get_system_info';
+  url?: string;
+  query?: string;
+  app?: string;
 }
 
 // ─── Lifecycle events ─────────────────────────────────────────────────────────

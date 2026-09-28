@@ -3,7 +3,7 @@
  * navigateBrowserTo(url) is called by control_ui / play_music tool handlers.
  */
 
-import { ArrowLeft, ArrowRight, Globe, Maximize2, Minus, Music, RotateCw, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ExternalLink, Globe, Maximize2, Minus, Monitor, Music, RotateCw, X } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { controlLayer } from '../sophia/control';
 import { registerBrowserNavigate, unregisterBrowserNavigate } from '../lib/browser-bridge';
@@ -41,19 +41,52 @@ function initialRect(): WindowRect {
   return clampRect({ x: (window.innerWidth - w) / 2, y: 18, w, h });
 }
 
-/** Map music search queries to embed-friendly YouTube search */
+/** Map music search queries to embed-friendly YouTube player */
 function musicSearchUrl(query: string): string {
   const q = encodeURIComponent(query.trim() || 'relaxing music');
-  return `https://www.youtube.com/results?search_query=${q}`;
+  return `https://www.youtube-nocookie.com/embed?listType=search&list=${q}&autoplay=1`;
+}
+
+/** Convert watch/search URLs to iframe-embeddable URLs where possible */
+function convertToEmbedUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
+      if (parsed.pathname === '/watch') {
+        const v = parsed.searchParams.get('v');
+        if (v) return `https://www.youtube-nocookie.com/embed/${v}?autoplay=1`;
+      }
+      if (parsed.pathname.startsWith('/embed/')) {
+        return rawUrl;
+      }
+      if (parsed.pathname === '/results' && parsed.searchParams.has('search_query')) {
+        const q = parsed.searchParams.get('search_query');
+        return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(q || '')}&autoplay=1`;
+      }
+      if (parsed.hostname === 'youtu.be') {
+        const id = parsed.pathname.slice(1);
+        if (id) return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`;
+      }
+    }
+  } catch {
+    // not a valid URL yet
+  }
+  return rawUrl;
 }
 
 /** Make a URL navigable: add https:// if missing, or treat bare word as a Google search */
 function resolveUrl(input: string): string {
   const trimmed = input.trim();
   if (!trimmed) return 'https://www.google.com';
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  if (/^[a-z0-9-]+\.[a-z]{2,}(\/|$)/i.test(trimmed)) return `https://${trimmed}`;
-  return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
+  let clean = trimmed;
+  if (!/^https?:\/\//i.test(trimmed)) {
+    if (/^[a-z0-9-]+\.[a-z]{2,}(\/|$)/i.test(trimmed)) {
+      clean = `https://${trimmed}`;
+    } else {
+      clean = `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
+    }
+  }
+  return convertToEmbedUrl(clean);
 }
 
 export function BrowserPanel({ onClose }: { onClose: () => void }) {
@@ -202,6 +235,24 @@ export function BrowserPanel({ onClose }: { onClose: () => void }) {
     navigate(searchUrl);
   };
 
+  const openInDesktopBrowser = async (targetUrl?: string) => {
+    const dest = targetUrl || urlInput || url;
+    try {
+      await fetch('/api/sophia/system/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'open_browser', url: dest }),
+      });
+      controlLayer.dispatchEvent(
+        new CustomEvent('command:notification', {
+          detail: { message: 'Opened in your desktop browser.', level: 'success', duration: 2500 },
+        })
+      );
+    } catch {
+      window.open(dest, '_blank');
+    }
+  };
+
   // Display URL nicely
   const displayUrl = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
@@ -226,6 +277,17 @@ export function BrowserPanel({ onClose }: { onClose: () => void }) {
           <span className="hidden max-w-[200px] truncate font-mono text-[8.5px] text-white/25 sm:inline">{displayUrl}</span>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => openInDesktopBrowser()}
+            title="Open in your default desktop browser (Chrome/Edge)"
+            aria-label="Open in Desktop Browser"
+            className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono text-sky-300/80 bg-sky-500/10 hover:bg-sky-500/20 hover:text-sky-200 transition-colors"
+          >
+            <Monitor size={11} />
+            <span className="hidden md:inline">Open in Real Browser</span>
+            <ExternalLink size={10} />
+          </button>
           <button type="button" onClick={onClose} aria-label="Minimize" className="grid size-7 cursor-pointer place-items-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white transition-colors">
             <Minus size={13} strokeWidth={1.75} />
           </button>
@@ -266,11 +328,19 @@ export function BrowserPanel({ onClose }: { onClose: () => void }) {
         <div className="hidden sm:flex items-center gap-1">
           <button
             type="button"
-            title="Play music on YouTube"
+            title="Stream music on YouTube"
             onClick={() => quickNav(musicSearchUrl('lofi chill music'), 'Music')}
             className="grid size-7 place-items-center rounded-lg text-white/40 hover:bg-purple-500/20 hover:text-purple-300 transition-colors"
           >
             <Music size={13} />
+          </button>
+          <button
+            type="button"
+            title="Launch current page in external desktop browser"
+            onClick={() => openInDesktopBrowser()}
+            className="grid size-7 place-items-center rounded-lg text-white/40 hover:bg-sky-500/20 hover:text-sky-300 transition-colors"
+          >
+            <ExternalLink size={13} />
           </button>
         </div>
       </div>
@@ -291,6 +361,7 @@ export function BrowserPanel({ onClose }: { onClose: () => void }) {
           title={pageTitle}
           className="h-full w-full border-0"
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           onLoad={() => setLoading(false)}
           onError={() => setLoading(false)}
           referrerPolicy="no-referrer-when-downgrade"

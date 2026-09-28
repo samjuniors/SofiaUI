@@ -211,7 +211,7 @@ export class AudioOutput {
           this.activeSourceNodes.splice(index, 1);
         }
         if (this.activeSourceNodes.length === 0) {
-          // Debounce queue empty state by 120ms so network packet arrival gaps don't toggle isPlaying
+          // Debounce queue empty state by 350ms so natural speech pauses and network packet gaps don't toggle isPlaying
           if (this.drainTimer) clearTimeout(this.drainTimer);
           this.drainTimer = setTimeout(() => {
             if (this.activeSourceNodes.length === 0) {
@@ -220,7 +220,7 @@ export class AudioOutput {
               this.updatePlayingState(false);
               this.nextPlayTime = 0;
             }
-          }, 120);
+          }, 350);
         }
       };
 
