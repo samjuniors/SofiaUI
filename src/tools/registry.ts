@@ -37,7 +37,7 @@ class ToolRegistry {
     }
   }
 
-  connectTool(url: string, config: Record<string, unknown>): Promise<void> {
+  connectTool(_url: string, _config: Record<string, unknown>): Promise<void> {
     // This is a placeholder for the dynamic tool connection logic
     // In a real production app, this would perform a handshake with a remote tool server
     // and register the tool dynamically.

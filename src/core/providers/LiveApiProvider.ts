@@ -121,7 +121,7 @@ export class LiveApiProvider {
     if (this.ws) {
       try {
         this.ws.close();
-      } catch (_e) {
+      } catch {
         // ignore
       }
       this.ws = null;

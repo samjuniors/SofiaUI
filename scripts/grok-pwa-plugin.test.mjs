@@ -21,6 +21,13 @@ import { renderInstallPage } from "./grok-pwa-plugin.mjs";
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
+// The head injector defaults `cwd` to process.cwd() and reads the real
+// `src/lib/og/site.json` / `public/og.jpg` from there. Once a project brands
+// itself (custom title, custom card) those defaults leak into every test that
+// does not pass an explicit `cwd`/`site`. Run the suite from an empty scratch
+// directory so the assertions only see what each test hands in.
+process.chdir(mkdtempSync(join(tmpdir(), "grok-pwa-plugin-test-")));
+
 test("injects before </head>", () => {
   const out = injectGrokPwaHead("<html><head><title>x</title></head><body></body></html>");
   assert.match(out, /rel="manifest"/);

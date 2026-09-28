@@ -11,22 +11,27 @@
  */
 
 import os from "node:os";
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
+import { GoogleGenAI } from "@google/genai";
 import { ALL_SHAPES, SOPHIA_SYSTEM } from "../sophia/control";
 import { handleMediaProxy } from "./media-proxy";
 import { generateImage } from "./image-gen";
 import { handleWebSearch, getSearchProviderStatus } from "./web-search-server";
 import { handleStatusRequest, handleTtsRequest, handleChatRequest } from './sophia-live-server';
 import { handleBrowseProxy } from "./browse-proxy";
+import { allowLlmUrlOverride, resolveBrowserTarget, resolveLlmBaseUrl } from "./sophia-server-policy";
 
 const GEMINI_MODEL = process.env.GEMINI_LIVE_MODEL?.trim() || "models/gemini-3.8-live";
-const GEMINI_TEXT_MODEL = "gemini-3.8-flash";
-const GEMINI_TTS_MODEL = "gemini-3.8-flash-lite-tts";
+// All model IDs are env-overridable so a retired model can be swapped without a deploy.
+// Verified against provider docs 2026-09: gpt-4o (retired 2026-02) and
+// claude-3-5-sonnet-20241022 (retired 2025-10) no longer resolve.
+const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL?.trim() || "gemini-3.8-flash";
+const GEMINI_TTS_MODEL = process.env.GEMINI_TTS_MODEL?.trim() || "gemini-3.8-flash-lite-tts";
 const LIVE_WS =
   "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
-const GROK_MODEL = "grok-4.5";
-const CLAUDE_MODEL = "claude-3-5-sonnet-20241022";
-const OPENAI_MODEL = "gpt-4o";
+const GROK_MODEL = process.env.XAI_MODEL?.trim() || "grok-4.5";
+const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-6";
+const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-6-sol";
 
 let envLoaded = false;
 function loadEnvOnce() {
@@ -163,14 +168,48 @@ async function liveSession(req: Request): Promise<Response> {
   }
 
   const now = Date.now();
-  return json({
-    token: apiKey,
-    model: modelOverride,
-    wsUrl: LIVE_WS,
-    voice,
-    createdAt: now,
-    expiresInSeconds: 1800,
-  });
+  const expiresInSeconds = 1800;
+
+  // Mint a short-lived ephemeral token so the long-lived API key never reaches
+  // the browser. The client already speaks `auth_tokens/…` → `access_token=`.
+  try {
+    const ai = new GoogleGenAI({ apiKey, httpOptions: { apiVersion: "v1alpha" } });
+    const token = await ai.authTokens.create({
+      config: {
+        uses: 1,
+        expireTime: new Date(now + expiresInSeconds * 1000).toISOString(),
+        newSessionExpireTime: new Date(now + 60 * 1000).toISOString(),
+      },
+    });
+    if (token?.name) {
+      return json({
+        token: token.name,
+        model: modelOverride,
+        wsUrl: LIVE_WS,
+        voice,
+        createdAt: now,
+        expiresInSeconds,
+      });
+    }
+  } catch (err) {
+    console.error("[sophia-server] ephemeral live token failed:", err);
+  }
+
+  // Explicit, local-dev-only escape hatch. Never enable on a public deployment:
+  // it hands the raw Gemini key to any visitor who POSTs to this endpoint.
+  if (process.env.SOPHIA_ALLOW_RAW_LIVE_KEY === "1") {
+    console.warn("[sophia-server] SOPHIA_ALLOW_RAW_LIVE_KEY=1 — returning raw Gemini key to client");
+    return json({ token: apiKey, model: modelOverride, wsUrl: LIVE_WS, voice, createdAt: now, expiresInSeconds });
+  }
+
+  return json(
+    {
+      error: "live-token-unavailable",
+      message:
+        "Could not mint an ephemeral Gemini Live token. Use the /api/live-ws server proxy, or set SOPHIA_ALLOW_RAW_LIVE_KEY=1 for local development only.",
+    },
+    { status: 503 },
+  );
 }
 
 async function deepgramSession(): Promise<Response> {
@@ -195,6 +234,8 @@ export type ChatBody = {
   ollamaModel?: string;
   lmStudioUrl?: string;
   lmStudioModel?: string;
+  /** Server-side only: set by `chat()` from the request, never trusted from the client. */
+  _allowUrlOverride?: boolean;
 };
 
 function formatOpenAIMessages(body: ChatBody) {
@@ -255,16 +296,21 @@ async function chatWithOpenAICompatible(
   headers: Record<string, string>,
   model: string,
   brainId: string,
+  opts: { openaiNative?: boolean } = {},
 ): Promise<Response | null> {
   const messages = formatOpenAIMessages(body);
+  // Current OpenAI models reject `max_tokens` (and non-default temperature) on
+  // chat completions; Ollama / LM Studio / xAI still use the classic fields.
+  const limits = opts.openaiNative
+    ? { max_completion_tokens: 220 }
+    : { max_tokens: 220, temperature: 0.7 };
   try {
     const res = await fetch(endpoint, {
       method: "POST",
       headers: { "content-type": "application/json", ...headers },
       body: JSON.stringify({
         model,
-        max_tokens: 220,
-        temperature: 0.7,
+        ...limits,
         messages,
         tools: OPENAI_TOOLS,
       }),
@@ -275,8 +321,7 @@ async function chatWithOpenAICompatible(
         headers: { "content-type": "application/json", ...headers },
         body: JSON.stringify({
           model,
-          max_tokens: 220,
-          temperature: 0.7,
+          ...limits,
           messages,
         }),
       });
@@ -322,6 +367,7 @@ async function chatWithOpenAI(body: ChatBody, apiKey: string): Promise<Response 
     { authorization: `Bearer ${apiKey}` },
     OPENAI_MODEL,
     "openai",
+    { openaiNative: true },
   );
 }
 
@@ -383,14 +429,24 @@ async function chatWithClaude(body: ChatBody, apiKey: string): Promise<Response 
 }
 
 async function chatWithOllama(body: ChatBody): Promise<Response | null> {
-  const baseUrl = (body.ollamaUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
+  const baseUrl = resolveLlmBaseUrl({
+    override: body.ollamaUrl,
+    overrideAllowed: body._allowUrlOverride === true,
+    envValue: process.env.OLLAMA_BASE_URL,
+    fallback: "http://localhost:11434",
+  });
   const model = body.ollamaModel || process.env.OLLAMA_MODEL || "llama3.2";
   const endpoint = `${baseUrl}/v1/chat/completions`;
   return chatWithOpenAICompatible(body, endpoint, {}, model, "ollama");
 }
 
 async function chatWithLMStudio(body: ChatBody): Promise<Response | null> {
-  const baseUrl = (body.lmStudioUrl || process.env.LMSTUDIO_BASE_URL || "http://localhost:1234/v1").replace(/\/$/, "");
+  const baseUrl = resolveLlmBaseUrl({
+    override: body.lmStudioUrl,
+    overrideAllowed: body._allowUrlOverride === true,
+    envValue: process.env.LMSTUDIO_BASE_URL,
+    fallback: "http://localhost:1234/v1",
+  });
   const model = body.lmStudioModel || process.env.LMSTUDIO_MODEL || "local-model";
   const endpoint = `${baseUrl}/chat/completions`;
   return chatWithOpenAICompatible(body, endpoint, {}, model, "lmstudio");
@@ -506,6 +562,9 @@ async function chatWithGemini(body: ChatBody, apiKey: string): Promise<Response>
 
 async function chat(req: Request): Promise<Response> {
   const body = (await req.json()) as ChatBody;
+  // Client-supplied Ollama/LM Studio URLs are a server-side fetch target (SSRF).
+  // Only honour them for local dev requests or with SOPHIA_ALLOW_LLM_URL_OVERRIDE=1.
+  body._allowUrlOverride = allowLlmUrlOverride(req);
   const requestedMode = body.brainMode || process.env.SOPHIA_BRAIN_MODE || "auto";
 
   // Explicit modes
@@ -879,6 +938,31 @@ async function testVoice(req: Request): Promise<Response> {
   return mouthSpeak(fakeReq);
 }
 
+/**
+ * Open a validated http(s) URL with the OS default handler WITHOUT a shell.
+ * `execFile` passes the URL as a single argv entry, so `$(…)`, backticks,
+ * `&`, `|` etc. inside the URL are inert. On Windows we deliberately avoid
+ * `cmd.exe /c start` because cmd re-parses metacharacters in its arguments.
+ */
+function openUrlOnDesktop(url: string): boolean {
+  const onFail = (label: string) => (err: Error | null) => {
+    if (err) console.error(`[SystemAction] ${label} failed:`, err);
+  };
+  try {
+    if (process.platform === "win32") {
+      execFile("rundll32.exe", ["url.dll,FileProtocolHandler", url], onFail("rundll32"));
+    } else if (process.platform === "darwin") {
+      execFile("open", [url], onFail("open"));
+    } else {
+      execFile("xdg-open", [url], onFail("xdg-open"));
+    }
+    return true;
+  } catch (err) {
+    console.error("[SystemAction] could not spawn URL opener:", err);
+    return false;
+  }
+}
+
 async function handleSystemAction(req: Request): Promise<Response> {
   try {
     const body = (await req.json()) as {
@@ -915,61 +999,18 @@ async function handleSystemAction(req: Request): Promise<Response> {
     }
 
     if (action === "open_browser" || action === "search_browser" || action === "stream_media") {
-      let raw = (body.url || body.query || "").trim();
-
-      let targetUrl = "https://www.google.com";
-
-      if (action === "search_browser") {
-        const q = body.query || raw || "";
-        targetUrl = q ? `https://www.google.com/search?q=${encodeURIComponent(q)}` : "https://www.google.com";
-      } else if (action === "stream_media") {
-        const q = body.query || raw || "lofi chill music";
-        targetUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
-      } else if (raw) {
-        const low = raw.toLowerCase();
-        if (/^https?:\/\//i.test(raw)) {
-          targetUrl = raw;
-        } else if (low === "google") {
-          targetUrl = "https://www.google.com";
-        } else if (low === "youtube") {
-          targetUrl = "https://www.youtube.com";
-        } else if (low === "spotify") {
-          targetUrl = "https://open.spotify.com";
-        } else if (low === "browser" || low === "new tab") {
-          targetUrl = "https://www.google.com";
-        } else if (/^[a-z0-9-]+(?:\.[a-z0-9-]+)+/i.test(raw)) {
-          targetUrl = "https://" + raw;
-        } else {
-          // If the user entered words or search phrase, treat as Google search
-          targetUrl = `https://www.google.com/search?q=${encodeURIComponent(raw)}`;
-        }
+      const targetUrl = resolveBrowserTarget(action, body);
+      if (!targetUrl) {
+        return json({ error: "Only http and https URLs can be opened" }, { status: 400 });
       }
 
-      const isWindows = process.platform === "win32";
-      const isMac = process.platform === "darwin";
-
-      // Safe escape for command shell
-      const safeUrl = targetUrl.replace(/"/g, '""');
-      const cmd = isWindows
-        ? `cmd.exe /c start "" "${safeUrl}"`
-        : isMac
-        ? `open "${safeUrl}"`
-        : `xdg-open "${safeUrl}"`;
-
-      exec(cmd, (err) => {
-        if (err) {
-          console.error("[SystemAction] cmd start failed, trying explorer fallback:", err);
-          if (isWindows) {
-            exec(`explorer.exe "${safeUrl}"`);
-          }
-        }
-      });
+      const desktopOpened = openUrlOnDesktop(targetUrl);
 
       return json({
         success: true,
         action,
         url: targetUrl,
-        desktopOpened: true,
+        desktopOpened,
         message: `Opening ${targetUrl} on your device.`,
       });
     }
@@ -994,9 +1035,11 @@ async function handleSystemAction(req: Request): Promise<Response> {
           browser: "start https://www.google.com",
         };
 
+        // `appName` is only used as a lookup key; the command comes from the
+        // fixed allowlist above, never from the request.
         const winCmd = winAppCommands[appName];
         if (winCmd) {
-          exec(`cmd.exe /c ${winCmd}`, (err) => {
+          execFile("cmd.exe", ["/c", ...winCmd.split(" ")], (err) => {
             if (err) console.error(`[SystemAction] Launch ${appName} failed:`, err);
           });
         }

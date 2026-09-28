@@ -731,7 +731,7 @@ export class SophiaOS extends EventTarget {
         if (source === 'boot' || source === 'mic-button' || source === 'wake-word') {
           void fallbackProvider.sendText(source === 'wake-word' ? "I'm listening!" : "Hello Sofia!");
         }
-      } catch (_fbErr) {
+      } catch {
         this.setStatus('live');
         this.state.transition('listening', { source }, true);
         if (source === 'boot' || source === 'mic-button' || source === 'wake-word') {

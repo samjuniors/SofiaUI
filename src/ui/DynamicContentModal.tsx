@@ -18,7 +18,6 @@ import {
   FileText,
   Info,
   Maximize2,
-  Minus,
   Sparkles,
   X,
 } from 'lucide-react';

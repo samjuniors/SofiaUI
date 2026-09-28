@@ -96,13 +96,13 @@ export class WakeWordDetection {
         if (this.isListeningForWakeWord && this.settings.wakeWordEnabled) {
           try {
             this.speechRecognition.start();
-          } catch (_e) {
+          } catch {
             // Already started or suspended
           }
         }
       };
-    } catch (_e) {
-      console.warn('Could not initialize SpeechRecognition for wake word:', _e);
+    } catch (err) {
+      console.warn('Could not initialize SpeechRecognition for wake word:', err);
     }
   }
 
@@ -111,7 +111,7 @@ export class WakeWordDetection {
     this.isListeningForWakeWord = true;
     try {
       this.speechRecognition.start();
-    } catch (_e) {
+    } catch {
       // Ignored if already started
     }
   }
@@ -121,7 +121,7 @@ export class WakeWordDetection {
     if (this.speechRecognition) {
       try {
         this.speechRecognition.stop();
-      } catch (_e) {
+      } catch {
         // Ignored
       }
     }

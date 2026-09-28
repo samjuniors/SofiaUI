@@ -83,7 +83,7 @@ export class GeminiLiveProvider extends VoiceProvider {
         const timeout = setTimeout(() => {
           if (!settled) {
             settled = true;
-            try { ws.close(); } catch (_e) {}
+            try { ws.close(); } catch { /* already closed */ }
             this.ws = null;
             resolve(false);
           }
@@ -97,7 +97,7 @@ export class GeminiLiveProvider extends VoiceProvider {
           if (!settled) {
             settled = true;
             clearTimeout(timeout);
-            try { ws.close(); } catch (_e) {}
+            try { ws.close(); } catch { /* already closed */ }
             this.ws = null;
             resolve(false);
           }
