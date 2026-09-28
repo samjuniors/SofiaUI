@@ -368,7 +368,7 @@ export class AudioEngine {
     if (this.ctx && this.ctx.state === 'suspended') {
       try {
         await this.ctx.resume();
-      } catch (_e) {
+      } catch {
         // ignore
       }
     }

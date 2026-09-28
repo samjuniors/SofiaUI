@@ -108,11 +108,11 @@ export async function generateImage(
               };
             }
           }
-        } catch (_modelErr: any) {
+        } catch {
           // Model quota or unavailable, proceed to next or fallback
         }
       }
-    } catch (_aiErr) {
+    } catch {
       // Proceed to fallback
     }
   }

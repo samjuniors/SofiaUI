@@ -52,13 +52,13 @@ export class ModularProvider {
         if (this.isListening) {
           try {
             this.speechRecognition.start();
-          } catch (_e) {
+          } catch {
             // Already started
           }
         }
       };
-    } catch (_e) {
-      console.warn('SpeechRecognition initialization error:', _e);
+    } catch (err) {
+      console.warn('SpeechRecognition initialization error:', err);
     }
   }
 
@@ -68,7 +68,7 @@ export class ModularProvider {
     if (this.speechRecognition) {
       try {
         this.speechRecognition.start();
-      } catch (_e) {
+      } catch {
         // Already started
       }
     }
@@ -79,7 +79,7 @@ export class ModularProvider {
     if (this.speechRecognition) {
       try {
         this.speechRecognition.stop();
-      } catch (_e) {
+      } catch {
         // Ignored
       }
     }

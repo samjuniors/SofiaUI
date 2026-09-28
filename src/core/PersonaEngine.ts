@@ -27,7 +27,7 @@ export class PersonaEngine {
     return text
       .replace(/\*\*([^*]+)\*\*/g, '$1') // remove markdown bold
       .replace(/\*([^*]+)\*/g, '$1')     // remove markdown italic
-      .replace(/^[\*\-•]\s+/gm, '')       // remove bullet points
+      .replace(/^[*\-•]\s+/gm, '')       // remove bullet points
       .replace(/```[\s\S]*?```/g, '')     // remove code blocks
       .replace(/`([^`]+)`/g, '$1')        // remove inline code ticks
       .replace(/https?:\/\/\S+/g, '')     // remove URLs

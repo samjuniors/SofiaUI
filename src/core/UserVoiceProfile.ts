@@ -258,7 +258,7 @@ export class UserVoiceProfile extends EventTarget {
     const pitchDist = Math.abs(Math.log2(pitchRatio)); // 0 = exact match, 1 = octave off
 
     // User's voice typically varies within ±30% (approx 0.45 octaves)
-    let pitchScore = Math.max(0, 1.0 - pitchDist * 2.2);
+    const pitchScore = Math.max(0, 1.0 - pitchDist * 2.2);
 
     // 2. Harmonicity & Timbre score
     const harmonicDiff = Math.abs(features.harmonicity - p.harmonicRatio);

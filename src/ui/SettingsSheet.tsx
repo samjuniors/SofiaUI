@@ -423,8 +423,8 @@ const BRAIN_OPTIONS = [
   { id: 'lmstudio', label: 'LM Studio (Local)' },
   { id: 'gemini', label: 'Gemini 3.8 Flash' },
   { id: 'grok', label: 'Grok 4.5 (xAI)' },
-  { id: 'claude', label: 'Claude 3.5 Sonnet' },
-  { id: 'openai', label: 'OpenAI GPT-4o' },
+  { id: 'claude', label: 'Claude Sonnet 4.6' },
+  { id: 'openai', label: 'OpenAI GPT-6 Sol' },
 ];
 
 export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: OSStatus; onClose: () => void }) {

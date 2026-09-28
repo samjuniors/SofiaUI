@@ -244,7 +244,7 @@ export class AudioOutput {
         source.onended = null;
         source.stop();
         source.disconnect();
-      } catch (_e) {
+      } catch {
         // already stopped
       }
     }

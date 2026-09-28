@@ -20,14 +20,14 @@ Responsible for turning the Brain's output into expressive audio.
 
 ### 🧠 The Brain (Thinking / LLM)
 The central controller (`controlLayer`) that manages memory, tools, and personality.
-*   **Primary Cloud**: `Gemini 2.5 Flash / 1.5 Pro` (Long context, tool-calling).
-*   **Alternative Cloud**: `Grok (xAI)`, `Claude 3.5 Sonnet`, `OpenAI GPT-4o`.
+*   **Primary Cloud**: `Gemini 3.8 Flash` (Long context, tool-calling).
+*   **Alternative Cloud**: `Grok (xAI)`, `Claude Sonnet 4.6`, `OpenAI GPT-6 Sol` (all model IDs overridable via `ANTHROPIC_MODEL`, `OPENAI_MODEL`, `XAI_MODEL`, `GEMINI_TEXT_MODEL`).
 *   **Local Autonomous**: `Ollama` (`http://localhost:11434`, supporting local models like `ornith-1.5:9b`, `gemma4:cloud`, `llama3.2`) and `LM Studio` (`http://localhost:1234/v1`).
 
 ### 👁️ The Eye (Seeing / Vision)
 Enables the entity to understand the user's world.
 *   **Primary**: `Gemini Multimodal` (Real-time video/image stream).
-*   **Fallback**: `GPT-4o`.
+*   **Fallback**: `OpenAI` (via `OPENAI_MODEL`).
 
 ---
 
