@@ -28,9 +28,20 @@ import { ALL_SHAPES } from '../sophia/control';
 
 class ToolRegistry {
   private readonly tools = new Map<string, ITool>();
+  private readonly toolSchemas = new Map<string, GeminiFunctionDeclaration>();
 
-  register(tool: ITool) {
+  register(tool: ITool, schema?: GeminiFunctionDeclaration) {
     this.tools.set(tool.name, tool);
+    if (schema) {
+      this.toolSchemas.set(tool.name, schema);
+    }
+  }
+
+  connectTool(url: string, config: Record<string, unknown>): Promise<void> {
+    // This is a placeholder for the dynamic tool connection logic
+    // In a real production app, this would perform a handshake with a remote tool server
+    // and register the tool dynamically.
+    return Promise.resolve();
   }
 
   has(name: string): boolean {

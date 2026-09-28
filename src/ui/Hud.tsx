@@ -5,9 +5,10 @@
  * that receives the mini-orb when content owns the centre stage.
  */
 
-import { Globe, Mic, MicOff, MessageSquare, Settings, Zap } from 'lucide-react';
+import { Globe, Mic, MicOff, MessageSquare, Settings, Zap, Eye, EyeOff } from 'lucide-react';
 import { useEffect, useState, type RefObject } from 'react';
 import { controlLayer } from '../sophia/control';
+import { screenVisionBridge } from '../sophia/vision/ScreenVisionBridge';
 import type { StageLayout } from '../sophia/layout';
 import type { SophiaStateName } from '../sophia/types';
 import type { SophiaOS } from '../sophia/SophiaOS';
@@ -270,8 +271,41 @@ export function Dock({
       ? 'Standby · Say “Hey Sofia” or click to speak'
       : 'Sofia is active · Click to stand down';
 
+  const [visionActive, setVisionActive] = useState(screenVisionBridge.active);
+
+  useEffect(() => {
+    const handleVision = (e: Event) => {
+      setVisionActive(Boolean((e as CustomEvent).detail?.active));
+    };
+    screenVisionBridge.addEventListener('vision:state', handleVision);
+    return () => screenVisionBridge.removeEventListener('vision:state', handleVision);
+  }, []);
+
+  const onToggleVision = () => {
+    void screenVisionBridge.toggleCapture();
+  };
+
   return (
     <div className="dock-cluster absolute bottom-[44px] right-7 z-10 flex items-center gap-[18px] transition-all duration-500 sm:bottom-[52px] sm:right-11">
+      {/* Screen Vision (Visual Perception) Launcher */}
+      <button
+        type="button"
+        aria-label={visionActive ? 'Stop screen vision' : 'Share screen with Sofia (Vision)'}
+        title={visionActive ? 'Screen Vision Active: Sofia sees your screen (Click to stop)' : 'Screen Vision: Share your screen so Sofia can see what you are looking at'}
+        aria-pressed={visionActive}
+        onClick={onToggleVision}
+        className={`dock-btn relative transition-all duration-300 ${
+          visionActive
+            ? 'text-emerald-300 bg-emerald-950/40 border-emerald-400/50 drop-shadow-[0_0_14px_rgba(52,211,153,0.6)] animate-pulse'
+            : 'hover:text-sky-300'
+        }`}
+      >
+        {visionActive ? <Eye size={18} strokeWidth={1.8} /> : <EyeOff size={18} strokeWidth={1.6} />}
+        {visionActive && (
+          <span className="absolute -top-1 -right-1 block size-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
+        )}
+      </button>
+
       {/* Fullscreen Browser/Workspace launcher */}
       {onToggleBrowser && (
         <button

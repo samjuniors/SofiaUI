@@ -20,6 +20,7 @@ import {
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { browseProxyPath, registerBrowserNavigate, unregisterBrowserNavigate } from '../lib/browser-bridge';
 import { controlLayer } from '../sophia/control';
+import { decisionEngine } from '../sophia/decision-engine';
 
 interface WindowRect {
   x: number;
@@ -202,6 +203,69 @@ export function BrowserPanel({ onClose }: { onClose: () => void }) {
     };
     controlLayer.addEventListener('command:navigate', onNav);
     return () => controlLayer.removeEventListener('command:navigate', onNav);
+  }, []);
+
+  useEffect(() => {
+    decisionEngine.setBrowserState(true, url);
+    return () => {
+      decisionEngine.setBrowserState(false);
+    };
+  }, [url]);
+
+  useEffect(() => {
+    const onScroll = (e: Event) => {
+      const { direction, amount = 350 } = ((e as CustomEvent).detail || {}) as {
+        direction?: 'up' | 'down' | 'top' | 'bottom';
+        amount?: number;
+      };
+
+      try {
+        if (iframeRef.current?.contentWindow) {
+          if (direction === 'top') {
+            iframeRef.current.contentWindow.scrollTo({ top: 0, behavior: 'smooth' });
+          } else if (direction === 'bottom') {
+            iframeRef.current.contentWindow.scrollTo({ top: 999999, behavior: 'smooth' });
+          } else if (direction === 'up') {
+            iframeRef.current.contentWindow.scrollBy({ top: -amount, behavior: 'smooth' });
+          } else {
+            iframeRef.current.contentWindow.scrollBy({ top: amount, behavior: 'smooth' });
+          }
+        }
+      } catch {
+        // Cross-origin fallback
+      }
+    };
+
+    const onInteract = (e: Event) => {
+      const detail = ((e as CustomEvent).detail || {}) as {
+        action?: 'click' | 'type' | 'press_key' | 'play_pause';
+        key?: string;
+        text?: string;
+      };
+
+      if (detail.action === 'play_pause') {
+        try {
+          iframeRef.current?.contentWindow?.postMessage(
+            JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }),
+            '*'
+          );
+        } catch {
+          // ignore
+        }
+      } else if (detail.action === 'press_key' && detail.key) {
+        const targetInput = document.querySelector('input:focus') as HTMLInputElement | null;
+        if (targetInput) {
+          targetInput.dispatchEvent(new KeyboardEvent('keydown', { key: detail.key, bubbles: true }));
+        }
+      }
+    };
+
+    controlLayer.addEventListener('command:browser_scroll', onScroll);
+    controlLayer.addEventListener('command:browser_interact', onInteract);
+    return () => {
+      controlLayer.removeEventListener('command:browser_scroll', onScroll);
+      controlLayer.removeEventListener('command:browser_interact', onInteract);
+    };
   }, []);
 
   useEffect(() => {

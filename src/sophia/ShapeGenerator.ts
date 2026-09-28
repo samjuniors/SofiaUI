@@ -464,7 +464,25 @@ function sampleGlyph(ch: string, count: number, rng: () => number): Float32Array
   return out;
 }
 
-/** Jagged / Spiky shape for negative emotions or tension. */
+/** Liquid: fluid, blobby, undulating form with shifting centers of mass.
+ * Uses a sum of low-frequency sine waves and noise to simulate viscosity. */
+function sampleLiquid(count: number, rng: () => number): Float32Array {
+  const out = new Float32Array(count * 2);
+  const time = performance.now() * 0.001;
+  for (let i = 0; i < count; i++) {
+    const th = rng() * TAU;
+    // Base radius with slow undulating noise
+    const noise = Math.sin(th * 3 + time) * 0.1 + Math.cos(th * 5 - time * 0.8) * 0.05;
+    const r = 0.8 + noise;
+    // Add "droplets" or protrusions by modulating radius with sharp peaks
+    const droplet = Math.pow(Math.abs(Math.sin(th * 2.1 + time * 0.5)), 4) * 0.2;
+    const finalR = r + droplet;
+    out[i * 2] = Math.cos(th) * finalR;
+    out[i * 2 + 1] = Math.sin(th) * finalR;
+  }
+  return out;
+}
+
 function sampleSpiky(count: number, rng: () => number): Float32Array {
   const out = new Float32Array(count * 2);
   for (let i = 0; i < count; i++) {
@@ -521,6 +539,8 @@ export const ShapeGenerator = {
         return sampleFace(count, rng);
       case 'spiky':
         return sampleSpiky(count, rng);
+      case 'liquid':
+        return sampleLiquid(count, rng);
       case 'letter-z':
         return sampleGlyph('Z', count, rng);
       case 'letter-s':

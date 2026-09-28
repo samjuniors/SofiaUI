@@ -13,7 +13,7 @@
  *   - Save as Default and Reset to Factory Settings
  */
 
-import { Bookmark, Check, ChevronDown, Music, RotateCcw, Volume2, X } from 'lucide-react';
+import { Bookmark, Check, ChevronDown, Music, RotateCcw, Volume2, X, Eye, EyeOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { DensityPref, OSStatus, ProviderPref, SophiaOS } from '../sophia/SophiaOS';
 import type { ShapeTune } from '../sophia/VisualDirector';
@@ -22,6 +22,8 @@ import type { SophiaShape, SophiaStateName } from '../sophia/types';
 import { ALL_SHAPES, controlLayer } from '../sophia/control';
 import { scoreEngine } from '../sophia/audio/ScoreEngine';
 import { userVoiceProfile } from '../core/UserVoiceProfile';
+import { screenVisionBridge } from '../sophia/vision/ScreenVisionBridge';
+import { decisionEngine, type PreferredMusicSource } from '../sophia/decision-engine';
 
 function SegRow<T extends string>({
   label,
@@ -204,6 +206,7 @@ const SHAPE_LABELS: Record<SophiaShape, string> = {
   dissolve: 'Dissolve',
   face: 'Face',
   spiky: 'Spiky',
+  liquid: 'Liquid',
   'letter-z': 'Glyph Z',
   'letter-s': 'Glyph S',
   'letter-a': 'Glyph A',
@@ -433,6 +436,7 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
   // Collapsible accordion states
   const [sections, setSections] = useState({
     env: true,
+    perception: true,
     voice: true,
     brain: false,
     form: false,
@@ -446,6 +450,17 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
   const toggleSection = (key: keyof typeof sections) => {
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+
+  const [visionActive, setVisionActive] = useState(screenVisionBridge.active);
+  const [prefMusic, setPrefMusic] = useState<PreferredMusicSource>(decisionEngine.getPreferredMusic());
+
+  useEffect(() => {
+    const handleVision = (e: Event) => {
+      setVisionActive(Boolean((e as CustomEvent).detail?.active));
+    };
+    screenVisionBridge.addEventListener('vision:state', handleVision);
+    return () => screenVisionBridge.removeEventListener('vision:state', handleVision);
+  }, []);
 
   const [savedNotice, setSavedNotice] = useState(false);
   const [serverStatus, setServerStatus] = useState<any>(null);
@@ -686,6 +701,80 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                 <span className={serverStatus?.gemini ? 'text-emerald-400' : 'text-amber-400'}>
                   {serverStatus?.gemini ? 'GEMINI_API_KEY Configured' : 'Checking Key...'}
                 </span>
+              </div>
+            </div>
+          </AccordionSection>
+
+          {/* PERCEPTION & DECISION ENGINE */}
+          <AccordionSection
+            title="Multimodal Vision & Decision Engine"
+            badge={visionActive ? 'Vision Live' : 'Smart'}
+            isOpen={sections.perception}
+            onToggle={() => toggleSection('perception')}
+          >
+            {/* Screen Vision (Visual Perception) Card */}
+            <div className={`space-y-2.5 rounded-xl border p-3 transition-colors ${
+              visionActive
+                ? 'border-emerald-500/40 bg-emerald-950/30 shadow-[0_0_16px_rgba(16,185,129,0.15)]'
+                : 'border-white/10 bg-white/[0.03]'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`block size-2 rounded-full ${
+                    visionActive ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)] animate-pulse' : 'bg-neutral-500'
+                  }`} />
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-white/90">
+                    Real-Time Screen Vision
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void screenVisionBridge.toggleCapture()}
+                  className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[9px] font-semibold transition-all ${
+                    visionActive
+                      ? 'border-rose-500/40 bg-rose-950/30 text-rose-300 hover:bg-rose-950/50'
+                      : 'border-emerald-500/40 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-950/50'
+                  }`}
+                >
+                  {visionActive ? <EyeOff size={11} /> : <Eye size={11} />}
+                  <span>{visionActive ? 'Stop Sharing' : 'Share Screen'}</span>
+                </button>
+              </div>
+
+              <p className="text-[8.5px] leading-relaxed text-white/60">
+                Pipes display video frames at 1 fps into the Gemini Live multimodal session so Sofia sees your active windows, code, errors, and tabs in real time.
+              </p>
+            </div>
+
+            {/* Smart Music Decision Routing */}
+            <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+              <p className="text-[9px] font-normal uppercase tracking-[0.24em] text-white/40">Preferred Music Experience</p>
+              <div className="grid grid-cols-2 gap-1.5 pt-1">
+                {(
+                  [
+                    { id: 'smart', label: 'Smart Decision', desc: 'In-app ambient for study, Spotify/YT for songs' },
+                    { id: 'inapp', label: 'In-App Soundscape', desc: 'Always play ambient audio inside Sofia' },
+                    { id: 'spotify', label: 'Spotify', desc: 'Open Spotify web/app for music queries' },
+                    { id: 'youtube', label: 'YouTube Music', desc: 'Open YouTube video/music player' },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      decisionEngine.setPreferredMusic(opt.id);
+                      setPrefMusic(opt.id);
+                    }}
+                    className={`rounded-lg border p-2 text-left transition-all ${
+                      prefMusic === opt.id
+                        ? 'border-sky-400/50 bg-sky-400/10 text-sky-200 shadow-[0_0_10px_rgba(56,189,248,0.2)]'
+                        : 'border-white/5 bg-white/[0.02] text-white/50 hover:bg-white/[0.05] hover:text-white/80'
+                    }`}
+                  >
+                    <p className="font-mono text-[9px] font-semibold text-white/90">{opt.label}</p>
+                    <p className="text-[7.5px] text-white/40 leading-tight mt-0.5">{opt.desc}</p>
+                  </button>
+                ))}
               </div>
             </div>
           </AccordionSection>

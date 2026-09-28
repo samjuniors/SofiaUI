@@ -8,6 +8,7 @@
 
 import type { SophiaShape, Turn } from './types';
 import { toolRegistry } from '../tools/registry';
+import { screenVisionBridge } from './vision/ScreenVisionBridge';
 
 export function getSophiaSystem(voiceName?: string, voiceProfile?: string): string {
   let persona = 'an upbeat, warm, and loyal Australian friend having a live voice conversation.';
@@ -308,17 +309,50 @@ export class ControlLayer extends EventTarget {
       });
       return true;
     }
+    // Screen Vision voice commands
+    if (/(?:look\s+at\s+my\s+screen|start\s+screen\s+sharing|share\s+(?:my\s+)?screen|see\s+what\s+i(?:'m|\s+am)\s+seeing|enable\s+screen\s+vision|turn\s+on\s+vision)/i.test(text)) {
+      void screenVisionBridge.startCapture();
+      return true;
+    }
+    if (/(?:stop\s+looking\s+at\s+my\s+screen|stop\s+screen\s+sharing|disable\s+screen\s+vision|turn\s+off\s+vision)/i.test(text)) {
+      screenVisionBridge.stopCapture();
+      return true;
+    }
+
     if (/^(close browser|close workspace|hide browser|hide workspace)$/.test(text)) {
       this.dispatchEvent(new CustomEvent('command:browser', { detail: { open: false } }));
       return true;
     }
-    // Dynamic content scrolling commands
-    if (/^(?:please\s+)?(?:scroll\s+down|scroll\s+for\s+me|scroll)$/i.test(text)) {
+
+    // Interactive page & browser scrolling commands
+    if (/(?:scroll\s+down|scroll\s+for\s+me|scroll\s+lower|page\s+down)/i.test(text)) {
       this.dispatchEvent(new CustomEvent('command:scroll_info_card', { detail: { direction: 'down' } }));
+      this.dispatchEvent(new CustomEvent('command:browser_scroll', { detail: { direction: 'down' } }));
       return true;
     }
-    if (/^(?:please\s+)?scroll\s+up$/i.test(text)) {
+    if (/(?:scroll\s+up|scroll\s+higher|page\s+up)/i.test(text)) {
       this.dispatchEvent(new CustomEvent('command:scroll_info_card', { detail: { direction: 'up' } }));
+      this.dispatchEvent(new CustomEvent('command:browser_scroll', { detail: { direction: 'up' } }));
+      return true;
+    }
+
+    // Key presses in browser
+    if (/(?:press\s+tab|hit\s+tab|next\s+field)/i.test(text)) {
+      this.dispatchEvent(new CustomEvent('command:browser_interact', { detail: { action: 'press_key', key: 'Tab' } }));
+      return true;
+    }
+    if (/(?:press\s+enter|hit\s+enter|submit)/i.test(text)) {
+      this.dispatchEvent(new CustomEvent('command:browser_interact', { detail: { action: 'press_key', key: 'Enter' } }));
+      return true;
+    }
+
+    // Play/Pause active video or music
+    if (/(?:pause\s+(?:the\s+)?(?:video|music|player)|stop\s+(?:the\s+)?(?:video|music))/i.test(text)) {
+      this.dispatchEvent(new CustomEvent('command:browser_interact', { detail: { action: 'play_pause' } }));
+      return true;
+    }
+    if (/(?:resume\s+(?:the\s+)?(?:video|music|player))/i.test(text)) {
+      this.dispatchEvent(new CustomEvent('command:browser_interact', { detail: { action: 'play_pause' } }));
       return true;
     }
     // Dynamic panel dismissal

@@ -70,6 +70,7 @@ export type SophiaShape =
   | 'dissolve'
   | 'face'
   | 'spiky'
+  | 'liquid'
   | 'letter-z'
   | 'letter-s'
   | 'letter-a'

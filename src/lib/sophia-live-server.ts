@@ -70,6 +70,15 @@ Your available tools (USE THEM PROACTIVELY):
 6. play_music — When asked to play music, play a song, play something → call system_control or open_url with YouTube music
 7. transform_shape — When asked to change shape, morph, transform → call this immediately
 
+Visual Perception & Screen Vision:
+- You have REAL-TIME VISUAL PERCEPTION. When the user enables screen vision or shares their screen, you receive real-time video frames of their device screen.
+- You can see their active applications, web pages, code, text, documents, errors, and what they are looking at.
+- Actively comment on or assist with what you see on their screen when asked (e.g. "I can see the code on your screen...", "Looking at that page...").
+
+Smart Music & Tool Decision Engine:
+- When asked to play music without a specific service, DO NOT blindly open YouTube. Sofia has a decision engine: for ambient, focus, relaxing, or study music, use in-app ambient sound without external tabs. For specific songs, use the in-app player or Spotify.
+- Follow-up & Browser Control: DO NOT keep opening duplicate tabs or windows. If a browser is already open, follow up within it, scroll down or up, press Tab/Enter, or search inside the active session.
+
 Conversational & Storytelling Style:
 - Voice: Natural ${accent}
 - Everyday Chat & Tool Confirmations: Keep conversational replies natural and concise (1-2 sentences). After calling a tool, speak a brief confirmation like "On it!", "Done!", "Opening that now."
@@ -86,11 +95,11 @@ export const LIVE_TOOLS = [
       {
         name: 'system_control',
         description:
-          'Control the physical device and native operating system. ' +
-          'Open the user\'s real desktop browser (Chrome/Edge/Firefox) to any URL or video, ' +
-          'perform searches in the desktop browser, stream music/video on YouTube or Spotify, ' +
-          'launch native apps (notepad, calc, explorer, terminal), or query real device clock/time. ' +
-          'Always use this tool when the user asks to open something on their device or real browser.',
+          'Control the physical device, operating system, and browser. ' +
+          'Open or navigate the browser, stream music intelligently (or play in-app ambient focus music), ' +
+          'scroll web pages (up/down/top/bottom), interact with the active page (press tab/enter, play/pause), ' +
+          'launch native apps (notepad, calc, explorer, terminal, spotify), or query real device clock/time. ' +
+          'Always use this tool when the user asks to control their device, browser, or music.',
         parameters: {
           type: 'OBJECT',
           properties: {
@@ -99,15 +108,28 @@ export const LIVE_TOOLS = [
               enum: [
                 'open_browser',
                 'search_browser',
+                'scroll_browser',
+                'browser_interact',
                 'stream_media',
                 'open_app',
                 'get_time',
                 'get_system_info',
               ],
-              description: 'The native device action to perform.',
+              description: 'The native device or browser action to perform.',
             },
-            url: { type: 'STRING', description: 'URL to open in the native desktop browser.' },
+            url: { type: 'STRING', description: 'URL to open in the browser.' },
             query: { type: 'STRING', description: 'Search query or music title for search_browser / stream_media.' },
+            direction: {
+              type: 'STRING',
+              enum: ['up', 'down', 'top', 'bottom'],
+              description: 'Scroll direction for scroll_browser.',
+            },
+            interactType: {
+              type: 'STRING',
+              enum: ['click', 'type', 'press_tab', 'press_enter', 'play_pause'],
+              description: 'Type of browser interaction for browser_interact.',
+            },
+            key: { type: 'STRING', description: 'Key name (e.g. Tab, Enter, Escape) for key presses.' },
             app: {
               type: 'STRING',
               enum: ['notepad', 'calc', 'calculator', 'explorer', 'files', 'cmd', 'terminal', 'chrome', 'edge', 'spotify'],
@@ -610,6 +632,17 @@ liveWss.on('connection', async (clientWs: WebSocket, request: any) => {
                 mimeType: 'audio/pcm;rate=16000',
               },
             });
+          } else if ((msg.type === 'video' || msg.type === 'screen' || msg.type === 'image') && (msg.video || msg.image || msg.data)) {
+            try {
+              liveSession.sendRealtimeInput({
+                video: {
+                  data: msg.video || msg.image || msg.data,
+                  mimeType: msg.mimeType || 'image/jpeg',
+                },
+              });
+            } catch (vErr) {
+              console.error('[Sofia Live WS] Error forwarding video frame to Gemini Live:', vErr);
+            }
           } else if (msg.type === 'text' && msg.text) {
             try {
               liveSession.sendClientContent({

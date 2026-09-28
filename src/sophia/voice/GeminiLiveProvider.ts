@@ -16,6 +16,7 @@ import { controlLayer } from '../control';
 import type { FunctionCall } from '../control';
 import type { VoiceProviderId } from '../types';
 import { VoiceProvider, base64Encode } from './VoiceProvider';
+import { screenVisionBridge } from '../vision/ScreenVisionBridge';
 
 interface LiveSessionTicket {
   token: string;
@@ -247,6 +248,9 @@ export class GeminiLiveProvider extends VoiceProvider {
             this.setupDone = true;
             this.active = true;
             this.stats.connectedAt = Date.now();
+            screenVisionBridge.registerFrameCallback((b64Jpeg, mimeType) => {
+              this.sendScreenFrame(b64Jpeg, mimeType);
+            });
             resolve();
           }
         });
@@ -576,6 +580,28 @@ export class GeminiLiveProvider extends VoiceProvider {
     this.stats.packetsSent++;
   }
 
+  sendScreenFrame(b64Jpeg: string, mimeType = 'image/jpeg') {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupDone) return;
+    this.lastSendTime = performance.now();
+    if (this.isLocalLiveWs) {
+      this.ws.send(JSON.stringify({ type: 'video', video: b64Jpeg, mimeType }));
+    } else {
+      this.ws.send(
+        JSON.stringify({
+          realtimeInput: {
+            mediaChunks: [
+              {
+                mimeType,
+                data: b64Jpeg,
+              },
+            ],
+          },
+        }),
+      );
+    }
+    this.stats.packetsSent++;
+  }
+
   interrupt() {
     this.audio.interruptPlayback();
     this.responseLive = false;
@@ -590,6 +616,7 @@ export class GeminiLiveProvider extends VoiceProvider {
   }
 
   private handleClosed(code?: number) {
+    screenVisionBridge.registerFrameCallback(null);
     const wasActive = this.active;
     this.active = false;
     this.setupDone = false;
@@ -609,6 +636,7 @@ export class GeminiLiveProvider extends VoiceProvider {
   }
 
   async stop(): Promise<void> {
+    screenVisionBridge.registerFrameCallback(null);
     this.active = false;
     this.setupDone = false;
     const ws = this.ws;
