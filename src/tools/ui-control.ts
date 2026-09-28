@@ -114,7 +114,7 @@ export class UIControlTool implements ITool {
 
       case 'play_music': {
         const musicQuery = String(cmd.query ?? 'lofi chill music');
-        const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(musicQuery)}`;
+        const ytUrl = `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(musicQuery)}&autoplay=1`;
         controlLayer.dispatchEvent(new CustomEvent('command:ui', {
           detail: { target: 'browser', action: 'open' },
         }));

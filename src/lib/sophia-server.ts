@@ -10,13 +10,13 @@
  *   GET  /api/sophia/status            → Backends, live models & diagnostics
  */
 
-import { exec } from "node:child_process";
 import os from "node:os";
 import { ALL_SHAPES, SOPHIA_SYSTEM } from "../sophia/control";
 import { handleMediaProxy } from "./media-proxy";
 import { generateImage } from "./image-gen";
 import { handleWebSearch, getSearchProviderStatus } from "./web-search-server";
 import { handleStatusRequest, handleTtsRequest, handleChatRequest } from './sophia-live-server';
+import { handleBrowseProxy } from "./browse-proxy";
 
 const GEMINI_MODEL = process.env.GEMINI_LIVE_MODEL?.trim() || "models/gemini-3.8-live";
 const GEMINI_TEXT_MODEL = "gemini-3.8-flash";
@@ -913,79 +913,57 @@ async function handleSystemAction(req: Request): Promise<Response> {
       });
     }
 
-    const isWindows = process.platform === "win32";
-    const isMac = process.platform === "darwin";
-
     if (action === "open_browser" || action === "search_browser" || action === "stream_media") {
       let targetUrl = body.url?.trim() || "";
       if (action === "search_browser" && body.query) {
-        targetUrl = `https://www.google.com/search?q=${encodeURIComponent(body.query.trim())}`;
+        targetUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(body.query.trim())}`;
       } else if (action === "stream_media" && body.query) {
-        targetUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(body.query.trim())}`;
+        targetUrl = `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(body.query.trim())}&autoplay=1`;
       } else if (!targetUrl && body.query) {
-        targetUrl = `https://www.google.com/search?q=${encodeURIComponent(body.query.trim())}`;
+        targetUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(body.query.trim())}`;
       }
-
-      if (!targetUrl) {
-        return json({ error: "Missing url or query" }, { status: 400 });
-      }
-
-      if (!/^https?:\/\//i.test(targetUrl)) {
+      if (!targetUrl) targetUrl = "sophia://home";
+      if (targetUrl !== "sophia://home" && !/^https?:\/\//i.test(targetUrl) && !targetUrl.startsWith("sophia:")) {
         targetUrl = "https://" + targetUrl;
       }
-
-      // Safe escape for command shell
-      const safeUrl = targetUrl.replace(/"/g, '""');
-      const cmd = isWindows
-        ? `start "" "${safeUrl}"`
-        : isMac
-        ? `open "${safeUrl}"`
-        : `xdg-open "${safeUrl}"`;
-
-      exec(cmd, (err) => {
-        if (err) console.error("[SystemAction] Failed to launch browser:", err);
-      });
-
       return json({
         success: true,
         action,
         url: targetUrl,
-        message: `Opened ${targetUrl} in your default desktop browser.`,
+        inApp: true,
+        message: `Opening ${targetUrl} in Sofia Browser.`,
       });
     }
 
     if (action === "open_app") {
       const appName = (body.app || "").trim().toLowerCase();
-      const safeApps: Record<string, string> = {
-        notepad: isWindows ? "start notepad" : "open -a TextEdit",
-        calc: isWindows ? "start calc" : "open -a Calculator",
-        calculator: isWindows ? "start calc" : "open -a Calculator",
-        explorer: isWindows ? "start explorer" : "open .",
-        files: isWindows ? "start explorer" : "open .",
-        cmd: isWindows ? "start cmd" : "open -a Terminal",
-        terminal: isWindows ? "start wt || start cmd" : "open -a Terminal",
-        browser: isWindows ? 'start "" "https://www.google.com"' : 'open "https://www.google.com"',
-        chrome: isWindows ? 'start chrome || start "" "https://www.google.com"' : 'open -a "Google Chrome"',
-        edge: isWindows ? 'start msedge || start "" "https://www.google.com"' : 'open -a "Microsoft Edge"',
-        spotify: isWindows ? 'start spotify || start "" "https://open.spotify.com"' : 'open -a Spotify',
+      const appMap: Record<string, { url: string; title: string }> = {
+        browser: { url: "sophia://home", title: "Sofia Browser" },
+        chrome: { url: "sophia://home", title: "Sofia Browser" },
+        edge: { url: "sophia://home", title: "Sofia Browser" },
+        notepad: { url: "https://en.wikipedia.org/wiki/Main_Page", title: "Notes" },
+        calc: { url: "https://www.desmos.com/scientific", title: "Calculator" },
+        calculator: { url: "https://www.desmos.com/scientific", title: "Calculator" },
+        explorer: { url: "sophia://home", title: "Sofia Browser" },
+        files: { url: "sophia://home", title: "Sofia Browser" },
+        terminal: { url: "sophia://home", title: "Sofia Browser" },
+        cmd: { url: "sophia://home", title: "Sofia Browser" },
+        spotify: { url: "https://open.spotify.com/embed", title: "Spotify" },
       };
-
-      const launchCmd = safeApps[appName];
-      if (!launchCmd) {
+      const dest = appMap[appName];
+      if (!dest) {
         return json(
-          { error: `App "${appName}" is not in the allowed launch list. Allowed: ${Object.keys(safeApps).join(", ")}` },
-          { status: 400 }
+          { error: `App "${appName}" is not available in-app. Try browser, calculator, or spotify.` },
+          { status: 400 },
         );
       }
-
-      exec(launchCmd, (err) => {
-        if (err) console.error("[SystemAction] Failed to launch app:", err);
-      });
-
       return json({
         success: true,
         app: appName,
-        message: `Launched ${appName} on your device.`,
+        url: dest.url,
+        title: dest.title,
+        inApp: true,
+        message: `Opening ${dest.title} in Sofia.`,
       });
     }
 
@@ -1020,6 +998,9 @@ export async function handleSophiaRequest(req: Request): Promise<Response> {
 
   if (req.method === "GET" && (path === "/" || path === "/status" || path === "")) {
     return json(statusPayload());
+  }
+  if (req.method === "GET" && (path === "/browse" || path.startsWith("/browse"))) {
+    return handleBrowseProxy(req);
   }
   if (req.method === "GET" && path === "/elevenlabs/voices") {
     return elevenLabsVoices();
