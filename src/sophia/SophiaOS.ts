@@ -35,6 +35,7 @@ import { VisualDirector } from './VisualDirector';
 import { EmotionEngine } from '../core/EmotionEngine';
 import { WakeWordDetection } from '../core/WakeWordDetection';
 import { scoreEngine } from './audio/ScoreEngine';
+import { userVoiceProfile } from '../core/UserVoiceProfile';
 
 export type OSStatus = 'idle' | 'connecting' | 'live' | 'offline' | 'denied' | 'error';
 export type ProviderPref = VoiceProviderId | 'auto';
@@ -200,6 +201,14 @@ export class SophiaOS extends EventTarget {
         return;
       }
       this.state.setState(raw as SophiaStateName, { reason: 'user-command' });
+    });
+    controlLayer.addEventListener('command:calibrate_voice', () => {
+      userVoiceProfile.resetProfile();
+      this.pushLog('cmd', 'user voice print calibration initiated');
+      controlLayer.dispatchEvent(new CustomEvent('command:notification', {
+        detail: { message: 'Voice calibration started: speak naturally to Sofia', level: 'info' }
+      }));
+      void this.speakText("I'm listening and calibrating your voice now. Speak to me naturally.");
     });
     controlLayer.addEventListener('command:tune', (e) => {
       const patch = (e as CustomEvent).detail;

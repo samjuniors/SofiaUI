@@ -21,6 +21,7 @@ import type { SophiaForm } from '../sophia/ShapeGenerator';
 import type { SophiaShape, SophiaStateName } from '../sophia/types';
 import { ALL_SHAPES, controlLayer } from '../sophia/control';
 import { scoreEngine } from '../sophia/audio/ScoreEngine';
+import { userVoiceProfile } from '../core/UserVoiceProfile';
 
 function SegRow<T extends string>({
   label,
@@ -715,6 +716,51 @@ export function SettingsSheet({ os, status, onClose }: { os: SophiaOS; status: O
                 { id: 'elevenlabs', label: 'ElevenLabs' },
               ]}
             />
+
+            {/* USER VOICE MEMORY & CROWD REJECTION */}
+            <div className="space-y-2.5 rounded-xl border border-indigo-400/30 bg-indigo-950/20 p-3 shadow-[0_0_12px_rgba(99,102,241,0.12)]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className={`block size-2 rounded-full ${userVoiceProfile.isEnrolled ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-amber-400 animate-pulse'}`} />
+                  <span className="text-[9.5px] uppercase tracking-[0.2em] font-medium text-indigo-200">User Voice Print & Memory</span>
+                </div>
+                <span className="font-mono text-[8px] text-indigo-300/80">
+                  {userVoiceProfile.isEnrolled ? 'Locked to Your Voice' : 'Learning Voice'}
+                </span>
+              </div>
+              <p className="text-[8.5px] leading-relaxed text-white/60">
+                {userVoiceProfile.isEnrolled
+                  ? `Sofia remembers your voice (Pitch: ~${Math.round(userVoiceProfile.profileData.f0Mean)} Hz, Confidence: ${Math.round(userVoiceProfile.profileData.confidence * 100)}%). She ignores surrounding crowd chatter and focuses only on you.`
+                  : 'Speak naturally into your microphone. Sofia learns and locks onto your voice characteristics so she ignores surrounding crowd chatter.'}
+              </p>
+              <div className="flex items-center justify-between pt-1">
+                <ToggleRow
+                  label="Crowd Noise Rejection"
+                  hint="Listen and respond ONLY to your voice — ignore other people and crowd chatter."
+                  on={controlLayer.crowdFilterEnabled}
+                  onChange={(on) => {
+                    controlLayer.crowdFilterEnabled = on;
+                    controlLayer.saveControlPrefs();
+                    rerender();
+                  }}
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-1 border-t border-white/[0.06]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    userVoiceProfile.resetProfile();
+                    controlLayer.dispatchEvent(new CustomEvent('command:notification', {
+                      detail: { message: 'Voice print cleared. Sofia will learn your voice again as you speak.', level: 'info' }
+                    }));
+                    rerender();
+                  }}
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[8.5px] text-white/70 hover:bg-white/[0.08] active:scale-95"
+                >
+                  Recalibrate / Re-enroll Voice
+                </button>
+              </div>
+            </div>
 
             {/* TTS Voice Profile Selection */}
             <div className="space-y-2 rounded-xl border border-sky-400/30 bg-sky-950/25 p-2.5 shadow-[inset_0_0_12px_rgba(56,189,248,0.12)]">

@@ -96,6 +96,9 @@ export class ControlLayer extends EventTarget {
   /** Automatic Speech Recognition (ASR) Barge-in Interruption toggle */
   asrInterruption = true;
 
+  /** Selective Voice Focus / Crowd Noise Rejection — listens only to enrolled user in a crowd */
+  crowdFilterEnabled = true;
+
   voiceProfile = 'au-female';
   voiceName = 'Aoede';
   dgVoice = 'aura-2-thalia-en';
@@ -116,6 +119,7 @@ export class ControlLayer extends EventTarget {
         const d = JSON.parse(raw);
         if (typeof d.pureGeminiLive === 'boolean') this.pureGeminiLive = d.pureGeminiLive;
         if (typeof d.asrInterruption === 'boolean') this.asrInterruption = d.asrInterruption;
+        if (typeof d.crowdFilterEnabled === 'boolean') this.crowdFilterEnabled = d.crowdFilterEnabled;
         if (d.voiceProfile) this.voiceProfile = d.voiceProfile;
         if (d.voiceName) this.voiceName = d.voiceName;
         if (d.elevenLabsVoiceId) this.elevenLabsVoiceId = d.elevenLabsVoiceId;
@@ -149,6 +153,7 @@ export class ControlLayer extends EventTarget {
         JSON.stringify({
           pureGeminiLive: this.pureGeminiLive,
           asrInterruption: this.asrInterruption,
+          crowdFilterEnabled: this.crowdFilterEnabled,
           voiceProfile: this.voiceProfile,
           voiceName: this.voiceName,
           elevenLabsVoiceId: this.elevenLabsVoiceId,
@@ -258,6 +263,26 @@ export class ControlLayer extends EventTarget {
     }
     if (/^(close browser|close workspace|hide browser|hide workspace)$/.test(text)) {
       this.dispatchEvent(new CustomEvent('command:browser', { detail: { open: false } }));
+      return true;
+    }
+    if (/^(remember my voice|learn my voice|calibrate voice|calibrate my voice)$/.test(text)) {
+      this.dispatchEvent(new CustomEvent('command:calibrate_voice'));
+      return true;
+    }
+    if (/^(enable crowd filter|crowd mode on|voice focus on|focus on my voice|listen only to me)$/.test(text)) {
+      this.crowdFilterEnabled = true;
+      this.saveControlPrefs();
+      this.dispatchEvent(new CustomEvent('command:notification', {
+        detail: { message: 'Voice Focus: Listening only to your voice (crowd ignored)', level: 'success' },
+      }));
+      return true;
+    }
+    if (/^(disable crowd filter|crowd mode off|voice focus off)$/.test(text)) {
+      this.crowdFilterEnabled = false;
+      this.saveControlPrefs();
+      this.dispatchEvent(new CustomEvent('command:notification', {
+        detail: { message: 'Crowd filter disabled', level: 'info' },
+      }));
       return true;
     }
     const m = text.match(/^(?:shape|transform(?: into)?|morph(?: into)?|become)\s+([a-z0-9-]+)$/);

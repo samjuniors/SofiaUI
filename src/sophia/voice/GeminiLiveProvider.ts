@@ -209,10 +209,10 @@ export class GeminiLiveProvider extends VoiceProvider {
               outputAudioTranscription: {},
               realtimeInputConfig: {
                 automaticActivityDetection: {
-                  startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
-                  endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
-                  prefixPaddingMs: 160,
-                  silenceDurationMs: 520,
+                  startOfSpeechSensitivity: 'START_SENSITIVITY_BALANCED',
+                  endOfSpeechSensitivity: 'END_SENSITIVITY_BALANCED',
+                  prefixPaddingMs: 60,
+                  silenceDurationMs: 650,
                 },
               },
             },
@@ -401,6 +401,10 @@ export class GeminiLiveProvider extends VoiceProvider {
     const sc = msg.serverContent;
     if (sc) {
       if (sc.interrupted) {
+        // If ASR barge-in is disabled, ignore server-side echo collision interruptions (fixes hiccups)
+        if (!controlLayer.asrInterruption) {
+          return;
+        }
         this.audio.interruptPlayback();
         this.responseLive = false;
         this.flushTranscripts(true);
@@ -488,6 +492,10 @@ export class GeminiLiveProvider extends VoiceProvider {
     if (this.detachPCM) return;
     this.detachPCM = this.audio.onPCM((pcm) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupDone) return;
+      // Do not stream mic audio during speech playback unless intentional user barge-in is enabled
+      if (this.audio.isSpeaking && !controlLayer.asrInterruption) {
+        return;
+      }
       const b64 = base64Encode(new Uint8Array(pcm));
       this.lastSendTime = performance.now();
       if (this.isLocalLiveWs) {

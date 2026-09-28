@@ -12,6 +12,7 @@
 import { controlLayer } from '../control';
 import { AudioOutput } from '../../core/AudioOutput';
 import { scoreEngine } from './ScoreEngine';
+import { userVoiceProfile } from '../../core/UserVoiceProfile';
 
 type PCMHandler = (pcm: ArrayBuffer) => void;
 type LevelHandler = (level: number) => void;
@@ -137,8 +138,12 @@ export class AudioEngine {
     return () => this.bargeInHandlers.delete(fn);
   }
 
+  get isSpeaking(): boolean {
+    return this.output.getIsPlaying() || this.playRms > 0.02;
+  }
+
   private checkBargeIn() {
-    if (!controlLayer.asrInterruption || !this.output.getIsPlaying()) {
+    if (!controlLayer.asrInterruption || !this.isSpeaking) {
       this.speechStreakMs = 0;
       this.lastBargeCheck = performance.now();
       return;
@@ -151,12 +156,12 @@ export class AudioEngine {
     // Acoustic echo suppression:
     // When audio plays through speakers, mic picks up echo proportional to playRms.
     // True user speech directly in front of the mic must significantly exceed the echo.
-    const dynamicThreshold = Math.max(0.42, this.playRms * 0.85 + 0.22);
+    const dynamicThreshold = Math.max(0.48, this.playRms * 0.95 + 0.26);
 
     if (this._mic > dynamicThreshold) {
       this.speechStreakMs += dt;
-      // Require at least 160ms of continuous human voice to confirm intentional interruption
-      if (this.speechStreakMs >= 160) {
+      // Require 260ms of continuous human voice to confirm intentional interruption
+      if (this.speechStreakMs >= 260) {
         this.speechStreakMs = 0;
         if (this.bargeInHandlers.size > 0) {
           this.bargeInHandlers.forEach((fn) => fn());
@@ -165,7 +170,7 @@ export class AudioEngine {
         }
       }
     } else {
-      this.speechStreakMs = Math.max(0, this.speechStreakMs - dt * 2);
+      this.speechStreakMs = Math.max(0, this.speechStreakMs - dt * 2.5);
     }
   }
 
@@ -234,7 +239,11 @@ export class AudioEngine {
             const d = e.data;
             if (d.type === 'pcm') {
               const b: ArrayBuffer = d.buffer;
-              this.pcmHandlers.forEach((fn) => fn(b));
+              const int16 = new Int16Array(b);
+              // Filter through UserVoiceProfile: gates out crowd and prevents hiccups during Sofia speech
+              if (userVoiceProfile.shouldForwardChunk(int16, this.isSpeaking, controlLayer.asrInterruption, controlLayer.crowdFilterEnabled)) {
+                this.pcmHandlers.forEach((fn) => fn(b));
+              }
             } else if (d.type === 'level') {
               this._mic = this._mic * 0.72 + Math.min(1, d.rms * 5.5) * 0.28;
               this.levelHandlers.forEach((fn) => fn(this._mic));
@@ -306,7 +315,9 @@ export class AudioEngine {
 
             if (pcmLen >= 640) {
               const chunk = new Int16Array(pcmBuf.subarray(0, 640));
-              this.pcmHandlers.forEach((fn) => fn(chunk.buffer));
+              if (userVoiceProfile.shouldForwardChunk(chunk, this.isSpeaking, controlLayer.asrInterruption, controlLayer.crowdFilterEnabled)) {
+                this.pcmHandlers.forEach((fn) => fn(chunk.buffer));
+              }
               pcmLen = 0;
             }
             idx += ratio;
