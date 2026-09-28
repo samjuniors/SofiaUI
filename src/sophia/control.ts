@@ -259,12 +259,36 @@ export class ControlLayer extends EventTarget {
       this.dispatchEvent(new CustomEvent('command:state', { detail: { state: 'wakeup' } }));
       return true;
     }
-    if (/^(open browser|open workspace|show browser|show workspace)$/.test(text)) {
+    // Browser opening commands
+    if (
+      /(?:open|launch|show)\s+(?:the\s+|my\s+|real\s+|desktop\s+)?browser/i.test(text) ||
+      /^(?:open|launch)\s+(?:google|youtube|chrome|edge)$/i.test(text)
+    ) {
       this.dispatchEvent(new CustomEvent('command:browser', { detail: { open: true } }));
+      let targetUrl = 'https://www.google.com';
+      if (/youtube/i.test(text)) targetUrl = 'https://www.youtube.com';
+      void toolRegistry.invoke({
+        name: 'system_control',
+        args: { action: 'open_browser', url: targetUrl },
+      });
       return true;
     }
     if (/^(close browser|close workspace|hide browser|hide workspace)$/.test(text)) {
       this.dispatchEvent(new CustomEvent('command:browser', { detail: { open: false } }));
+      return true;
+    }
+    // Dynamic content scrolling commands
+    if (/^(?:please\s+)?(?:scroll\s+down|scroll\s+for\s+me|scroll)$/i.test(text)) {
+      this.dispatchEvent(new CustomEvent('command:scroll_info_card', { detail: { direction: 'down' } }));
+      return true;
+    }
+    if (/^(?:please\s+)?scroll\s+up$/i.test(text)) {
+      this.dispatchEvent(new CustomEvent('command:scroll_info_card', { detail: { direction: 'up' } }));
+      return true;
+    }
+    // Dynamic panel dismissal
+    if (/^(?:ok\s+|okay\s+)?done$|^close\s+(?:panel|card|review|dialog|window)$/i.test(text)) {
+      this.dispatchEvent(new CustomEvent('command:info_card', { detail: { open: false } }));
       return true;
     }
     if (/^(remember my voice|learn my voice|calibrate voice|calibrate my voice)$/.test(text)) {
@@ -339,7 +363,13 @@ export class ControlLayer extends EventTarget {
 
     // ── Legacy: control_ui (old name) ────────────────────────────────────────
     if (call.name === 'control_ui') {
-      // Re-map to the new ui_control tool
+      if (call.args?.target === 'browser' && call.args?.action === 'open') {
+        void toolRegistry.invoke({
+          name: 'system_control',
+          args: { action: 'open_browser', url: 'https://www.google.com' },
+          id: call.id,
+        });
+      }
       return toolRegistry.invoke({
         name: 'ui_control',
         args: {
@@ -355,11 +385,17 @@ export class ControlLayer extends EventTarget {
 
     // ── Legacy: play_music ──────────────────────────────────────────────────
     if (call.name === 'play_music') {
+      const q = String(call.args?.query ?? 'lofi chill music');
+      void toolRegistry.invoke({
+        name: 'system_control',
+        args: { action: 'stream_media', query: q },
+        id: call.id,
+      });
       return toolRegistry.invoke({
         name: 'ui_control',
         args: {
           action: ['stop', 'pause'].includes(String(call.args?.action)) ? 'stop_music' : 'play_music',
-          query: call.args?.query,
+          query: q,
         },
         id: call.id,
       });
@@ -367,9 +403,15 @@ export class ControlLayer extends EventTarget {
 
     // ── Legacy: open_url / web_search ───────────────────────────────────────
     if (call.name === 'open_url') {
+      const targetUrl = String(call.args?.url ?? '').trim() || 'https://www.google.com';
+      void toolRegistry.invoke({
+        name: 'system_control',
+        args: { action: 'open_browser', url: targetUrl },
+        id: call.id,
+      });
       return toolRegistry.invoke({
         name: 'ui_control',
-        args: { action: 'navigate_to_url', url: call.args?.url, text: call.args?.title },
+        args: { action: 'navigate_to_url', url: targetUrl, text: call.args?.title },
         id: call.id,
       });
     }

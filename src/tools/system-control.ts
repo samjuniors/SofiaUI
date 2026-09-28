@@ -33,11 +33,19 @@ export const systemControlTool: ITool = {
       };
     }
 
+    // Normalize defaults so commands without explicit URLs always open Google
+    const cleanArgs: SystemControlArgs = {
+      action: args.action,
+      url: args.url || (args.action === 'open_browser' && !args.query ? 'https://www.google.com' : undefined),
+      query: args.query,
+      app: args.app,
+    };
+
     try {
       const res = await fetch('/api/sophia/system/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(args),
+        body: JSON.stringify(cleanArgs),
       });
 
       if (!res.ok) {
@@ -50,6 +58,21 @@ export const systemControlTool: ITool = {
       }
 
       const data = await res.json();
+
+      // If browser action, also update and open the in-app browser panel
+      if (cleanArgs.action === 'open_browser' || cleanArgs.action === 'search_browser' || cleanArgs.action === 'stream_media') {
+        const targetUrl = data.url || 'https://www.google.com';
+        controlLayer.dispatchEvent(
+          new CustomEvent('command:ui', {
+            detail: { target: 'browser', action: 'open' },
+          })
+        );
+        controlLayer.dispatchEvent(
+          new CustomEvent('command:navigate', {
+            detail: { url: targetUrl, title: cleanArgs.query || 'Browser' },
+          })
+        );
+      }
 
       // Emit notification to HUD so user sees the confirmation visually too
       if (data.message) {

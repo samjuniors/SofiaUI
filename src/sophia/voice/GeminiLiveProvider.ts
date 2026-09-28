@@ -477,8 +477,12 @@ export class GeminiLiveProvider extends VoiceProvider {
 
   private flushTranscripts(final: boolean) {
     if (this.inBuf) {
-      controlLayer.addUserTurn(this.inBuf, final);
-      this.emit('transcript', { role: 'user', text: this.inBuf, final, source: this.id });
+      const userText = this.inBuf;
+      controlLayer.addUserTurn(userText, final);
+      this.emit('transcript', { role: 'user', text: userText, final, source: this.id });
+      if (final) {
+        controlLayer.tryDirectCommand(userText);
+      }
       this.inBuf = '';
     }
     if (this.outBuf) {

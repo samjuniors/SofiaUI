@@ -917,33 +917,51 @@ async function handleSystemAction(req: Request): Promise<Response> {
     const isMac = process.platform === "darwin";
 
     if (action === "open_browser" || action === "search_browser" || action === "stream_media") {
-      let targetUrl = body.url?.trim() || "";
-      if (action === "search_browser" && body.query) {
-        targetUrl = `https://www.google.com/search?q=${encodeURIComponent(body.query.trim())}`;
-      } else if (action === "stream_media" && body.query) {
-        targetUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(body.query.trim())}`;
-      } else if (!targetUrl && body.query) {
-        targetUrl = `https://www.google.com/search?q=${encodeURIComponent(body.query.trim())}`;
-      }
+      let raw = (body.url || body.query || "").trim();
 
-      if (!targetUrl) {
-        return json({ error: "Missing url or query" }, { status: 400 });
-      }
+      let targetUrl = "https://www.google.com";
 
-      if (!/^https?:\/\//i.test(targetUrl)) {
-        targetUrl = "https://" + targetUrl;
+      if (action === "search_browser") {
+        const q = body.query || raw || "";
+        targetUrl = q ? `https://www.google.com/search?q=${encodeURIComponent(q)}` : "https://www.google.com";
+      } else if (action === "stream_media") {
+        const q = body.query || raw || "lofi chill music";
+        targetUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+      } else if (raw) {
+        const low = raw.toLowerCase();
+        if (/^https?:\/\//i.test(raw)) {
+          targetUrl = raw;
+        } else if (low === "google") {
+          targetUrl = "https://www.google.com";
+        } else if (low === "youtube") {
+          targetUrl = "https://www.youtube.com";
+        } else if (low === "spotify") {
+          targetUrl = "https://open.spotify.com";
+        } else if (low === "browser" || low === "new tab") {
+          targetUrl = "https://www.google.com";
+        } else if (/^[a-z0-9-]+(?:\.[a-z0-9-]+)+/i.test(raw)) {
+          targetUrl = "https://" + raw;
+        } else {
+          // If the user entered words or search phrase, treat as Google search
+          targetUrl = `https://www.google.com/search?q=${encodeURIComponent(raw)}`;
+        }
       }
 
       // Safe escape for command shell
       const safeUrl = targetUrl.replace(/"/g, '""');
       const cmd = isWindows
-        ? `start "" "${safeUrl}"`
+        ? `cmd.exe /c start "" "${safeUrl}"`
         : isMac
         ? `open "${safeUrl}"`
         : `xdg-open "${safeUrl}"`;
 
       exec(cmd, (err) => {
-        if (err) console.error("[SystemAction] Failed to launch browser:", err);
+        if (err) {
+          console.error("[SystemAction] cmd start failed, trying explorer fallback:", err);
+          if (isWindows) {
+            exec(`explorer.exe "${safeUrl}"`);
+          }
+        }
       });
 
       return json({
