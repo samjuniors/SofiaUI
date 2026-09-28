@@ -5,7 +5,7 @@
  * that receives the mini-orb when content owns the centre stage.
  */
 
-import { Mic, MicOff, Settings, Zap } from 'lucide-react';
+import { Globe, Mic, MicOff, MessageSquare, Settings, Zap } from 'lucide-react';
 import { useEffect, useState, type RefObject } from 'react';
 import { controlLayer } from '../sophia/control';
 import type { StageLayout } from '../sophia/layout';
@@ -276,26 +276,12 @@ export function Dock({
       {onToggleBrowser && (
         <button
           type="button"
-          aria-label={browserOpen ? 'Minimize workspace' : 'Open fullscreen workspace'}
-          title="Fullscreen Workspace (Docks Sophia)"
+          aria-label={browserOpen ? 'Close browser' : 'Open browser'}
+          title="Sofia Browser"
           onClick={onToggleBrowser}
           className={`dock-btn ${browserOpen ? 'text-sky-300 drop-shadow-[0_0_12px_rgba(56,189,248,0.5)]' : ''}`}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-            <path d="M2 12h20" />
-          </svg>
+          <Globe size={18} strokeWidth={1.6} />
         </button>
       )}
 
@@ -308,22 +294,7 @@ export function Dock({
         onClick={onChat}
         className={`dock-btn ${chatOpen ? 'text-sky-300 drop-shadow-[0_0_10px_rgba(56,189,248,0.5)]' : ''}`}
       >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M20 14.5a2 2 0 0 1-2 2H9l-4.5 3.5V16.5H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
-          <circle cx="8.6" cy="10.5" r="0.55" fill="currentColor" />
-          <circle cx="12" cy="10.5" r="0.55" fill="currentColor" />
-          <circle cx="15.4" cy="10.5" r="0.55" fill="currentColor" />
-        </svg>
+        <MessageSquare size={18} strokeWidth={1.6} />
       </button>
 
       {/* Main Microphone Button */}

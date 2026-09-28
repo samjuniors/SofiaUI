@@ -273,6 +273,41 @@ export class ControlLayer extends EventTarget {
       });
       return true;
     }
+
+    // Search on browser command
+    const searchMatch = text.match(/(?:search(?:\s+on|\s+in|\s+with)?\s+(?:the\s+|my\s+)?browser(?:\s+for)?|search\s+for)\s+(.+)/i);
+    if (searchMatch) {
+      const q = searchMatch[1].trim();
+      this.dispatchEvent(new CustomEvent('command:browser', { detail: { open: true } }));
+      void toolRegistry.invoke({
+        name: 'system_control',
+        args: { action: 'search_browser', query: q },
+      });
+      return true;
+    }
+
+    // Stream / play music command
+    const musicMatch = text.match(/(?:stream|play)\s+(?:some\s+)?(?:music|song|video|lofi)(?:\s+(?:called|of|by)?\s*(.*))?/i);
+    if (musicMatch) {
+      const q = (musicMatch[1] || 'chill lofi music').trim();
+      this.dispatchEvent(new CustomEvent('command:browser', { detail: { open: true } }));
+      void toolRegistry.invoke({
+        name: 'system_control',
+        args: { action: 'stream_media', query: q },
+      });
+      return true;
+    }
+
+    // Open desktop apps
+    const appMatch = text.match(/(?:open|launch|start)\s+(?:the\s+)?(calc|calculator|notepad|spotify|terminal|cmd)/i);
+    if (appMatch) {
+      const appName = appMatch[1].toLowerCase();
+      void toolRegistry.invoke({
+        name: 'system_control',
+        args: { action: 'open_app', app: appName },
+      });
+      return true;
+    }
     if (/^(close browser|close workspace|hide browser|hide workspace)$/.test(text)) {
       this.dispatchEvent(new CustomEvent('command:browser', { detail: { open: false } }));
       return true;

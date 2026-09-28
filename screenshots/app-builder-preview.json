@@ -1,0 +1,5 @@
+{
+  "ok": false,
+  "url": "http://127.0.0.1:3000/",
+  "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:3000/\nCall log:\n  - navigating to \"http://127.0.0.1:3000/\", waiting until \"domcontentloaded\"\n"
+}

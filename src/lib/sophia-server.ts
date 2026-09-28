@@ -10,13 +10,14 @@
  *   GET  /api/sophia/status            → Backends, live models & diagnostics
  */
 
-import { exec } from "node:child_process";
 import os from "node:os";
+import { exec } from "node:child_process";
 import { ALL_SHAPES, SOPHIA_SYSTEM } from "../sophia/control";
 import { handleMediaProxy } from "./media-proxy";
 import { generateImage } from "./image-gen";
 import { handleWebSearch, getSearchProviderStatus } from "./web-search-server";
 import { handleStatusRequest, handleTtsRequest, handleChatRequest } from './sophia-live-server';
+import { handleBrowseProxy } from "./browse-proxy";
 
 const GEMINI_MODEL = process.env.GEMINI_LIVE_MODEL?.trim() || "models/gemini-3.8-live";
 const GEMINI_TEXT_MODEL = "gemini-3.8-flash";
@@ -913,9 +914,6 @@ async function handleSystemAction(req: Request): Promise<Response> {
       });
     }
 
-    const isWindows = process.platform === "win32";
-    const isMac = process.platform === "darwin";
-
     if (action === "open_browser" || action === "search_browser" || action === "stream_media") {
       let raw = (body.url || body.query || "").trim();
 
@@ -947,6 +945,9 @@ async function handleSystemAction(req: Request): Promise<Response> {
         }
       }
 
+      const isWindows = process.platform === "win32";
+      const isMac = process.platform === "darwin";
+
       // Safe escape for command shell
       const safeUrl = targetUrl.replace(/"/g, '""');
       const cmd = isWindows
@@ -968,42 +969,61 @@ async function handleSystemAction(req: Request): Promise<Response> {
         success: true,
         action,
         url: targetUrl,
-        message: `Opened ${targetUrl} in your default desktop browser.`,
+        desktopOpened: true,
+        message: `Opening ${targetUrl} on your device.`,
       });
     }
 
     if (action === "open_app") {
       const appName = (body.app || "").trim().toLowerCase();
-      const safeApps: Record<string, string> = {
-        notepad: isWindows ? "start notepad" : "open -a TextEdit",
-        calc: isWindows ? "start calc" : "open -a Calculator",
-        calculator: isWindows ? "start calc" : "open -a Calculator",
-        explorer: isWindows ? "start explorer" : "open .",
-        files: isWindows ? "start explorer" : "open .",
-        cmd: isWindows ? "start cmd" : "open -a Terminal",
-        terminal: isWindows ? "start wt || start cmd" : "open -a Terminal",
-        browser: isWindows ? 'start "" "https://www.google.com"' : 'open "https://www.google.com"',
-        chrome: isWindows ? 'start chrome || start "" "https://www.google.com"' : 'open -a "Google Chrome"',
-        edge: isWindows ? 'start msedge || start "" "https://www.google.com"' : 'open -a "Microsoft Edge"',
-        spotify: isWindows ? 'start spotify || start "" "https://open.spotify.com"' : 'open -a Spotify',
-      };
+      const isWindows = process.platform === "win32";
 
-      const launchCmd = safeApps[appName];
-      if (!launchCmd) {
-        return json(
-          { error: `App "${appName}" is not in the allowed launch list. Allowed: ${Object.keys(safeApps).join(", ")}` },
-          { status: 400 }
-        );
+      // Native Windows app launch
+      if (isWindows) {
+        const winAppCommands: Record<string, string> = {
+          calculator: "start calc:",
+          calc: "start calc:",
+          notepad: "start notepad.exe",
+          explorer: "start explorer.exe",
+          files: "start explorer.exe",
+          terminal: "start cmd.exe",
+          cmd: "start cmd.exe",
+          spotify: "start spotify:",
+          chrome: "start chrome.exe",
+          edge: "start msedge.exe",
+          browser: "start https://www.google.com",
+        };
+
+        const winCmd = winAppCommands[appName];
+        if (winCmd) {
+          exec(`cmd.exe /c ${winCmd}`, (err) => {
+            if (err) console.error(`[SystemAction] Launch ${appName} failed:`, err);
+          });
+        }
       }
 
-      exec(launchCmd, (err) => {
-        if (err) console.error("[SystemAction] Failed to launch app:", err);
-      });
+      const appMap: Record<string, { url: string; title: string }> = {
+        browser: { url: "https://www.google.com", title: "Sofia Browser" },
+        chrome: { url: "https://www.google.com", title: "Sofia Browser" },
+        edge: { url: "https://www.google.com", title: "Sofia Browser" },
+        notepad: { url: "https://en.wikipedia.org/wiki/Main_Page", title: "Notes" },
+        calc: { url: "https://www.desmos.com/scientific", title: "Calculator" },
+        calculator: { url: "https://www.desmos.com/scientific", title: "Calculator" },
+        explorer: { url: "https://www.google.com", title: "Sofia Browser" },
+        files: { url: "https://www.google.com", title: "Sofia Browser" },
+        terminal: { url: "https://www.google.com", title: "Sofia Browser" },
+        cmd: { url: "https://www.google.com", title: "Sofia Browser" },
+        spotify: { url: "https://open.spotify.com/embed", title: "Spotify" },
+      };
+      const dest = appMap[appName] || { url: "https://www.google.com", title: appName || "App" };
 
       return json({
         success: true,
         app: appName,
-        message: `Launched ${appName} on your device.`,
+        url: dest.url,
+        title: dest.title,
+        desktopOpened: isWindows,
+        message: `Opening ${dest.title} on your device.`,
       });
     }
 
@@ -1038,6 +1058,9 @@ export async function handleSophiaRequest(req: Request): Promise<Response> {
 
   if (req.method === "GET" && (path === "/" || path === "/status" || path === "")) {
     return json(statusPayload());
+  }
+  if (req.method === "GET" && (path === "/browse" || path.startsWith("/browse"))) {
+    return handleBrowseProxy(req);
   }
   if (req.method === "GET" && path === "/elevenlabs/voices") {
     return elevenLabsVoices();

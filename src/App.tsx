@@ -161,7 +161,7 @@ export default function App() {
     // Web navigation commands (web_search, open_url, play_music)
     const onNavCmd = (e: Event) => {
       const { url, query, title } = (e as CustomEvent).detail as { url?: string; query?: string; title?: string };
-      const target = url || (query ? `https://www.google.com/search?q=${encodeURIComponent(query)}` : '');
+      const target = url || (query ? `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}` : '');
       if (target) {
         setBrowserOpen(true);
         navigateBrowserTo(target, title);
