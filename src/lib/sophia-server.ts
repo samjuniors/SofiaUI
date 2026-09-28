@@ -13,6 +13,7 @@
 import { ALL_SHAPES, SOPHIA_SYSTEM } from "../sophia/control";
 import { handleMediaProxy } from "./media-proxy";
 import { generateImage } from "./image-gen";
+import { handleWebSearch, getSearchProviderStatus } from "./web-search-server";
 
 const GEMINI_MODEL = process.env.GEMINI_LIVE_MODEL?.trim() || "models/gemini-3.8-live";
 const GEMINI_TEXT_MODEL = "gemini-3.8-flash";
@@ -130,6 +131,7 @@ function statusPayload() {
     defaultBrainMode: brainMode,
     voice: hasGemini || deepgram || elevenlabs,
     ok: hasGemini || deepgram || elevenlabs,
+    searchProviders: getSearchProviderStatus(),
     timestamp: Date.now(),
   };
 }
@@ -926,6 +928,8 @@ export async function handleSophiaRequest(req: Request): Promise<Response> {
         return json({ error: err.message || "Failed to generate image" }, { status: 500 });
       }
     }
+    case "/tools/web-search":
+      return handleWebSearch(req);
     case "/gemini/speak":
       return geminiSpeak(req);
     case "/mouth/speak":

@@ -82,6 +82,68 @@ export const LIVE_TOOLS = [
   {
     functionDeclarations: [
       {
+        name: 'web_search',
+        description:
+          'Search the web for current events, news, weather, stock prices, sports scores, ' +
+          'factual lookups or any information that may be outdated in training data. ' +
+          'Use only when external/real-time data is needed. Returns a spoken summary and source list.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            query: {
+              type: 'STRING',
+              description: 'Concise, keyword-focused search query (max 12 words).',
+            },
+          },
+          required: ['query'],
+        },
+      },
+      {
+        name: 'ui_control',
+        description:
+          'Control the Sofia application interface. ' +
+          'Set state (idle, listening, thinking, speaking), open/close/toggle panels (browser, chat, settings, diagnostics, terminal), ' +
+          'navigate the browser to a URL, play music on YouTube, stop music, show notifications, or control volume. ' +
+          'IMPORTANT: never refuse a UI request — always call this tool.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            action: {
+              type: 'STRING',
+              enum: [
+                'set_state',
+                'open_panel', 'close_panel', 'toggle_panel', 'close_all_panels',
+                'navigate_to_url', 'play_music', 'stop_music',
+                'show_notification', 'set_volume', 'update_status_text',
+              ],
+              description: 'The UI action to perform.',
+            },
+            state: {
+              type: 'STRING',
+              enum: ['idle', 'listening', 'thinking', 'speaking', 'paused', 'wakeup'],
+              description: 'Target state for set_state action.',
+            },
+            panel: {
+              type: 'STRING',
+              enum: ['browser', 'chat', 'settings', 'diagnostics', 'terminal'],
+              description: 'Target panel (required for open/close/toggle_panel).',
+            },
+            url: { type: 'STRING', description: 'URL for navigate_to_url.' },
+            query: { type: 'STRING', description: 'Music search query for play_music.' },
+            message: { type: 'STRING', description: 'Notification text for show_notification.' },
+            level: {
+              type: 'STRING',
+              enum: ['info', 'success', 'warning', 'error'],
+              description: 'Notification severity (default: info).',
+            },
+            volume: { type: 'NUMBER', description: 'Volume level 0–100 for set_volume.' },
+            text: { type: 'STRING', description: 'Status text for update_status_text.' },
+            duration: { type: 'NUMBER', description: 'Duration in ms (notifications / status text).' },
+          },
+          required: ['action'],
+        },
+      },
+      {
         name: 'generate_image',
         description:
           'Generate a high-fidelity image, illustration, concept art, or diagram based on a prompt and display it immediately in the interface.',
@@ -96,18 +158,6 @@ export const LIVE_TOOLS = [
             },
           },
           required: ['prompt'],
-        },
-      },
-      {
-        name: 'web_search',
-        description:
-          'Search the web for any information, news, weather, facts, prices, events, or real-time data. Use this whenever the user asks to search, look up, find out, or browse anything.',
-        parameters: {
-          type: 'OBJECT',
-          properties: {
-            query: { type: 'STRING', description: 'The search query' },
-          },
-          required: ['query'],
         },
       },
       {

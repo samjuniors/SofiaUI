@@ -17,6 +17,8 @@ import { SettingsSheet } from './ui/SettingsSheet';
 import { Terminal } from './ui/Terminal';
 import { controlLayer } from './sophia/control';
 import { navigateBrowserTo } from './lib/browser-bridge';
+import { ToolStatusBadge } from './ui/ToolStatusBadge';
+import { scoreEngine } from './sophia/audio/ScoreEngine';
 
 function isTyping(): boolean {
   const el = document.activeElement;
@@ -132,12 +134,22 @@ export default function App() {
     };
     controlLayer.addEventListener('command:navigate', onNavCmd);
 
+    // Volume control command
+    const onVolCmd = (e: Event) => {
+      const { level } = (e as CustomEvent).detail as { level?: number };
+      if (typeof level === 'number') {
+        scoreEngine.setMasterVolume(level / 100);
+      }
+    };
+    controlLayer.addEventListener('command:volume', onVolCmd);
+
     return () => {
       controlLayer.removeEventListener('command:browser', onBrowserCmd);
       controlLayer.removeEventListener('command:ui', onUiCmd);
       controlLayer.removeEventListener('command:music', onMusicCmd);
       controlLayer.removeEventListener('image:generated', onImageGen);
       controlLayer.removeEventListener('command:navigate', onNavCmd);
+      controlLayer.removeEventListener('command:volume', onVolCmd);
     };
   }, [os]);
 
@@ -375,6 +387,9 @@ export default function App() {
           </button>
         )}
       </div>
+
+      {/* Voice-first subtle Tool status badge & notification HUD */}
+      <ToolStatusBadge />
 
       <Dock
         state={state}

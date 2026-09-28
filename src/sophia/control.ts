@@ -7,6 +7,7 @@
  */
 
 import type { SophiaShape, Turn } from './types';
+import { toolRegistry } from '../tools/registry';
 
 export function getSophiaSystem(voiceName?: string, voiceProfile?: string): string {
   let persona = 'an upbeat, warm, and loyal Australian friend having a live voice conversation.';
@@ -223,78 +224,17 @@ export class ControlLayer extends EventTarget {
     return {
       model,
       systemInstruction: { parts: [{ text: prompt + this.contextNote() }] },
-      functionDeclarations: [
-        {
-          name: 'transform_shape',
-          description:
-            'Transform Sophia\'s physical substance into a requested geometry (sphere, ring, waveform, bow, torus, infinity, helix, hypercube, pyramid, star, galaxy, heart, shield, matrix, split, merge, dissolve, face, letter-z, letter-s, letter-a, letter-o).',
-          parameters: {
-            type: 'OBJECT',
-            properties: {
-              shape: {
-                type: 'STRING',
-                enum: ALL_SHAPES as unknown as string[],
-              },
-            },
-            required: ['shape'],
-          },
-        },
-        {
-          name: 'generate_image',
-          description:
-            'Generate a photorealistic image, concept art, diagram, or artwork using Imagen 3 when asked to create, paint, or draw an image.',
-          parameters: {
-            type: 'OBJECT',
-            properties: {
-              prompt: { type: 'STRING', description: 'Descriptive prompt for the visual creation' },
-              aspectRatio: {
-                type: 'STRING',
-                enum: ['1:1', '16:9', '9:16', '4:3', '3:4'],
-                description: 'Aspect ratio (default 1:1)',
-              },
-            },
-            required: ['prompt'],
-          },
-        },
-        {
-          name: 'control_ui',
-          description:
-            'Open, close, or toggle UI panels like browser, chat, settings, diagnostics, terminal, or all panels.',
-          parameters: {
-            type: 'OBJECT',
-            properties: {
-              target: {
-                type: 'STRING',
-                enum: ['browser', 'chat', 'settings', 'diagnostics', 'terminal', 'all'],
-              },
-              action: {
-                type: 'STRING',
-                enum: ['open', 'close', 'toggle', 'minimize'],
-              },
-            },
-            required: ['target', 'action'],
-          },
-        },
-        {
-          name: 'play_music',
-          description: 'Play, pause, stop, or resume ambient music or score.',
-          parameters: {
-            type: 'OBJECT',
-            properties: {
-              action: {
-                type: 'STRING',
-                enum: ['play', 'stop', 'pause', 'resume'],
-              },
-            },
-            required: ['action'],
-          },
-        },
-      ],
+      // Single source of truth — pulled from the tool registry
+      functionDeclarations: toolRegistry.getFunctionDeclarations(),
     };
   }
 
   private contextNote(): string {
-    return ' Physical form: organic sphere (default) and circular ring (alternate). Transforms on command. Visual creation: capable of synthesizing photorealistic concept art and diagrams on command.';
+    return (
+      ' Physical form: organic sphere (default) and circular ring (alternate). Transforms on command.' +
+      ' Can generate images, search the web, control the UI, play music, open websites, and more via tools.' +
+      ' NEVER claim to lack capabilities — always call the appropriate tool.'
+    );
   }
 
   /** Direct command matching for snappy local state shifts. */
@@ -329,6 +269,12 @@ export class ControlLayer extends EventTarget {
   }
 
   async execute(call: FunctionCall): Promise<Record<string, unknown>> {
+    // ── Delegate to the tool registry for all registered tools ──────────────
+    if (toolRegistry.has(call.name)) {
+      return toolRegistry.invoke({ name: call.name, args: call.args, id: call.id });
+    }
+
+    // ── Legacy: transform_shape (not yet in registry, fast local dispatch) ──
     if (call.name === 'transform_shape') {
       const shape = String(call.args?.shape ?? 'organic') as SophiaShape;
       if (ALL_SHAPES.includes(shape)) {
@@ -338,6 +284,7 @@ export class ControlLayer extends EventTarget {
       return { status: 'unknown_shape', requested: shape };
     }
 
+    // ── Legacy: generate_image ───────────────────────────────────────────────
     if (call.name === 'generate_image') {
       const prompt = String(call.args?.prompt ?? '');
       const aspectRatio = String(call.args?.aspectRatio ?? '1:1');
@@ -353,7 +300,6 @@ export class ControlLayer extends EventTarget {
         }
         const data = await res.json();
         this.dispatchEvent(new CustomEvent('image:generated', { detail: data }));
-        // Add image turn to chat history so it appears in the chat panel
         this.addSophiaTurn(data.prompt || 'Here you go!', true, {
           imageUrl: data.url,
           imagePrompt: data.prompt,
@@ -364,44 +310,41 @@ export class ControlLayer extends EventTarget {
       }
     }
 
+    // ── Legacy: control_ui (old name) ────────────────────────────────────────
     if (call.name === 'control_ui') {
-      const target = String(call.args?.target ?? '');
-      const action = String(call.args?.action ?? 'toggle');
-      this.dispatchEvent(new CustomEvent('command:ui', { detail: { target, action } }));
-      return { status: 'ui_controlled', target, action };
+      // Re-map to the new ui_control tool
+      return toolRegistry.invoke({
+        name: 'ui_control',
+        args: {
+          action: call.args?.action === 'open' ? 'open_panel'
+            : call.args?.action === 'close' ? 'close_panel'
+            : call.args?.action === 'minimize' ? 'close_panel'
+            : 'toggle_panel',
+          panel: call.args?.target,
+        },
+        id: call.id,
+      });
     }
 
+    // ── Legacy: play_music ──────────────────────────────────────────────────
     if (call.name === 'play_music') {
-      const action = String(call.args?.action ?? 'play');
-      const query = String(call.args?.query ?? '');
-      if (action === 'play' || action === 'resume') {
-        const musicQuery = query || 'lofi chill music';
-        const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(musicQuery)}`;
-        this.dispatchEvent(new CustomEvent('command:navigate', { detail: { url: ytUrl, title: `Music: ${musicQuery}` } }));
-        this.dispatchEvent(new CustomEvent('command:ui', { detail: { target: 'browser', action: 'open' } }));
-      }
-      this.dispatchEvent(new CustomEvent('command:music', { detail: { action, query } }));
-      return { status: 'music_controlled', action, query };
+      return toolRegistry.invoke({
+        name: 'ui_control',
+        args: {
+          action: ['stop', 'pause'].includes(String(call.args?.action)) ? 'stop_music' : 'play_music',
+          query: call.args?.query,
+        },
+        id: call.id,
+      });
     }
 
-    if (call.name === 'web_search') {
-      const query = String(call.args?.query ?? '');
-      if (!query) return { error: 'No search query provided' };
-      // Navigate browser to Google search
-      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-      this.dispatchEvent(new CustomEvent('command:navigate', { detail: { url: searchUrl, query, title: `Search: ${query}` } }));
-      // Also open browser panel if not open
-      this.dispatchEvent(new CustomEvent('command:ui', { detail: { target: 'browser', action: 'open' } }));
-      return { status: 'searching', query, url: searchUrl };
-    }
-
+    // ── Legacy: open_url / web_search ───────────────────────────────────────
     if (call.name === 'open_url') {
-      const url = String(call.args?.url ?? '');
-      const title = String(call.args?.title ?? '');
-      if (!url) return { error: 'No URL provided' };
-      this.dispatchEvent(new CustomEvent('command:navigate', { detail: { url, title } }));
-      this.dispatchEvent(new CustomEvent('command:ui', { detail: { target: 'browser', action: 'open' } }));
-      return { status: 'navigating', url };
+      return toolRegistry.invoke({
+        name: 'ui_control',
+        args: { action: 'navigate_to_url', url: call.args?.url, text: call.args?.title },
+        id: call.id,
+      });
     }
 
     return { error: 'unknown_function', name: call.name };
