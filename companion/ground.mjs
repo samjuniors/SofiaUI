@@ -6,7 +6,7 @@
  *   ground_text {text, screenshot?} → pixel coordinates of on-screen text
  *   ground_ocr  {screenshot?}       → raw word boxes
  */
-import { execFile, spawn } from "node:child_process";
+import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

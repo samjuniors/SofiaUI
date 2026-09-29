@@ -16,6 +16,8 @@ export default tseslint.config(
       "node_modules/**",
       ".venv/**",
       "src/routeTree.gen.ts",
+      "artifacts/**",
+      "uploaded/**",
     ],
   },
   js.configs.recommended,

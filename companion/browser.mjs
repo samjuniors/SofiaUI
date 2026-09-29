@@ -3,7 +3,6 @@
  * Uses playwright-core against the user's own Chrome when available; degrades
  * into a clear hint otherwise. Never falls back to blind pixel clicks.
  */
-import { execFile } from "node:child_process";
 
 let pw = null;
 let browser = null;

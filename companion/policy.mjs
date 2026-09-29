@@ -7,7 +7,6 @@
  *   3. KILL SWITCH  abort flag + step budget + mouse top-left corner
  *   4. AUDIT        every action appended to actions.log.jsonl
  */
-import { promises as fs } from "node:fs";
 import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
 
