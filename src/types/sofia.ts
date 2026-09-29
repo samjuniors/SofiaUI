@@ -77,4 +77,6 @@ export interface WakeSettings {
   tapEnabled: boolean;
   sensitivity: number; // 0.1 to 1.0
   clapThreshold: number;
+  /** Phrases that wake her (lower-cased substring match). Defaults to the Sofia family. */
+  wakeWords?: string[];
 }

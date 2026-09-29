@@ -29,11 +29,14 @@ import type {
 import { DeepgramVoiceProvider } from './voice/DeepgramVoiceProvider';
 import { GeminiLiveProvider, type LiveConnectionMetrics } from './voice/GeminiLiveProvider';
 import { ElevenLabsVoiceProvider } from './voice/ElevenLabsVoiceProvider';
+import { LocalVoiceProvider } from './voice/LocalVoiceProvider';
+import { airplaneMode } from '../lib/airplane-mode';
+import { loadVoiceMode } from '../lib/voice-router';
 import type { VoiceProvider } from './voice/VoiceProvider';
 import { WakeWordSpotter } from './voice/wake';
 import { VisualDirector } from './VisualDirector';
 import { EmotionEngine } from '../core/EmotionEngine';
-import { WakeWordDetection } from '../core/WakeWordDetection';
+import { WakeWordDetection, loadWakePrefs, saveWakePrefs, DEFAULT_WAKE_WORDS } from '../core/WakeWordDetection';
 import { scoreEngine } from './audio/ScoreEngine';
 import { userVoiceProfile } from '../core/UserVoiceProfile';
 
@@ -156,10 +159,12 @@ export class SophiaOS extends EventTarget {
       'gemini-live': new GeminiLiveProvider(this.audio),
       deepgram: new DeepgramVoiceProvider(this.audio),
       elevenlabs: new ElevenLabsVoiceProvider(this.audio),
+      local: new LocalVoiceProvider(this.audio),
     };
     this.wireProvider(this.providers['gemini-live']);
     this.wireProvider(this.providers.deepgram);
     this.wireProvider(this.providers.elevenlabs);
+    this.wireProvider(this.providers.local);
 
     this.audio.onMicLevel((l) => (this.micLvl = l));
     this.audio.onPlaybackLevel((l) => (this.playLvl = l));
@@ -665,9 +670,14 @@ export class SophiaOS extends EventTarget {
       this.pushLog('info', `Microphone access status: ${micErr.message}`);
     }
 
-    // Determine provider selection: honor user's chosen Mouth TTS engine & transport
+    // Determine provider selection: honor user's chosen Mouth TTS engine & transport.
+    // Airplane mode forces the fully local transport; otherwise 'local' rides last
+    // in the chain so a cloud outage falls back to on-device instead of silence (Phase 9).
+    const forceLocal = airplaneMode.enabled || loadVoiceMode() === 'local';
     let primary: VoiceProviderId = 'gemini-live';
-    if (!controlLayer.pureGeminiLive) {
+    if (forceLocal) {
+      primary = 'local';
+    } else if (!controlLayer.pureGeminiLive) {
       if (controlLayer.mouthProvider === 'elevenlabs') {
         primary = 'elevenlabs';
       } else if (controlLayer.mouthProvider === 'deepgram') {
@@ -678,7 +688,7 @@ export class SophiaOS extends EventTarget {
     }
 
     const order: VoiceProviderId[] = Array.from(
-      new Set([primary, 'gemini-live', 'elevenlabs', 'deepgram'])
+      new Set(forceLocal ? ['local' as VoiceProviderId] : [primary, 'gemini-live', 'elevenlabs', 'deepgram', 'local' as VoiceProviderId])
     );
 
     let started = false;
@@ -1036,7 +1046,20 @@ export class SophiaOS extends EventTarget {
     }
     this.spotter.unblock();
     this.spotter.start();
-    this.pushLog('info', 'wake-word spotter active ("Hey Sofia")');
+    this.pushLog('info', `wake-word spotter active (${this.getWakeWords().map((w) => `"${w}"`).join(', ')})`);
+  }
+
+  /** Phrases that wake her (Phase 9: configurable, persisted). */
+  getWakeWords(): string[] {
+    const persisted = loadWakePrefs().wakeWords;
+    return this.spotter?.getWakeWords() ?? (persisted?.length ? persisted : DEFAULT_WAKE_WORDS);
+  }
+
+  setWakeWords(words: string[]) {
+    saveWakePrefs({ wakeWords: words, wakeWordEnabled: this.prefs.wake });
+    this.spotter?.setWakeWords(words);
+    this.pushLog('info', `wake phrases updated: ${words.length ? words.join(', ') : 'defaults'}`);
+    this.dispatchEvent(new CustomEvent('prefs', { detail: this.prefs }));
   }
 
   /* --------------------------- provider events -------------------------- */

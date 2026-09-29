@@ -4,7 +4,12 @@
  * Uses the browser SpeechRecognition stream in a clean lifecycle loop.
  * Recovers reliably from Chromium idle timeouts and audio endpoint transitions,
  * ensuring Sofia is always ready to wake when in standby or ambient mode.
+ *
+ * The phrase list is configurable + persisted (shared with WakeWordDetection
+ * via loadWakePrefs/saveWakePrefs), and matching goes through the pure,
+ * unit-tested `matchesWakeWord`.
  */
+import { matchesWakeWord, DEFAULT_WAKE_WORDS, loadWakePrefs } from '../../core/WakeWordDetection';
 
 type AnySpeech = {
   new (): SpeechRecognitionLike;
@@ -30,8 +35,21 @@ export class WakeWordSpotter {
   private restartTimer: ReturnType<typeof setTimeout> | null = null;
   available = false;
   blocked = false;
+  private wakeWords: string[];
 
-  constructor(private onWake: () => void) {}
+  constructor(private onWake: () => void, wakeWords?: string[]) {
+    const persisted = loadWakePrefs().wakeWords;
+    this.wakeWords = wakeWords?.length ? wakeWords : persisted?.length ? persisted : DEFAULT_WAKE_WORDS;
+  }
+
+  /** Replace the wake phrases at runtime (e.g. from Settings). */
+  setWakeWords(words: string[]) {
+    this.wakeWords = words.length ? words : DEFAULT_WAKE_WORDS;
+  }
+
+  getWakeWords(): string[] {
+    return [...this.wakeWords];
+  }
 
   private create(): SpeechRecognitionLike | null {
     if (typeof window === 'undefined') return null;
@@ -90,9 +108,9 @@ export class WakeWordSpotter {
         const text = (result[j]?.transcript ?? '').toLowerCase().trim();
         if (!text) continue;
 
-        // Matches variations: "hey sofia", "hi sofia", "hello sofia", "sofia", "hey sophia", "sophia", "wake up sofia", "wake up"
+        // Configurable phrase list + the classic attention calls.
         const matched =
-          /(^|\b)(hey|hi|hello|wake up|ok|okay)?\s*[,'\s]*(sofia|sophia|sophie|sofi)\b/i.test(text) ||
+          matchesWakeWord(text, this.wakeWords) !== null ||
           /^(wake\s*up|wake|hey\s*there)$/i.test(text);
 
         if (matched) {
