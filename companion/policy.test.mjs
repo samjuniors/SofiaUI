@@ -49,7 +49,7 @@ test("url allowlist", () => {
 });
 
 test("action registry covers the documented surfaces", () => {
-  for (const a of ["ping", "voice_info", "tts_local", "stt_local", "store_get", "episodes_add", "files_list", "health_snapshot", "ground_text", "browser_open_read"]) {
+  for (const a of ["ping", "voice_info", "tts_local", "stt_local", "store_get", "episodes_add", "files_list", "health_snapshot", "ground_text", "ground_ocr", "observe", "browser_open_read"]) {
     assert.ok(ACTIONS.has(a), `missing action ${a}`);
   }
 });

@@ -7,7 +7,7 @@
   "main": "server.mjs",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test policy.test.mjs voice.test.mjs win32.test.mjs",
+    "test": "node --test policy.test.mjs voice.test.mjs win32.test.mjs observe.test.mjs",
     "bench": "node bench.mjs"
   },
   "dependencies": {

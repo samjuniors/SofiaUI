@@ -24,7 +24,8 @@
  *
  * RESIDUAL POWERSHELL (deliberate, none latency-critical): toast
  * notifications, CoreAudio volume (COM), the UIA target-text probe on
- * the LEGACY path only, and the full legacy input path itself.
+ * the LEGACY path only, the UIA tree probe for observe (COM UIA is out
+ * of scope for koffi), and the full legacy input path itself.
  *
  * External contract is unchanged: PHYSICAL pixels in, same action names
  * out. Native results add `via: "native"`; legacy results are untouched.
@@ -648,7 +649,11 @@ async function nativeOpenApp(app) {
   return { opened: String(app), focus };
 }
 
-async function nativeScreenshot(file) {
+/**
+ * Capture the virtual screen to BGRA32 pixels (bottom-up rows, as
+ * GetDIBits returns them). Shared by file screenshots and observe shots.
+ */
+export async function nativeCaptureBgra() {
   const ctx = await ctxOrThrow();
   const m = await nativeMetrics();
   const { width: w, height: h } = m;
@@ -669,14 +674,19 @@ async function nativeScreenshot(file) {
     const bmi = bitmapInfoHeader(w, h);
     const lines = ctx.getDIBits(memDC, hbmp, 0, h, bits, bmi, DIB_RGB_COLORS);
     if (!lines) throw new Error("GetDIBits failed");
-    await writeFile(file, bmpFromBgra32(w, h, bits));
-    return { path: file };
+    return { w, h, bgra: bits, metrics: m };
   } finally {
     try { if (memDC && oldObj) ctx.selectObject(memDC, oldObj); } catch { /* ignore */ }
     try { if (hbmp) ctx.deleteObject(hbmp); } catch { /* ignore */ }
     try { if (memDC) ctx.deleteDC(memDC); } catch { /* ignore */ }
     try { ctx.releaseDC(null, screenDC); } catch { /* ignore */ }
   }
+}
+
+async function nativeScreenshot(file) {
+  const { w, h, bgra } = await nativeCaptureBgra();
+  await writeFile(file, bmpFromBgra32(w, h, bgra));
+  return { path: file };
 }
 
 /** Fast target text for hotkeys: foreground window title. */

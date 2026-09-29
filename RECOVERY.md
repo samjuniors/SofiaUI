@@ -95,7 +95,8 @@ npm run eval                     # companion reliability battery (100% baseline)
 ## Rules carried forward
 - No auth on `/api/sophia` for now (user decision).
 - Sofia UI architecture is upgraded, never replaced.
-- Keep artifacts in `exports/`; user handles GitHub push/transfer.
+- Re-export the phase artifact into `exports/` AND commit it with the phase
+  (every phase commit on this branch carries its `exports/phase-*` dir + zip).
 - Known sandbox traps: banner prints before WS bind (retry-connect in harness);
   `xdotool` absent → accept `action_failed` as gate-cleared; node `--test` needs explicit
   `.ts` extensions in imports; `allowImportingTsExtensions` is on, so `.ts` imports are fine.

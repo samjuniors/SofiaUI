@@ -178,6 +178,25 @@ export const TASKS = [
     },
   },
   {
+    id: "observe_graceful", category: "perception",
+    run: async (ctx) => {
+      const r = await ctx.call("observe", {});
+      // Headed machines return the full shape; headless ones must fail
+      // closed (action_failed + hint), never throw or hang.
+      if (ok(r)) {
+        const o = r.result;
+        const good = o && Array.isArray(o.ui_tree) && o.active_window && typeof o.active_window === "object" &&
+          Array.isArray(o.notes) && typeof o.tree_source === "string" &&
+          (o.screenshot_b64 === null || typeof o.screenshot_b64 === "string");
+        return good
+          ? { pass: true, detail: `tree=${o.ui_tree.length} shot=${o.screenshot_b64 ? "yes" : "no"}` }
+          : fail("observe shape changed");
+      }
+      const graceful = r.error === "action_failed" && typeof r.detail === "string" && r.detail.length > 0;
+      return graceful ? { pass: true, detail: "fails closed with a hint" } : fail("observe failed without a hint");
+    },
+  },
+  {
     id: "browser_open_read", category: "browser",
     skip: !process.env.EVAL_HAS_CHROME,
     run: async (ctx) => {

@@ -10,6 +10,7 @@
 import { execFile, spawn } from "node:child_process";
 import { platform } from "node:os";
 import { win32NativeReady, nativeSystemAction, NATIVE_ACTIONS, nativeTargetText, nativeFocusedText, nativeMetrics } from "./win32.mjs";
+import { observeAction } from "./observe.mjs";
 
 const run = (cmd, args, timeout = 15000) =>
   new Promise((resolve, reject) => execFile(cmd, args, { timeout, maxBuffer: 10e6, windowsHide: true }, (err, out) => (err ? reject(err) : resolve(String(out)))));
@@ -508,11 +509,17 @@ export async function systemAction(action, a = {}) {
         await ps(`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$b=[System.Windows.Forms.SystemInformation]::VirtualScreen;$bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height;$g=[System.Drawing.Graphics]::FromImage($bmp);$g.CopyFromScreen($b.X,$b.Y,0,0,$bmp.Size);$bmp.Save('${esc(file)}');$g.Dispose();$bmp.Dispose()`);
         return { path: file };
       }
-      // linux: try common tools
-      for (const [cmd, args] of [["gnome-screenshot", ["-f", file]], ["scrot", [file]], ["import", [file]]]) {
+      // linux: try common tools (`import` needs -window root or it waits for a click)
+      for (const [cmd, args] of [["gnome-screenshot", ["-f", file]], ["scrot", [file]], ["import", ["-window", "root", file]]]) {
         try { await run(cmd, args); return { path: file }; } catch { /* next */ }
       }
       throw new Error("No screenshot tool found (install gnome-screenshot or scrot).");
+    }
+
+    case "observe": {
+      // One-call perception: screenshot + active window + UI tree.
+      // Metrics ride along for the darwin AX points→physical conversion.
+      return observeAction(a, { metrics: await getDisplayMetrics() });
     }
 
     case "get_cursor": {
