@@ -16,6 +16,7 @@ import { ModularProvider } from './providers/ModularProvider';
 import { VoiceActivityDetection } from './VoiceActivityDetection';
 import { WakeTrigger, WakeWordDetection } from './WakeWordDetection';
 import { sophiaMemory } from './SophiaMemory';
+import { airplaneMode } from '../lib/airplane-mode';
 
 export interface ConversationManagerCallbacks {
   onStateChange: (state: SofiaState) => void;
@@ -336,48 +337,101 @@ export class ConversationManager {
       this.emotionEngine.setEmotion(userEmotion);
       this.callbacks.onEmotionChange(userEmotion);
 
-      // Generate response from Gemini Flash
+      // Generate response — cloud (Gemini Flash) first, with a fully-local
+      // airplane-mode fallback so she never goes silent (Phase 9).
+      const localFirst = airplaneMode.enabled;
+      let handledLocally = false;
+
       try {
-        const responseText = await this.modularProvider.generateResponse(
-          this.messages.map((m) => ({ role: m.role, content: m.text })),
-          userText,
-          userEmotion
-        );
+        if (localFirst) {
+          handledLocally = await this.runLocalTurn(userText, userEmotion);
+          if (!handledLocally) throw new Error('local voice unavailable');
+        } else {
+          const responseText = await this.modularProvider.generateResponse(
+            this.messages.map((m) => ({ role: m.role, content: m.text })),
+            userText,
+            userEmotion
+          );
 
-        if (this.state === 'INTERRUPTED') return;
+          if (this.state === 'INTERRUPTED') return;
 
-        const cleanText = this.personaEngine.cleanSpokenText(responseText);
-        const sofiaMsg: SofiaMessage = {
-          id: 'sofia-' + Date.now(),
-          role: 'sofia',
-          text: cleanText,
-          timestamp: Date.now(),
-          emotion: userEmotion
-        };
-        this.messages.push(sofiaMsg);
-        this.callbacks.onMessageAdd(sofiaMsg);
+          const cleanText = this.personaEngine.cleanSpokenText(responseText);
+          const sofiaMsg: SofiaMessage = {
+            id: 'sofia-' + Date.now(),
+            role: 'sofia',
+            text: cleanText,
+            timestamp: Date.now(),
+            emotion: userEmotion
+          };
+          this.messages.push(sofiaMsg);
+          this.callbacks.onMessageAdd(sofiaMsg);
 
-        this.setState('SPEAKING');
-        this.interruptionManager.setSofiaSpeaking(true);
+          this.setState('SPEAKING');
+          this.interruptionManager.setSofiaSpeaking(true);
 
-        await this.modularProvider.speak(
-          cleanText,
-          this.voiceConfig,
-          userEmotion,
-          (pcmChunk) => {
-            this.audioOutput.queuePcmChunk(pcmChunk);
-          }
-        );
+          await this.modularProvider.speak(
+            cleanText,
+            this.voiceConfig,
+            userEmotion,
+            (pcmChunk) => {
+              this.audioOutput.queuePcmChunk(pcmChunk);
+            }
+          );
+        }
       } catch (err: any) {
         console.error('Modular turn error:', err);
-        this.setState('ERROR');
-        setTimeout(() => this.setState('IDLE'), 2000);
+        // Cloud failed → try the local loop before giving up.
+        if (!handledLocally && !localFirst) {
+          const recovered = await this.runLocalTurn(userText, userEmotion);
+          if (!recovered) {
+            this.setState('ERROR');
+            setTimeout(() => this.setState('IDLE'), 2000);
+          }
+        } else {
+          this.setState('ERROR');
+          setTimeout(() => this.setState('IDLE'), 2000);
+        }
       } finally {
         this.isProcessingTurn = false;
         if (!this.audioOutput.getIsPlaying() && this.state !== 'INTERRUPTED') {
           this.setState('IDLE');
         }
       }
+    }
+  }
+
+  /**
+   * Fully offline turn: local brain (Ollama) + local TTS via the companion.
+   * Returns true if the turn completed locally. Never throws.
+   */
+  private async runLocalTurn(userText: string, userEmotion: Emotion): Promise<boolean> {
+    try {
+      const reply = await airplaneMode.askLocalBrain(userText);
+      if (this.state === 'INTERRUPTED') return true;
+
+      const cleanText = this.personaEngine.cleanSpokenText(reply);
+      const sofiaMsg: SofiaMessage = {
+        id: 'sofia-local-' + Date.now(),
+        role: 'sofia',
+        text: cleanText,
+        timestamp: Date.now(),
+        emotion: userEmotion
+      };
+      this.messages.push(sofiaMsg);
+      this.callbacks.onMessageAdd(sofiaMsg);
+
+      this.setState('SPEAKING');
+      this.interruptionManager.setSofiaSpeaking(true);
+      try {
+        await airplaneMode.speakLocal(cleanText);
+      } catch {
+        // No local TTS engine — fall back to the browser voice so she still answers.
+        try { window.speechSynthesis?.speak(new SpeechSynthesisUtterance(cleanText)); } catch { /* ignore */ }
+      }
+      return true;
+    } catch (err) {
+      console.warn('Local turn unavailable:', err);
+      return false;
     }
   }
 

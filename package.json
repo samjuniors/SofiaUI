@@ -16,9 +16,11 @@
     "preview:stop": "node scripts/preview.mjs stop",
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/sophia-server-policy.test.ts",
+    "test": "node --test scripts/grok-pwa-plugin.test.mjs scripts/eval-tasks.test.mjs companion/policy.test.mjs companion/voice.test.mjs && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/sophia-server-policy.test.ts src/lib/wav.test.ts src/lib/voice-router.test.ts src/core/wake-word.test.ts",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "eval": "node scripts/eval-harness.mjs",
+    "setup": "npm install && npm install --prefix companion"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
@@ -95,6 +97,7 @@
     "prettier": "^3.4.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.56.1",
-    "vite": "^8.2.0"
+    "vite": "^8.2.0",
+    "ws": "^8.18.0"
   }
 }

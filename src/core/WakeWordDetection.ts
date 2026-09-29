@@ -1,4 +1,4 @@
-import { WakeSettings } from '../types/sofia';
+import type { WakeSettings } from '../types/sofia.ts';
 
 export type WakeTrigger = 'wake-word' | 'clap' | 'tap';
 
@@ -8,13 +8,67 @@ export interface WakeWordCallbacks {
   onWakeWordHeard?: (transcript: string) => void;
 }
 
+/** Phrases that wake her, in priority order. Lower-cased substring match. */
+export const DEFAULT_WAKE_WORDS = [
+  'hey sofia',
+  'hey sophia',
+  'hi sofia',
+  'hi sophia',
+  'hello sofia',
+  'hello sophia',
+  'sofia',
+  'sophia',
+];
+
+const WAKE_PREF_KEY = 'sophia:wake:v1';
+
+/**
+ * Pure wake-word matcher. Matches if any configured phrase appears as a
+ * whole-word-ish substring of the (already lower-cased, trimmed) transcript.
+ * Exported so it's unit-tested independently of the browser recognizer.
+ */
+export function matchesWakeWord(transcript: string, wakeWords: string[] = DEFAULT_WAKE_WORDS): string | null {
+  const t = transcript.toLowerCase().trim();
+  if (!t) return null;
+  for (const w of wakeWords) {
+    const phrase = w.toLowerCase().trim();
+    if (!phrase) continue;
+    const idx = t.indexOf(phrase);
+    if (idx === -1) continue;
+    // Require the phrase to sit on word boundaries so "asofia" doesn't fire.
+    const before = idx > 0 ? t[idx - 1] : ' ';
+    const after = idx + phrase.length < t.length ? t[idx + phrase.length] : ' ';
+    if (/[\s,.!?]/.test(before) && /[\s,.!?]/.test(after)) return phrase;
+  }
+  return null;
+}
+
+/** Load persisted wake settings (survives reload); never throws. */
+export function loadWakePrefs(): Partial<WakeSettings> {
+  try {
+    const raw = localStorage.getItem(WAKE_PREF_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveWakePrefs(settings: Partial<WakeSettings>) {
+  try {
+    localStorage.setItem(WAKE_PREF_KEY, JSON.stringify(settings));
+  } catch { /* ignore */ }
+}
+
 export class WakeWordDetection {
   private settings: WakeSettings = {
     wakeWordEnabled: true,
     clapGestureEnabled: true,
     tapEnabled: true,
     sensitivity: 0.6,
-    clapThreshold: 0.35
+    clapThreshold: 0.35,
+    wakeWords: DEFAULT_WAKE_WORDS,
   };
 
   private callbacks: WakeWordCallbacks;
@@ -26,14 +80,16 @@ export class WakeWordDetection {
 
   constructor(callbacks: WakeWordCallbacks, initialSettings?: Partial<WakeSettings>) {
     this.callbacks = callbacks;
-    if (initialSettings) {
-      this.settings = { ...this.settings, ...initialSettings };
-    }
+    const persisted = loadWakePrefs();
+    this.settings = { ...this.settings, ...persisted, ...initialSettings };
+    if (!this.settings.wakeWords?.length) this.settings.wakeWords = DEFAULT_WAKE_WORDS;
     this.initSpeechRecognition();
   }
 
   updateSettings(newSettings: Partial<WakeSettings>) {
     this.settings = { ...this.settings, ...newSettings };
+    if (newSettings.wakeWords && !newSettings.wakeWords.length) this.settings.wakeWords = DEFAULT_WAKE_WORDS;
+    saveWakePrefs(this.settings);
     if (!this.settings.wakeWordEnabled && this.isListeningForWakeWord) {
       this.stopWakeWordRecognizer();
     } else if (this.settings.wakeWordEnabled && !this.isListeningForWakeWord) {
@@ -69,15 +125,7 @@ export class WakeWordDetection {
           const transcript = results[i][0].transcript.trim().toLowerCase();
           this.callbacks.onWakeWordHeard?.(transcript);
 
-          // Check wake word matches
-          if (
-            transcript.includes('hey sofia') ||
-            transcript.includes('hey sophia') ||
-            transcript.includes('hi sofia') ||
-            transcript.includes('hello sofia') ||
-            transcript.includes('sofia') ||
-            transcript.includes('sophia')
-          ) {
+          if (matchesWakeWord(transcript, this.settings.wakeWords)) {
             this.handleWake('wake-word');
             break;
           }
