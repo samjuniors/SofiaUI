@@ -1,0 +1,35 @@
+
+> eval
+> node scripts/eval-harness.mjs
+
+
+  Sofia Companion eval — 2026-09-29T06:46:53.882Z
+  ────────────────────────────────────────────────────────────────
+  core
+    ✅ ping                       PASS  1ms  (linux)
+  memory
+    ✅ store_roundtrip            PASS  8ms
+    ✅ episodes_fts_search        PASS  8ms  (engine=fts5)
+  files+safety
+    ✅ files_sandbox_enforced     PASS  1ms  (escape attempt blocked)
+  files
+    ✅ files_list_find_read       PASS  3ms
+  system
+    ✅ health_snapshot_shape      PASS  11ms  (score=100)
+  voice
+    ✅ local_voice_info_shape     PASS  14ms  (platform=linux tts=false stt=false)
+  safety
+    ✅ confirmation_gates         PASS  1ms  (both destructive actions gated)
+    ✅ kill_switch_flow           PASS  2ms  (gate cleared (aborted))
+    ✅ unknown_action_rejected    PASS  0ms
+  skills
+    ✅ skills_list_shape          PASS  1ms  (50 skills)
+  media
+    ✅ media_status_shape         PASS  0ms  (playing=null source=none)
+  messaging
+    ✅ whatsapp_unavailable_graceful PASS  1ms  (fails closed with a setup hint)
+  browser
+    ⏭️ browser_open_read          SKIP  (not available here)
+  ────────────────────────────────────────────────────────────────
+  SUCCESS RATE: 100%  (13 pass · 0 fail · 1 skip)
+
