@@ -63,6 +63,7 @@ and re-proven green (100% eval, all tests passing).
 | Hands check (Phase 15) | Diagnostics gains `HandsCard`: voice brain (cloud tools vs local no-tools), Computer skill switch, companion link, safe read-only cursor test — pinpoints exactly which gate blocks voice→mouse/keys | ✅ |
 | Companion hardening + API auth (Phase 16) | Daemon: exact-match app allowlist, detached-spawn linux launch, SendKeys hotkey parser, word-boundary risk classifier + OCR/UIA target reads, one-time confirmation_ids (model confirm:true dead), DPI/virtual-screen metrics, win32+darwin drag, Quartz scroll, CoreAudio volume. Web: better-auth gate on every /api/sophia/* route (deny by default), bearer-aware client fetch | ✅ |
 | win32 native backend (Phase 17) | `companion/win32.mjs` (koffi FFI: INPUT builders, unicode type, VK hotkeys, DPI metrics, BitBlt screenshots, window enum+focus), native hook in `system.mjs` + legacy PS fallback, `active_window {list:true}`, `bench.mjs` latency probe | ✅ tests 116+283, eval 100% |
+| Offline mode + local audio + dashboard command center (Phase 32) | `src/lib/run-mode.ts` (Cloud/Auto/Offline store, auto-trip + recovery) + `airplane-mode` delegation; decider direct-to-Ollama fallback + JSON salvage; `src/lib/local-audio.ts` (companion Whisper or custom OpenAI-compatible STT endpoint, see `AUDIO_MODELS.md`); `ModeToggle` in dashboard header + Ear & Mouth; dashboard COMMAND section (Skills/Tools boards, MCP stub) | ✅ + 22 tests, eval 100% |
 
 ## ❌ Lost — must be rebuilt in the new session (designs preserved below)
 
