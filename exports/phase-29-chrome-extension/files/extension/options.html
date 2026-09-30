@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Sofia Hands — pairing</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; max-width: 560px; margin: 32px auto; padding: 0 16px; color: #111; }
+  h1 { font-size: 20px; }
+  .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin: 16px 0; }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  input { width: 100%; box-sizing: border-box; padding: 8px; font: inherit; border: 1px solid #bbb; border-radius: 8px; }
+  button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid #888; background: #f4f4f4; cursor: pointer; margin-top: 12px; }
+  button.primary { background: #0a58ca; border-color: #0a58ca; color: #fff; }
+  #status { font-weight: 600; }
+  .ok { color: #0a7a2f; } .bad { color: #b00; } .dim { color: #666; font-weight: 400; }
+  code { background: #f0f0f0; padding: 1px 6px; border-radius: 6px; }
+  ol li { margin: 6px 0; }
+</style>
+</head>
+<body>
+  <h1>Sofia Hands — pair with your PC</h1>
+  <p>Status: <span id="status" class="dim">checking…</span></p>
+
+  <div class="card">
+    <ol>
+      <li>Start the daemon on this PC (<code>node companion/server.mjs</code>) or open the Sofia desktop app.</li>
+      <li>In Sofia open <b>Settings → Devices &amp; Sessions → Pair a new device</b> and copy the code.</li>
+      <li>Paste it below and Save — this Chrome will answer DOM requests from your daemon.</li>
+    </ol>
+    <label for="code">Pairing code or master token</label>
+    <input id="code" type="text" autocomplete="off" spellcheck="false" placeholder="AB12-CD34" />
+    <label for="port">Daemon port</label>
+    <input id="port" type="number" min="1" max="65535" value="7788" />
+    <div>
+      <button id="save" class="primary" type="button">Save &amp; connect</button>
+      <button id="inject" type="button" title="Load the content script into tabs that were already open">Fix open tabs</button>
+    </div>
+    <p class="dim">The extension talks to <code>127.0.0.1</code> only — page content goes to your own daemon, never to any server. “Fix open tabs” injects the helper into tabs opened before install.</p>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
