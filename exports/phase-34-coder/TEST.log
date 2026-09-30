@@ -1,0 +1,4181 @@
+
+> test
+> node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/desktop-config.cjs && node --check electron/dev.mjs && node --check scripts/dev-all.mjs && node --check companion/bench.mjs && node --test memory/memory.test.mjs memory/mirror.test.mjs companion/pairing.test.mjs scripts/eval-apps.test.mjs scripts/self-improve.test.mjs scripts/grok-pwa-plugin.test.mjs scripts/eval-tasks.test.mjs companion/policy.test.mjs companion/voice.test.mjs companion/win32.test.mjs companion/observe.test.mjs companion/episodes.test.mjs companion/coder.test.mjs electron/desktop-config.test.mjs && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/sophia-server-policy.test.ts src/lib/wav.test.ts src/lib/voice-router.test.ts src/lib/run-mode.test.ts src/lib/local-audio.test.ts src/lib/chat-image.test.ts src/lib/device-identity.test.ts src/lib/reliability.test.ts src/core/mission-report.test.ts src/core/wake-word.test.ts src/core/soul.test.ts src/core/memory-store.test.ts src/core/skills-registry.test.ts src/lib/daily-skills.test.ts src/lib/themes.test.ts src/lib/world-map.test.ts src/lib/headlines.test.ts src/core/agent-town.test.ts src/core/latency-meter.test.ts src/lib/episodes.test.ts src/lib/grounding.test.ts src/sophia/ambient-scheduler.test.ts src/tools/proactive-tool.test.ts src/tools/local-voice-tool.test.ts src/tools/computer-tool.test.ts src/core/task-decider.test.ts src/core/task-loop.test.ts src/core/task-critic.test.ts src/core/task-mirror.test.ts src/policy/autonomy.test.ts src/tools/task-tool.test.ts src/core/task-board.test.ts src/core/workers.test.ts src/core/orchestrator.test.ts src/tools/orchestrate-tool.test.ts src/tools/coder-tool.test.ts src/core/decision-judge.test.ts src/core/injection-guard.test.ts src/core/judge-memory.test.ts src/lib/live-turn-latency.test.ts src/tools/observe-tool.test.ts src/sophia/voice/TaskNarrator.test.ts src/sophia/voice/live-setup.test.ts src/lib/ollama-embed.test.ts src/lib/embeddings.test.ts src/lib/memory.test.ts scripts/eval-desktop.test.mjs
+
+TAP version 13
+# Subtest: CLI allowlist holds exactly the two supported CLIs
+ok 1 - CLI allowlist holds exactly the two supported CLIs
+  ---
+  duration_ms: 1.395295
+  type: 'test'
+  ...
+# Subtest: buildCodexArgs uses the verified headless flags
+ok 2 - buildCodexArgs uses the verified headless flags
+  ---
+  duration_ms: 0.51198
+  type: 'test'
+  ...
+# Subtest: buildClaudeArgs uses the verified print-mode flags
+ok 3 - buildClaudeArgs uses the verified print-mode flags
+  ---
+  duration_ms: 0.358538
+  type: 'test'
+  ...
+# Subtest: test commands split quotes and reject shells and unknown runners
+ok 4 - test commands split quotes and reject shells and unknown runners
+  ---
+  duration_ms: 0.449499
+  type: 'test'
+  ...
+# Subtest: runCoderJob: clean → worktree → CLI → tests → diff → cleanup
+ok 5 - runCoderJob: clean → worktree → CLI → tests → diff → cleanup
+  ---
+  duration_ms: 1.32513
+  type: 'test'
+  ...
+# Subtest: runCoderJob refuses dirty repos before creating anything
+ok 6 - runCoderJob refuses dirty repos before creating anything
+  ---
+  duration_ms: 1.751079
+  type: 'test'
+  ...
+# Subtest: runCoderJob refuses unknown repos and missing CLIs
+ok 7 - runCoderJob refuses unknown repos and missing CLIs
+  ---
+  duration_ms: 0.700909
+  type: 'test'
+  ...
+# Subtest: runCoderJob still cleans up when the CLI times out
+ok 8 - runCoderJob still cleans up when the CLI times out
+  ---
+  duration_ms: 0.455906
+  type: 'test'
+  ...
+# Subtest: runCoderJob reports failing tests and blocks their merge
+ok 9 - runCoderJob reports failing tests and blocks their merge
+  ---
+  duration_ms: 0.711114
+  type: 'test'
+  ...
+# Subtest: mergeCoderJob merges green jobs and deletes the branch
+ok 10 - mergeCoderJob merges green jobs and deletes the branch
+  ---
+  duration_ms: 0.864812
+  type: 'test'
+  ...
+# Subtest: mergeCoderJob keeps the branch on conflict
+ok 11 - mergeCoderJob keeps the branch on conflict
+  ---
+  duration_ms: 0.507918
+  type: 'test'
+  ...
+# Subtest: probeCli reports per-CLI availability
+ok 12 - probeCli reports per-CLI availability
+  ---
+  duration_ms: 0.313757
+  type: 'test'
+  ...
+# Subtest: coderAction dispatches probe/run/merge
+ok 13 - coderAction dispatches probe/run/merge
+  ---
+  duration_ms: 0.577221
+  type: 'test'
+  ...
+# Subtest: pure helpers: validation, cosine, RRF
+ok 14 - pure helpers: validation, cosine, RRF
+  ---
+  duration_ms: 1.380071
+  type: 'test'
+  ...
+# (node:5955) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: keyword search still works; hybrid flag defaults false
+ok 15 - keyword search still works; hybrid flag defaults false
+  ---
+  duration_ms: 22.230176
+  type: 'test'
+  ...
+# Subtest: vector leg recalls with zero keyword overlap and ranks first
+ok 16 - vector leg recalls with zero keyword overlap and ranks first
+  ---
+  duration_ms: 13.102211
+  type: 'test'
+  ...
+# Subtest: dim mismatch and invalid vectors degrade to keyword-only
+ok 17 - dim mismatch and invalid vectors degrade to keyword-only
+  ---
+  duration_ms: 8.846379
+  type: 'test'
+  ...
+# Subtest: vector-less episodes stay invisible to the vector leg
+ok 18 - vector-less episodes stay invisible to the vector leg
+  ---
+  duration_ms: 7.06107
+  type: 'test'
+  ...
+# Subtest: shotSizeFor caps the long edge at 1568, never upscales
+ok 19 - shotSizeFor caps the long edge at 1568, never upscales
+  ---
+  duration_ms: 1.467703
+  type: 'test'
+  ...
+# Subtest: downscaleBgra32 averages source blocks
+ok 20 - downscaleBgra32 averages source blocks
+  ---
+  duration_ms: 0.323521
+  type: 'test'
+  ...
+# Subtest: crc32 matches the standard vector
+ok 21 - crc32 matches the standard vector
+  ---
+  duration_ms: 0.168522
+  type: 'test'
+  ...
+# Subtest: pngFromRgb24 emits a decodable PNG
+ok 22 - pngFromRgb24 emits a decodable PNG
+  ---
+  duration_ms: 1.116418
+  type: 'test'
+  ...
+# Subtest: parsePngDims round-trips and rejects garbage
+ok 23 - parsePngDims round-trips and rejects garbage
+  ---
+  duration_ms: 0.44326
+  type: 'test'
+  ...
+# Subtest: shotFromBgra32 composes size + pixels + base64
+ok 24 - shotFromBgra32 composes size + pixels + base64
+  ---
+  duration_ms: 3.953462
+  type: 'test'
+  ...
+# Subtest: winShotScript captures, rescales and base64s in one spawn
+ok 25 - winShotScript captures, rescales and base64s in one spawn
+  ---
+  duration_ms: 0.273449
+  type: 'test'
+  ...
+# Subtest: parseWinShot recomputes scale from dims
+ok 26 - parseWinShot recomputes scale from dims
+  ---
+  duration_ms: 0.480348
+  type: 'test'
+  ...
+# Subtest: uiaTreeScript walks the foreground window via UIA
+ok 27 - uiaTreeScript walks the foreground window via UIA
+  ---
+  duration_ms: 0.460521
+  type: 'test'
+  ...
+# Subtest: parseUiaTree assigns e-ids, truncates, tolerates garbage
+ok 28 - parseUiaTree assigns e-ids, truncates, tolerates garbage
+  ---
+  duration_ms: 0.96125
+  type: 'test'
+  ...
+# Subtest: darwinAxScript walks frontmost via System Events
+ok 29 - darwinAxScript walks frontmost via System Events
+  ---
+  duration_ms: 0.234918
+  type: 'test'
+  ...
+# Subtest: axRoleToUiRole maps AppleScript classes
+ok 30 - axRoleToUiRole maps AppleScript classes
+  ---
+  duration_ms: 0.403622
+  type: 'test'
+  ...
+# Subtest: parseAxTree scales points to physical pixels
+ok 31 - parseAxTree scales points to physical pixels
+  ---
+  duration_ms: 0.363999
+  type: 'test'
+  ...
+# Subtest: linux resize args + geometry parser
+ok 32 - linux resize args + geometry parser
+  ---
+  duration_ms: 0.287985
+  type: 'test'
+  ...
+# Subtest: observeAction on win32-native composes pixels + windows + UIA
+ok 33 - observeAction on win32-native composes pixels + windows + UIA
+  ---
+  duration_ms: 1.108374
+  type: 'test'
+  ...
+# Subtest: observeAction on win32-legacy takes window + tree from one UIA probe
+ok 34 - observeAction on win32-legacy takes window + tree from one UIA probe
+  ---
+  duration_ms: 0.30898
+  type: 'test'
+  ...
+# Subtest: observeAction on darwin scales AX points and reads sips output
+ok 35 - observeAction on darwin scales AX points and reads sips output
+  ---
+  duration_ms: 31.759652
+  type: 'test'
+  ...
+# Subtest: observeAction degrades partially and fails closed
+ok 36 - observeAction degrades partially and fails closed
+  ---
+  duration_ms: 1.109173
+  type: 'test'
+  ...
+# Subtest: codes issue, redeem once each, and expire
+ok 37 - codes issue, redeem once each, and expire
+  ---
+  duration_ms: 3.571157
+  type: 'test'
+  ...
+# Subtest: code redemption is rate-limited
+ok 38 - code redemption is rate-limited
+  ---
+  duration_ms: 1.216149
+  type: 'test'
+  ...
+# Subtest: devices register and TOFU-pin their pubkey
+ok 39 - devices register and TOFU-pin their pubkey
+  ---
+  duration_ms: 1.109098
+  type: 'test'
+  ...
+# Subtest: sessions validate, expire, and die with their device
+ok 40 - sessions validate, expire, and die with their device
+  ---
+  duration_ms: 3.344551
+  type: 'test'
+  ...
+# Subtest: control approvals: per-session, non-self, time-boxed
+ok 41 - control approvals: per-session, non-self, time-boxed
+  ---
+  duration_ms: 3.74607
+  type: 'test'
+  ...
+# Subtest: stale approvals cannot be resolved
+ok 42 - stale approvals cannot be resolved
+  ---
+  duration_ms: 2.469028
+  type: 'test'
+  ...
+# Subtest: view scope is default-deny: control actions stay out
+ok 43 - view scope is default-deny: control actions stay out
+  ---
+  duration_ms: 0.353304
+  type: 'test'
+  ...
+# Subtest: crypto: ECDH agreement matches WebCrypto subtle (browser parity)
+ok 44 - crypto: ECDH agreement matches WebCrypto subtle (browser parity)
+  ---
+  duration_ms: 7.312122
+  type: 'test'
+  ...
+# Subtest: crypto: ECDSA signatures verify cross-API and reject forgeries
+ok 45 - crypto: ECDSA signatures verify cross-API and reject forgeries
+  ---
+  duration_ms: 5.35384
+  type: 'test'
+  ...
+# Subtest: daemon identity persists across restarts
+ok 46 - daemon identity persists across restarts
+  ---
+  duration_ms: 1.531314
+  type: 'test'
+  ...
+# Subtest: known actions allowed, unknown rejected
+ok 47 - known actions allowed, unknown rejected
+  ---
+  duration_ms: 1.497296
+  type: 'test'
+  ...
+# Subtest: kill switch blocks everything except abort/ping
+ok 48 - kill switch blocks everything except abort/ping
+  ---
+  duration_ms: 0.460938
+  type: 'test'
+  ...
+# Subtest: step budget caps mutating actions
+ok 49 - step budget caps mutating actions
+  ---
+  duration_ms: 0.225205
+  type: 'test'
+  ...
+# Subtest: url allowlist
+ok 50 - url allowlist
+  ---
+  duration_ms: 0.138491
+  type: 'test'
+  ...
+# Subtest: action registry covers the documented surfaces
+ok 51 - action registry covers the documented surfaces
+  ---
+  duration_ms: 0.208307
+  type: 'test'
+  ...
+# Subtest: item1: appAllowed is exact-match only (no substring)
+ok 52 - item1: appAllowed is exact-match only (no substring)
+  ---
+  duration_ms: 0.246064
+  type: 'test'
+  ...
+# Subtest: item1: every linux allowlist id maps to a binary
+ok 53 - item1: every linux allowlist id maps to a binary
+  ---
+  duration_ms: 0.575852
+  type: 'test'
+  ...
+# Subtest: item1: linux launch is detached spawn, never sh -c
+ok 54 - item1: linux launch is detached spawn, never sh -c
+  ---
+  duration_ms: 0.777119
+  type: 'test'
+  ...
+# Subtest: item2: ctrl+shift+t parses to ^+t; all modifiers replaced
+ok 55 - item2: ctrl+shift+t parses to ^+t; all modifiers replaced
+  ---
+  duration_ms: 0.567195
+  type: 'test'
+  ...
+# Subtest: item2: special keys map to braces; win combos route to keybd
+ok 56 - item2: special keys map to braces; win combos route to keybd
+  ---
+  duration_ms: 0.575073
+  type: 'test'
+  ...
+# Subtest: item3: word boundaries — sender clean, send risky
+ok 57 - item3: word boundaries — sender clean, send risky
+  ---
+  duration_ms: 0.533313
+  type: 'test'
+  ...
+# Subtest: item3: click/hotkey targets — OCR/UIA text gates Send/Pay/Delete/Submit/Buy
+ok 58 - item3: click/hotkey targets — OCR/UIA text gates Send/Pay/Delete/Submit/Buy
+  ---
+  duration_ms: 0.278875
+  type: 'test'
+  ...
+# Subtest: item3: check() consumes daemon targetText, not model args
+ok 59 - item3: check() consumes daemon targetText, not model args
+  ---
+  duration_ms: 0.588828
+  type: 'test'
+  ...
+# Subtest: item4: confirm:true from the model is ignored
+ok 60 - item4: confirm:true from the model is ignored
+  ---
+  duration_ms: 0.183926
+  type: 'test'
+  ...
+# Subtest: item4: approve + redeem allows exactly once
+ok 61 - item4: approve + redeem allows exactly once
+  ---
+  duration_ms: 0.322191
+  type: 'test'
+  ...
+# Subtest: item4: id is bound to the exact action+args, and expires
+ok 62 - item4: id is bound to the exact action+args, and expires
+  ---
+  duration_ms: 0.378021
+  type: 'test'
+  ...
+# Subtest: item4: always-confirm actions need the id flow even with clean args
+ok 63 - item4: always-confirm actions need the id flow even with clean args
+  ---
+  duration_ms: 0.132059
+  type: 'test'
+  ...
+# Subtest: item5: env overrides parse; identity when unset
+ok 64 - item5: env overrides parse; identity when unset
+  ---
+  duration_ms: 0.243775
+  type: 'test'
+  ...
+# Subtest: item5: physical <-> backend round-trips with scale + offset
+ok 65 - item5: physical <-> backend round-trips with scale + offset
+  ---
+  duration_ms: 0.171535
+  type: 'test'
+  ...
+# Subtest: item5: ABSOLUTE normalization spans the virtual screen
+ok 66 - item5: ABSOLUTE normalization spans the virtual screen
+  ---
+  duration_ms: 0.162045
+  type: 'test'
+  ...
+# Subtest: item5: metric probe parsers
+ok 67 - item5: metric probe parsers
+  ---
+  duration_ms: 0.361404
+  type: 'test'
+  ...
+# Subtest: item5: win32 runs DPI-aware
+ok 68 - item5: win32 runs DPI-aware
+  ---
+  duration_ms: 0.094096
+  type: 'test'
+  ...
+# Subtest: item6: drag path interpolation
+ok 69 - item6: drag path interpolation
+  ---
+  duration_ms: 0.208568
+  type: 'test'
+  ...
+# Subtest: item6: win32 drag script presses, steps absolute, releases
+ok 70 - item6: win32 drag script presses, steps absolute, releases
+  ---
+  duration_ms: 0.301217
+  type: 'test'
+  ...
+# Subtest: item6: darwin drag args + fixed quartz scroll
+ok 71 - item6: darwin drag args + fixed quartz scroll
+  ---
+  duration_ms: 0.411144
+  type: 'test'
+  ...
+# Subtest: item6: real windows volume via CoreAudio, no SendKeys fallback
+ok 72 - item6: real windows volume via CoreAudio, no SendKeys fallback
+  ---
+  duration_ms: 0.155523
+  type: 'test'
+  ...
+# Subtest: item6: target-text builders (UIA point vs focused)
+ok 73 - item6: target-text builders (UIA point vs focused)
+  ---
+  duration_ms: 0.126012
+  type: 'test'
+  ...
+# Subtest: actions_recent is a known, read-only, never-gated action
+ok 74 - actions_recent is a known, read-only, never-gated action
+  ---
+  duration_ms: 0.337845
+  type: 'test'
+  ...
+# Subtest: summarizeAction narrates without leaking content
+ok 75 - summarizeAction narrates without leaking content
+  ---
+  duration_ms: 0.705258
+  type: 'test'
+  ...
+# Subtest: summarizeAction attaches undo only to reversible file ops
+ok 76 - summarizeAction attaches undo only to reversible file ops
+  ---
+  duration_ms: 0.486888
+  type: 'test'
+  ...
+# Subtest: readRecent returns newest-first receipts and skips corrupt lines
+ok 77 - readRecent returns newest-first receipts and skips corrupt lines
+  ---
+  duration_ms: 24.746554
+  type: 'test'
+  ...
+# Subtest: readRecent on a missing log returns []
+ok 78 - readRecent on a missing log returns []
+  ---
+  duration_ms: 0.667524
+  type: 'test'
+  ...
+# Subtest: memory writes are never confirmation-gated (content is data)
+ok 79 - memory writes are never confirmation-gated (content is data)
+  ---
+  duration_ms: 0.263625
+  type: 'test'
+  ...
+# Subtest: credential USE gates; vault storage and diary stay clean
+ok 80 - credential USE gates; vault storage and diary stay clean
+  ---
+  duration_ms: 0.123465
+  type: 'test'
+  ...
+# Subtest: pcm16ToWav → parseWav round-trip
+ok 81 - pcm16ToWav → parseWav round-trip
+  ---
+  duration_ms: 2.09037
+  type: 'test'
+  ...
+# Subtest: wavToPcm16 extracts mono PCM untouched
+ok 82 - wavToPcm16 extracts mono PCM untouched
+  ---
+  duration_ms: 0.942235
+  type: 'test'
+  ...
+# Subtest: wavToPcm16 downmixes stereo to mono
+ok 83 - wavToPcm16 downmixes stereo to mono
+  ---
+  duration_ms: 0.283215
+  type: 'test'
+  ...
+# Subtest: parseWav rejects non-WAV and malformed input
+ok 84 - parseWav rejects non-WAV and malformed input
+  ---
+  duration_ms: 0.440496
+  type: 'test'
+  ...
+# Subtest: engine preference per platform with overrides
+ok 85 - engine preference per platform with overrides
+  ---
+  duration_ms: 0.150592
+  type: 'test'
+  ...
+# Subtest: hints are actionable
+ok 86 - hints are actionable
+  ---
+  duration_ms: 0.28464
+  type: 'test'
+  ...
+# Subtest: native only on win32 with koffi and no kill-switch
+ok 87 - native only on win32 with koffi and no kill-switch
+  ---
+  duration_ms: 2.475995
+  type: 'test'
+  ...
+# Subtest: native serves the input + window + screenshot surface
+ok 88 - native serves the input + window + screenshot surface
+  ---
+  duration_ms: 0.263639
+  type: 'test'
+  ...
+# Subtest: click pairs: down/up flags at the right offsets
+ok 89 - click pairs: down/up flags at the right offsets
+  ---
+  duration_ms: 0.32674
+  type: 'test'
+  ...
+# Subtest: wheel honors direction + magnitude; absolute spans the virtual desk
+ok 90 - wheel honors direction + magnitude; absolute spans the virtual desk
+  ---
+  duration_ms: 0.256927
+  type: 'test'
+  ...
+# Subtest: unicode typing is verbatim UTF-16 units (no SendKeys escaping)
+ok 91 - unicode typing is verbatim UTF-16 units (no SendKeys escaping)
+  ---
+  duration_ms: 0.769744
+  type: 'test'
+  ...
+# Subtest: comboToVk parses modifiers + main into virtual-key codes
+ok 92 - comboToVk parses modifiers + main into virtual-key codes
+  ---
+  duration_ms: 0.94844
+  type: 'test'
+  ...
+# Subtest: hotkeyInputs orders mods-down, main tap, mods-up with scans
+ok 93 - hotkeyInputs orders mods-down, main tap, mods-up with scans
+  ---
+  duration_ms: 0.320115
+  type: 'test'
+  ...
+# Subtest: native combos cover the SendKeys combo surface
+ok 94 - native combos cover the SendKeys combo surface
+  ---
+  duration_ms: 0.793144
+  type: 'test'
+  ...
+# Subtest: absolute65535 spans negative-origin virtual screens
+ok 95 - absolute65535 spans negative-origin virtual screens
+  ---
+  duration_ms: 0.408718
+  type: 'test'
+  ...
+# Subtest: system values + dpi become metrics
+ok 96 - system values + dpi become metrics
+  ---
+  duration_ms: 0.510472
+  type: 'test'
+  ...
+# Subtest: lerpPath walks from→to
+ok 97 - lerpPath walks from→to
+  ---
+  duration_ms: 0.272364
+  type: 'test'
+  ...
+# Subtest: BMP writer is byte-exact
+ok 98 - BMP writer is byte-exact
+  ---
+  duration_ms: 0.291774
+  type: 'test'
+  ...
+# Subtest: bmpPath forces .bmp
+ok 99 - bmpPath forces .bmp
+  ---
+  duration_ms: 0.357439
+  type: 'test'
+  ...
+# Subtest: every win32 allowlist id maps to an exe
+ok 100 - every win32 allowlist id maps to an exe
+  ---
+  duration_ms: 0.274407
+  type: 'test'
+  ...
+# Subtest: hwnd shaping is JSON-safe
+ok 101 - hwnd shaping is JSON-safe
+  ---
+  duration_ms: 0.265396
+  type: 'test'
+  ...
+# Subtest: pickFocusTarget prefers visible titled exe matches
+ok 102 - pickFocusTarget prefers visible titled exe matches
+  ---
+  duration_ms: 0.277041
+  type: 'test'
+  ...
+# Subtest: koffi struct parity for INPUT (skips without koffi)
+ok 103 - koffi struct parity for INPUT (skips without koffi)
+  ---
+  duration_ms: 0.41404
+  type: 'test'
+  ...
+# Subtest: app URL prefers explicit dev URL, then served builds, then default
+ok 104 - app URL prefers explicit dev URL, then served builds, then default
+  ---
+  duration_ms: 1.216378
+  type: 'test'
+  ...
+# Subtest: app URL rejects non-http(s) values
+ok 105 - app URL rejects non-http(s) values
+  ---
+  duration_ms: 0.277129
+  type: 'test'
+  ...
+# Subtest: orb param appends without breaking existing queries
+ok 106 - orb param appends without breaking existing queries
+  ---
+  duration_ms: 0.164388
+  type: 'test'
+  ...
+# Subtest: main window is a full stage, shown only when ready
+ok 107 - main window is a full stage, shown only when ready
+  ---
+  duration_ms: 0.261982
+  type: 'test'
+  ...
+# Subtest: orb window stays compact, frameless and always on top
+ok 108 - orb window stays compact, frameless and always on top
+  ---
+  duration_ms: 0.275144
+  type: 'test'
+  ...
+# Subtest: ports parse strictly with fallback
+ok 109 - ports parse strictly with fallback
+  ---
+  duration_ms: 0.128481
+  type: 'test'
+  ...
+# Subtest: pairing prefers env, tolerates absence
+ok 110 - pairing prefers env, tolerates absence
+  ---
+  duration_ms: 0.789098
+  type: 'test'
+  ...
+# Subtest: companion env block carries port, token and roots
+ok 111 - companion env block carries port, token and roots
+  ---
+  duration_ms: 0.216034
+  type: 'test'
+  ...
+# Subtest: companion script resolves explicit → resources → dev checkout
+ok 112 - companion script resolves explicit → resources → dev checkout
+  ---
+  duration_ms: 0.442279
+  type: 'test'
+  ...
+# Subtest: tray icon takes the first candidate that exists
+ok 113 - tray icon takes the first candidate that exists
+  ---
+  duration_ms: 0.482707
+  type: 'test'
+  ...
+# Subtest: hotkeys normalise to canonical accelerators
+ok 114 - hotkeys normalise to canonical accelerators
+  ---
+  duration_ms: 0.591156
+  type: 'test'
+  ...
+# Subtest: hotkeys reject anything that can never register
+ok 115 - hotkeys reject anything that can never register
+  ---
+  duration_ms: 0.189817
+  type: 'test'
+  ...
+# Subtest: login-item settings are strict booleans
+ok 116 - login-item settings are strict booleans
+  ---
+  duration_ms: 0.128105
+  type: 'test'
+  ...
+# Subtest: IPC channels are namespaced and unique
+ok 117 - IPC channels are namespaced and unique
+  ---
+  duration_ms: 0.21425
+  type: 'test'
+  ...
+# Subtest: no require() calls inside electron runtime files (repo eslint rule)
+ok 118 - no require() calls inside electron runtime files (repo eslint rule)
+  ---
+  duration_ms: 0.466961
+  type: 'test'
+  ...
+# Subtest: facts require text and a source tag
+ok 119 - facts require text and a source tag
+  ---
+  duration_ms: 2.037505
+  type: 'test'
+  ...
+# Subtest: untrusted origins stay untrusted and capped, never upgradeable
+ok 120 - untrusted origins stay untrusted and capped, never upgradeable
+  ---
+  duration_ms: 0.335743
+  type: 'test'
+  ...
+# Subtest: normalizeText + extractSlot canonicalize for matching
+ok 121 - normalizeText + extractSlot canonicalize for matching
+  ---
+  duration_ms: 0.393971
+  type: 'test'
+  ...
+# Subtest: shots must be small real images; junk is dropped
+ok 122 - shots must be small real images; junk is dropped
+  ---
+  duration_ms: 3.8725
+  type: 'test'
+  ...
+# Subtest: derive extracts explicit conclusions with premises
+ok 123 - derive extracts explicit conclusions with premises
+  ---
+  duration_ms: 1.979276
+  type: 'test'
+  ...
+# Subtest: derive caps untrusted sources and discounts assistant inference
+ok 124 - derive caps untrusted sources and discounts assistant inference
+  ---
+  duration_ms: 0.799285
+  type: 'test'
+  ...
+# (node:6016) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: fact CRUD roundtrip
+ok 125 - fact CRUD roundtrip
+  ---
+  duration_ms: 52.588375
+  type: 'test'
+  ...
+# Subtest: episode + working + skill roundtrips
+ok 126 - episode + working + skill roundtrips
+  ---
+  duration_ms: 42.074145
+  type: 'test'
+  ...
+# Subtest: writes log + runs persist
+ok 127 - writes log + runs persist
+  ---
+  duration_ms: 35.755482
+  type: 'test'
+  ...
+# Subtest: cosineSim / rrfFuse / recencyScore behave
+ok 128 - cosineSim / rrfFuse / recencyScore behave
+  ---
+  duration_ms: 1.110003
+  type: 'test'
+  ...
+# Subtest: matchSkills ranks active over candidates, overlap over nothing
+ok 129 - matchSkills ranks active over candidates, overlap over nothing
+  ---
+  duration_ms: 0.644162
+  type: 'test'
+  ...
+# Subtest: buildBlock respects the token budget in priority order
+ok 130 - buildBlock respects the token budget in priority order
+  ---
+  duration_ms: 0.738046
+  type: 'test'
+  ...
+# Subtest: assembleContext recalls top-k, tags untrusted, touches rows
+ok 131 - assembleContext recalls top-k, tags untrusted, touches rows
+  ---
+  duration_ms: 66.439824
+  type: 'test'
+  ...
+# Subtest: assembleContext works with vectors and empty stores
+ok 132 - assembleContext works with vectors and empty stores
+  ---
+  duration_ms: 47.431734
+  type: 'test'
+  ...
+# Subtest: pickWinner / decayed / normalizePattern are deterministic
+ok 133 - pickWinner / decayed / normalizePattern are deterministic
+  ---
+  duration_ms: 0.758899
+  type: 'test'
+  ...
+# Subtest: consolidation merges dupes, resolves slots, proposes skills
+ok 134 - consolidation merges dupes, resolves slots, proposes skills
+  ---
+  duration_ms: 74.621561
+  type: 'test'
+  ...
+# Subtest: trail helpers read the banked execution shape
+ok 135 - trail helpers read the banked execution shape
+  ---
+  duration_ms: 0.707075
+  type: 'test'
+  ...
+# Subtest: induction banks real steps from a shared trail, honest fallback otherwise
+ok 136 - induction banks real steps from a shared trail, honest fallback otherwise
+  ---
+  duration_ms: 58.278488
+  type: 'test'
+  ...
+# Subtest: consolidation flags faint facts and rescues corroborated ones
+ok 137 - consolidation flags faint facts and rescues corroborated ones
+  ---
+  duration_ms: 57.060174
+  type: 'test'
+  ...
+# Subtest: moves distill to concrete steps, varying targets to params
+ok 138 - moves distill to concrete steps, varying targets to params
+  ---
+  duration_ms: 0.839435
+  type: 'test'
+  ...
+# Subtest: skill_use counts outcomes, banks failure modes, retires the weak
+ok 139 - skill_use counts outcomes, banks failure modes, retires the weak
+  ---
+  duration_ms: 64.753896
+  type: 'test'
+  ...
+# Subtest: the dream retires low-rate skills it finds lying around
+ok 140 - the dream retires low-rate skills it finds lying around
+  ---
+  duration_ms: 40.075847
+  type: 'test'
+  ...
+# Subtest: reflection episodes bank under their own kind
+ok 141 - reflection episodes bank under their own kind
+  ---
+  duration_ms: 34.83389
+  type: 'test'
+  ...
+# Subtest: MEMORY_ACTIONS lists the full contract
+ok 142 - MEMORY_ACTIONS lists the full contract
+  ---
+  duration_ms: 0.368004
+  type: 'test'
+  ...
+# Subtest: episode_add stores shots on disk and auto-derives conclusions
+ok 143 - episode_add stores shots on disk and auto-derives conclusions
+  ---
+  duration_ms: 45.212332
+  type: 'test'
+  ...
+# Subtest: fact_add enforces source tags; update honors user-only trust upgrades
+ok 144 - fact_add enforces source tags; update honors user-only trust upgrades
+  ---
+  duration_ms: 43.125627
+  type: 'test'
+  ...
+# Subtest: delete removes, export dumps (vectors opt-in), writes are logged
+ok 145 - delete removes, export dumps (vectors opt-in), writes are logged
+  ---
+  duration_ms: 46.712855
+  type: 'test'
+  ...
+# Subtest: context + counts + consolidate actions compose
+ok 146 - context + counts + consolidate actions compose
+  ---
+  duration_ms: 52.188477
+  type: 'test'
+  ...
+# Subtest: memory_list rejects unknown stores
+ok 147 - memory_list rejects unknown stores
+  ---
+  duration_ms: 0.950029
+  type: 'test'
+  ...
+# Subtest: canonical line parses exactly (contract with task-mirror.ts)
+ok 148 - canonical line parses exactly (contract with task-mirror.ts)
+  ---
+  duration_ms: 1.573785
+  type: 'test'
+  ...
+# Subtest: clean line omits tools; cancelled parses to ok null
+ok 149 - clean line omits tools; cancelled parses to ok null
+  ---
+  duration_ms: 0.347062
+  type: 'test'
+  ...
+# Subtest: garbage and smuggled prose do not parse
+ok 150 - garbage and smuggled prose do not parse
+  ---
+  duration_ms: 1.22343
+  type: 'test'
+  ...
+# Subtest: cause taxonomy classifies each kind
+ok 151 - cause taxonomy classifies each kind
+  ---
+  duration_ms: 1.520984
+  type: 'test'
+  ...
+# Subtest: unclassified causes fall back to deterministic word-slugs
+ok 152 - unclassified causes fall back to deterministic word-slugs
+  ---
+  duration_ms: 0.368472
+  type: 'test'
+  ...
+# Subtest: patterns rank by count and keep skill-matching samples
+ok 153 - patterns rank by count and keep skill-matching samples
+  ---
+  duration_ms: 0.620873
+  type: 'test'
+  ...
+# Subtest: calibration scores Brier/gap/buckets and excludes cancelled
+ok 154 - calibration scores Brier/gap/buckets and excludes cancelled
+  ---
+  duration_ms: 0.295244
+  type: 'test'
+  ...
+# Subtest: calibration of nothing is null, not zero
+ok 155 - calibration of nothing is null, not zero
+  ---
+  duration_ms: 0.200784
+  type: 'test'
+  ...
+# Subtest: calibrationLine leans correctly
+ok 156 - calibrationLine leans correctly
+  ---
+  duration_ms: 0.441125
+  type: 'test'
+  ...
+# Subtest: all core tasks map to a known app
+ok 157 - all core tasks map to a known app
+  ---
+  duration_ms: 1.354159
+  type: 'test'
+  ...
+# Subtest: spot checks: each surface lands on its app
+ok 158 - spot checks: each surface lands on its app
+  ---
+  duration_ms: 1.895396
+  type: 'test'
+  ...
+# Subtest: all desktop tasks map from their category
+ok 159 - all desktop tasks map from their category
+  ---
+  duration_ms: 0.165676
+  type: 'test'
+  ...
+# Subtest: aggregation: rates, failures, and skipped≠failed
+ok 160 - aggregation: rates, failures, and skipped≠failed
+  ---
+  duration_ms: 0.834341
+  type: 'test'
+  ...
+# Subtest: aggregation of nothing is empty, not zeroed
+ok 161 - aggregation of nothing is empty, not zeroed
+  ---
+  duration_ms: 0.212099
+  type: 'test'
+  ...
+# Subtest: task list is well-formed
+ok 162 - task list is well-formed
+  ---
+  duration_ms: 0.717783
+  type: 'test'
+  ...
+# Subtest: covers the safety surface
+ok 163 - covers the safety surface
+  ---
+  duration_ms: 1.180804
+  type: 'test'
+  ...
+# Subtest: browser task is skippable when Chrome is absent
+ok 164 - browser task is skippable when Chrome is absent
+  ---
+  duration_ms: 0.148861
+  type: 'test'
+  ...
+# Subtest: categories derive from tasks
+ok 165 - categories derive from tasks
+  ---
+  duration_ms: 0.087956
+  type: 'test'
+  ...
+# Subtest: injects before </head>
+ok 166 - injects before </head>
+  ---
+  duration_ms: 3.393601
+  type: 'test'
+  ...
+# Subtest: injects the extensions script without a project id
+ok 167 - injects the extensions script without a project id
+  ---
+  duration_ms: 0.561922
+  type: 'test'
+  ...
+# Subtest: injects project id on the script and meta when provided
+ok 168 - injects project id on the script and meta when provided
+  ---
+  duration_ms: 0.36385
+  type: 'test'
+  ...
+# Subtest: does not duplicate grok:app_id
+ok 169 - does not duplicate grok:app_id
+  ---
+  duration_ms: 0.727628
+  type: 'test'
+  ...
+# Subtest: omits x:creator tags without both creator values
+ok 170 - omits x:creator tags without both creator values
+  ---
+  duration_ms: 0.831018
+  type: 'test'
+  ...
+# Subtest: injects x:creator tags when both creator values are set
+ok 171 - injects x:creator tags when both creator values are set
+  ---
+  duration_ms: 0.530456
+  type: 'test'
+  ...
+# Subtest: escapes x:creator values
+ok 172 - escapes x:creator values
+  ---
+  duration_ms: 0.198311
+  type: 'test'
+  ...
+# Subtest: does not duplicate x:creator tags
+ok 173 - does not duplicate x:creator tags
+  ---
+  duration_ms: 1.03956
+  type: 'test'
+  ...
+# Subtest: platform chrome overwrites share-card metas and always sets og:title
+ok 174 - platform chrome overwrites share-card metas and always sets og:title
+  ---
+  duration_ms: 0.56199
+  type: 'test'
+  ...
+# Subtest: does not duplicate twitter:card or og:title
+ok 175 - does not duplicate twitter:card or og:title
+  ---
+  duration_ms: 0.684224
+  type: 'test'
+  ...
+# Subtest: a baked site.image is treated as a custom card
+ok 176 - a baked site.image is treated as a custom card
+  ---
+  duration_ms: 0.653946
+  type: 'test'
+  ...
+# Subtest: baked identity does not need a workspace filesystem
+ok 177 - baked identity does not need a workspace filesystem
+  ---
+  duration_ms: 0.355634
+  type: 'test'
+  ...
+# Subtest: a public card file wins over a baked site without card=custom
+ok 178 - a public card file wins over a baked site without card=custom
+  ---
+  duration_ms: 0.462837
+  type: 'test'
+  ...
+# Subtest: public/og.png wins when jpg is absent
+ok 179 - public/og.png wins when jpg is absent
+  ---
+  duration_ms: 0.3047
+  type: 'test'
+  ...
+# Subtest: resolveOgCardAsset: disk file, then bake, then empty (placeholder)
+ok 180 - resolveOgCardAsset: disk file, then bake, then empty (placeholder)
+  ---
+  duration_ms: 0.334861
+  type: 'test'
+  ...
+# Subtest: snapshotOgIdentity stamps card=custom from a public card file
+ok 181 - snapshotOgIdentity stamps card=custom from a public card file
+  ---
+  duration_ms: 0.286616
+  type: 'test'
+  ...
+# Subtest: snapshotOgIdentity stamps banner from public/x-banner.jpg
+ok 182 - snapshotOgIdentity stamps banner from public/x-banner.jpg
+  ---
+  duration_ms: 0.203341
+  type: 'test'
+  ...
+# Subtest: emits x:game:image for a public host when site.banner is set
+ok 183 - emits x:game:image for a public host when site.banner is set
+  ---
+  duration_ms: 0.208251
+  type: 'test'
+  ...
+# Subtest: does not emit x:game:image without a public host or banner
+ok 184 - does not emit x:game:image without a public host or banner
+  ---
+  duration_ms: 0.352817
+  type: 'test'
+  ...
+# Subtest: site title Grok App is a real name, not a sentinel
+ok 185 - site title Grok App is a real name, not a sentinel
+  ---
+  duration_ms: 0.239698
+  type: 'test'
+  ...
+# Subtest: published grok.me slug is still a title fallback
+ok 186 - published grok.me slug is still a title fallback
+  ---
+  duration_ms: 1.146685
+  type: 'test'
+  ...
+# Subtest: rejects Vercel system hosts as og:image origins
+ok 187 - rejects Vercel system hosts as og:image origins
+  ---
+  duration_ms: 0.176986
+  type: 'test'
+  ...
+# Subtest: published VITE_PUBLIC_HOSTNAME wins over request Host for og:image
+ok 188 - published VITE_PUBLIC_HOSTNAME wins over request Host for og:image
+  ---
+  duration_ms: 0.288612
+  type: 'test'
+  ...
+# Subtest: vercel Host without a public hostname emits no og:image
+ok 189 - vercel Host without a public hostname emits no og:image
+  ---
+  duration_ms: 0.127922
+  type: 'test'
+  ...
+# Subtest: emits og:image for a public host and prefers a custom card
+ok 190 - emits og:image for a public host and prefers a custom card
+  ---
+  duration_ms: 0.17276
+  type: 'test'
+  ...
+# Subtest: placeholder og:image appends site.color when it is 6-digit hex
+ok 191 - placeholder og:image appends site.color when it is 6-digit hex
+  ---
+  duration_ms: 0.203285
+  type: 'test'
+  ...
+# Subtest: document title entities are not double-escaped on og:title
+ok 192 - document title entities are not double-escaped on og:title
+  ---
+  duration_ms: 0.204328
+  type: 'test'
+  ...
+# Subtest: site.json title wins over the host slug
+ok 193 - site.json title wins over the host slug
+  ---
+  duration_ms: 0.124388
+  type: 'test'
+  ...
+# Subtest: injects into documents with no head element
+ok 194 - injects into documents with no head element
+  ---
+  duration_ms: 0.260539
+  type: 'test'
+  ...
+# Subtest: streaming injector matches </HEAD> case-insensitively
+ok 195 - streaming injector matches </HEAD> case-insensitively
+  ---
+  duration_ms: 0.437796
+  type: 'test'
+  ...
+# Subtest: does not duplicate the extensions script
+ok 196 - does not duplicate the extensions script
+  ---
+  duration_ms: 0.312045
+  type: 'test'
+  ...
+# Subtest: is idempotent
+ok 197 - is idempotent
+  ---
+  duration_ms: 0.179196
+  type: 'test'
+  ...
+# Subtest: uses the app name in the injected title tag
+ok 198 - uses the app name in the injected title tag
+  ---
+  duration_ms: 0.130096
+  type: 'test'
+  ...
+# Subtest: streaming injector handles </head> split across chunks
+ok 199 - streaming injector handles </head> split across chunks
+  ---
+  duration_ms: 0.42888
+  type: 'test'
+  ...
+# Subtest: streaming injector passes post-head chunks through untouched
+ok 200 - streaming injector passes post-head chunks through untouched
+  ---
+  duration_ms: 0.326668
+  type: 'test'
+  ...
+# Subtest: streaming injector falls back when no </head> is seen
+ok 201 - streaming injector falls back when no </head> is seen
+  ---
+  duration_ms: 0.190051
+  type: 'test'
+  ...
+# Subtest: detects install query
+ok 202 - detects install query
+  ---
+  duration_ms: 0.207366
+  type: 'test'
+  ...
+# Subtest: filters non-document paths
+ok 203 - filters non-document paths
+  ---
+  duration_ms: 0.33484
+  type: 'test'
+  ...
+# Subtest: strips install params from the app link
+ok 204 - strips install params from the app link
+  ---
+  duration_ms: 0.126331
+  type: 'test'
+  ...
+# Subtest: names the install page from host slug
+ok 205 - names the install page from host slug
+  ---
+  duration_ms: 0.068833
+  type: 'test'
+  ...
+# Subtest: rejects hosts that are not plain slugs
+ok 206 - rejects hosts that are not plain slugs
+  ---
+  duration_ms: 0.059211
+  type: 'test'
+  ...
+# Subtest: renders install page markup
+ok 207 - renders install page markup
+  ---
+  duration_ms: 0.241726
+  type: 'test'
+  ...
+# Subtest: escapes host-derived values in the install page
+ok 208 - escapes host-derived values in the install page
+  ---
+  duration_ms: 0.158621
+  type: 'test'
+  ...
+# Subtest: renders the manifest with the per-app name
+ok 209 - renders the manifest with the per-app name
+  ---
+  duration_ms: 0.133824
+  type: 'test'
+  ...
+# Subtest: vite config keeps the nitro serverDir wiring
+ok 210 - vite config keeps the nitro serverDir wiring
+  ---
+  duration_ms: 0.177214
+  type: 'test'
+  ...
+# Subtest: nitro middleware and its bundled assets exist
+ok 211 - nitro middleware and its bundled assets exist
+  ---
+  duration_ms: 0.271853
+  type: 'test'
+  ...
+# Subtest: vite plugin bakes og identity as a virtual module
+ok 212 - vite plugin bakes og identity as a virtual module
+  ---
+  duration_ms: 0.118576
+  type: 'test'
+  ...
+# Subtest: classifyFiles: skill/prompt/code/forbidden
+ok 213 - classifyFiles: skill/prompt/code/forbidden
+  ---
+  duration_ms: 1.083245
+  type: 'test'
+  ...
+# Subtest: red-team: the agent can never touch policy, the suite, or itself
+ok 214 - red-team: the agent can never touch policy, the suite, or itself
+  ---
+  duration_ms: 0.545912
+  type: 'test'
+  ...
+# Subtest: decideMerge: code and reports always go to a human
+ok 215 - decideMerge: code and reports always go to a human
+  ---
+  duration_ms: 0.147613
+  type: 'test'
+  ...
+# Subtest: decideMerge: prompt needs no-regressions + margin
+ok 216 - decideMerge: prompt needs no-regressions + margin
+  ---
+  duration_ms: 0.144645
+  type: 'test'
+  ...
+# Subtest: decideMerge: skill needs validity + linked traces + green sandbox
+ok 217 - decideMerge: skill needs validity + linked traces + green sandbox
+  ---
+  duration_ms: 0.129173
+  type: 'test'
+  ...
+# Subtest: extractCause reads the first Failed: line
+ok 218 - extractCause reads the first Failed: line
+  ---
+  duration_ms: 0.27768
+  type: 'test'
+  ...
+# Subtest: buildSkillPatch/validateSkillPatch: dedupe, caps, retired refusal
+ok 219 - buildSkillPatch/validateSkillPatch: dedupe, caps, retired refusal
+  ---
+  duration_ms: 0.654472
+  type: 'test'
+  ...
+# Subtest: mirror: recurring pattern cause builds a valid, motivating patch
+ok 220 - mirror: recurring pattern cause builds a valid, motivating patch
+  ---
+  duration_ms: 0.790904
+  type: 'test'
+  ...
+# Subtest: mirror: single-occurrence causes never become pattern proposals
+ok 221 - mirror: single-occurrence causes never become pattern proposals
+  ---
+  duration_ms: 1.660489
+  type: 'test'
+  ...
+1..221
+# tests 221
+# suites 0
+# pass 221
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1908.37939
+TAP version 13
+# Subtest: findNode matches role + name substring, prefers bounded nodes
+ok 1 - findNode matches role + name substring, prefers bounded nodes
+  ---
+  duration_ms: 1.007351
+  type: 'test'
+  ...
+# Subtest: desktop suite has 20 uniquely-id'd tasks in known categories
+ok 2 - desktop suite has 20 uniquely-id'd tasks in known categories
+  ---
+  duration_ms: 0.778695
+  type: 'test'
+  ...
+# Subtest: desktop tasks skip gracefully without EVAL_DESKTOP=1 on Windows
+ok 3 - desktop tasks skip gracefully without EVAL_DESKTOP=1 on Windows
+  ---
+  duration_ms: 0.13033
+  type: 'test'
+  ...
+# Subtest: runner executes plans in order with polling probes + find-click
+ok 4 - runner executes plans in order with polling probes + find-click
+  ---
+  duration_ms: 23.383628
+  type: 'test'
+  ...
+# Subtest: runner chains argsFn off earlier results (trash → restore shape)
+ok 5 - runner chains argsFn off earlier results (trash → restore shape)
+  ---
+  duration_ms: 12.065936
+  type: 'test'
+  ...
+# Subtest: runner approves allowlisted gates and denies everything else
+ok 6 - runner approves allowlisted gates and denies everything else
+  ---
+  duration_ms: 7.31336
+  type: 'test'
+  ...
+# Subtest: runner denies non-allowlisted gates and cancels
+ok 7 - runner denies non-allowlisted gates and cancels
+  ---
+  duration_ms: 1.265829
+  type: 'test'
+  ...
+# Subtest: runner hostile mode: injected exfil dies at the guard, never executes
+ok 8 - runner hostile mode: injected exfil dies at the guard, never executes
+  ---
+  duration_ms: 6.621264
+  type: 'test'
+  ...
+# Subtest: runner hostile mode: injected trash dies at the guard, files intact
+ok 9 - runner hostile mode: injected trash dies at the guard, files intact
+  ---
+  duration_ms: 6.756436
+  type: 'test'
+  ...
+# Subtest: four agents with distinct specialties and colours
+ok 10 - four agents with distinct specialties and colours
+  ---
+  duration_ms: 2.828382
+  type: 'test'
+  ...
+# Subtest: seed opens with five backlog tasks and a log line
+ok 11 - seed opens with five backlog tasks and a log line
+  ---
+  duration_ms: 0.526782
+  type: 'test'
+  ...
+# Subtest: first tick claims specialty work for every agent
+ok 12 - first tick claims specialty work for every agent
+  ---
+  duration_ms: 0.545844
+  type: 'test'
+  ...
+# Subtest: work progresses to done and the feed narrates it
+ok 13 - work progresses to done and the feed narrates it
+  ---
+  duration_ms: 0.632904
+  type: 'test'
+  ...
+# Subtest: pause freezes the town; resume thaws it
+ok 14 - pause freezes the town; resume thaws it
+  ---
+  duration_ms: 0.428787
+  type: 'test'
+  ...
+# Subtest: addTask validates and reset restores the seed
+ok 15 - addTask validates and reset restores the seed
+  ---
+  duration_ms: 0.487508
+  type: 'test'
+  ...
+# Subtest: new chores drift in over time without duplicating live work
+ok 16 - new chores drift in over time without duplicating live work
+  ---
+  duration_ms: 0.276286
+  type: 'test'
+  ...
+# Subtest: done list and log are capped
+ok 17 - done list and log are capped
+  ---
+  duration_ms: 1.956484
+  type: 'test'
+  ...
+# Subtest: persistence round-trips; doing tasks re-queue on reload
+ok 18 - persistence round-trips; doing tasks re-queue on reload
+  ---
+  duration_ms: 0.896526
+  type: 'test'
+  ...
+# Subtest: corrupt saves fall back to a fresh seed
+ok 19 - corrupt saves fall back to a fresh seed
+  ---
+  duration_ms: 0.44009
+  type: 'test'
+  ...
+# Subtest: subscribers hear every change
+ok 20 - subscribers hear every change
+  ---
+  duration_ms: 0.306911
+  type: 'test'
+  ...
+# Subtest: fuseEvidence pools log-odds: prior only, strong evidence, conflict
+ok 21 - fuseEvidence pools log-odds: prior only, strong evidence, conflict
+  ---
+  duration_ms: 1.957362
+  type: 'test'
+  ...
+# Subtest: confidenceOf rewards extremity, agreement and experience
+ok 22 - confidenceOf rewards extremity, agreement and experience
+  ---
+  duration_ms: 0.311817
+  type: 'test'
+  ...
+# Subtest: calibrator is identity without history, then bends toward observed rates
+ok 23 - calibrator is identity without history, then bends toward observed rates
+  ---
+  duration_ms: 0.646573
+  type: 'test'
+  ...
+# Subtest: calibrator snapshot/restore round-trips
+ok 24 - calibrator snapshot/restore round-trips
+  ---
+  duration_ms: 0.610855
+  type: 'test'
+  ...
+# Subtest: parseJudgeState reads the loop contract; malformed JSON degrades
+ok 25 - parseJudgeState reads the loop contract; malformed JSON degrades
+  ---
+  duration_ms: 3.523657
+  type: 'test'
+  ...
+# Subtest: score rates solid plans high, risky-ungated plans low
+ok 26 - score rates solid plans high, risky-ungated plans low
+  ---
+  duration_ms: 0.88825
+  type: 'test'
+  ...
+# Subtest: score learns from reported outcomes
+ok 27 - score learns from reported outcomes
+  ---
+  duration_ms: 0.669613
+  type: 'test'
+  ...
+# Subtest: score rejects non-5-level rubrics (honest strictness)
+ok 28 - score rejects non-5-level rubrics (honest strictness)
+  ---
+  duration_ms: 0.543857
+  type: 'test'
+  ...
+# Subtest: noul verifies window/text evidence and degrades without expectations
+ok 29 - noul verifies window/text evidence and degrades without expectations
+  ---
+  duration_ms: 0.673728
+  type: 'test'
+  ...
+# Subtest: choice picks recovery by failure shape
+ok 30 - choice picks recovery by failure shape
+  ---
+  duration_ms: 1.017506
+  type: 'test'
+  ...
+# Subtest: choice rejects unknown option sets (honest strictness)
+ok 31 - choice rejects unknown option sets (honest strictness)
+  ---
+  duration_ms: 0.261532
+  type: 'test'
+  ...
+# Subtest: weights nudge up on agreement, down on miss
+ok 32 - weights nudge up on agreement, down on miss
+  ---
+  duration_ms: 0.153136
+  type: 'test'
+  ...
+# Subtest: weights clamp to [0.25, 4]
+ok 33 - weights clamp to [0.25, 4]
+  ---
+  duration_ms: 1.524812
+  type: 'test'
+  ...
+# Subtest: gate tickets carry kind-bearing evidence for learning
+ok 34 - gate tickets carry kind-bearing evidence for learning
+  ---
+  duration_ms: 0.26334
+  type: 'test'
+  ...
+# Subtest: learned weights move future gate judgments
+ok 35 - learned weights move future gate judgments
+  ---
+  duration_ms: 0.531813
+  type: 'test'
+  ...
+# Subtest: snapshot round-trips buckets and weights; legacy and garbage restore safely
+ok 36 - snapshot round-trips buckets and weights; legacy and garbage restore safely
+  ---
+  duration_ms: 0.268582
+  type: 'test'
+  ...
+# Subtest: score tanks steps reaching a network host the goal never named
+ok 37 - score tanks steps reaching a network host the goal never named
+  ---
+  duration_ms: 0.267404
+  type: 'test'
+  ...
+# Subtest: score allows hosts the goal names, local files, and loopback
+ok 38 - score allows hosts the goal names, local files, and loopback
+  ---
+  duration_ms: 0.278253
+  type: 'test'
+  ...
+# Subtest: detectInjection catches override phrasings
+ok 39 - detectInjection catches override phrasings
+  ---
+  duration_ms: 2.487428
+  type: 'test'
+  ...
+# Subtest: detectInjection stays quiet on benign text
+ok 40 - detectInjection stays quiet on benign text
+  ---
+  duration_ms: 0.603066
+  type: 'test'
+  ...
+# Subtest: guardStep rejects injected args the goal never authorized
+ok 41 - guardStep rejects injected args the goal never authorized
+  ---
+  duration_ms: 0.503206
+  type: 'test'
+  ...
+# Subtest: guardStep rejects exfil verbs in the model note
+ok 42 - guardStep rejects exfil verbs in the model note
+  ---
+  duration_ms: 0.217329
+  type: 'test'
+  ...
+# Subtest: guardStep allows exfil verbs in typed content (writing stays legal)
+ok 43 - guardStep allows exfil verbs in typed content (writing stays legal)
+  ---
+  duration_ms: 0.13797
+  type: 'test'
+  ...
+# Subtest: guardStep echo rule: the goal saying it authorizes it
+ok 44 - guardStep echo rule: the goal saying it authorizes it
+  ---
+  duration_ms: 0.267135
+  type: 'test'
+  ...
+# Subtest: guardStep passes clean steps silently
+ok 45 - guardStep passes clean steps silently
+  ---
+  duration_ms: 0.204231
+  type: 'test'
+  ...
+# Subtest: JudgeMemory
+    # Subtest: save writes local + remote and reports both legs
+    ok 1 - save writes local + remote and reports both legs
+      ---
+      duration_ms: 1.519155
+      type: 'test'
+      ...
+    # Subtest: save survives companion failure — local still lands
+    ok 2 - save survives companion failure — local still lands
+      ---
+      duration_ms: 0.237007
+      type: 'test'
+      ...
+    # Subtest: save works with no local storage (remote only)
+    ok 3 - save works with no local storage (remote only)
+      ---
+      duration_ms: 0.19546
+      type: 'test'
+      ...
+    # Subtest: load adopts the newer remote copy
+    ok 4 - load adopts the newer remote copy
+      ---
+      duration_ms: 0.339228
+      type: 'test'
+      ...
+    # Subtest: load adopts the newer local copy and pushes it up
+    ok 5 - load adopts the newer local copy and pushes it up
+      ---
+      duration_ms: 0.24385
+      type: 'test'
+      ...
+    # Subtest: load with nothing stored returns null
+    ok 6 - load with nothing stored returns null
+      ---
+      duration_ms: 0.124819
+      type: 'test'
+      ...
+    # Subtest: load ignores malformed copies on either leg
+    ok 7 - load ignores malformed copies on either leg
+      ---
+      duration_ms: 0.16343
+      type: 'test'
+      ...
+    # Subtest: load survives companion failure — local still loads
+    ok 8 - load survives companion failure — local still loads
+      ---
+      duration_ms: 0.28098
+      type: 'test'
+      ...
+    1..8
+ok 46 - JudgeMemory
+  ---
+  duration_ms: 4.180332
+  type: 'suite'
+  ...
+# Subtest: budget constant is the 800 ms voice-to-voice target
+ok 47 - budget constant is the 800 ms voice-to-voice target
+  ---
+  duration_ms: 0.867034
+  type: 'test'
+  ...
+# Subtest: a full turn records brain, tts and voice spans
+ok 48 - a full turn records brain, tts and voice spans
+  ---
+  duration_ms: 0.761484
+  type: 'test'
+  ...
+# Subtest: over-budget turns are flagged
+ok 49 - over-budget turns are flagged
+  ---
+  duration_ms: 0.143054
+  type: 'test'
+  ...
+# Subtest: missing brain mark folds the whole turn into tts time
+ok 50 - missing brain mark folds the whole turn into tts time
+  ---
+  duration_ms: 0.128635
+  type: 'test'
+  ...
+# Subtest: stray marks and cancels are safe
+ok 51 - stray marks and cancels are safe
+  ---
+  duration_ms: 0.259096
+  type: 'test'
+  ...
+# Subtest: stats summarise last, avg, p50, best, worst and budget hits
+ok 52 - stats summarise last, avg, p50, best, worst and budget hits
+  ---
+  duration_ms: 0.265376
+  type: 'test'
+  ...
+# Subtest: history is capped and reset clears everything
+ok 53 - history is capped and reset clears everything
+  ---
+  duration_ms: 0.286029
+  type: 'test'
+  ...
+# Subtest: subscribers hear completions and resets only
+ok 54 - subscribers hear completions and resets only
+  ---
+  duration_ms: 0.141896
+  type: 'test'
+  ...
+# Subtest: latencyStatsFor handles even counts and clones safely
+ok 55 - latencyStatsFor handles even counts and clones safely
+  ---
+  duration_ms: 0.338413
+  type: 'test'
+  ...
+# Subtest: recordExternal stores relay-measured turns against the same budget
+ok 56 - recordExternal stores relay-measured turns against the same budget
+  ---
+  duration_ms: 0.425738
+  type: 'test'
+  ...
+# Subtest: fresh memory is empty and context-free
+ok 57 - fresh memory is empty and context-free
+  ---
+  duration_ms: 1.618976
+  type: 'test'
+  ...
+# Subtest: user name lands in the prompt context
+ok 58 - user name lands in the prompt context
+  ---
+  duration_ms: 0.375517
+  type: 'test'
+  ...
+# Subtest: people upsert by name and merge fields
+ok 59 - people upsert by name and merge fields
+  ---
+  duration_ms: 0.488687
+  type: 'test'
+  ...
+# Subtest: preferences set, overwrite, and clear on empty value
+ok 60 - preferences set, overwrite, and clear on empty value
+  ---
+  duration_ms: 0.498778
+  type: 'test'
+  ...
+# Subtest: instructions de-duplicate and remove cleanly
+ok 61 - instructions de-duplicate and remove cleanly
+  ---
+  duration_ms: 0.30135
+  type: 'test'
+  ...
+# Subtest: fields are length-capped
+ok 62 - fields are length-capped
+  ---
+  duration_ms: 0.188496
+  type: 'test'
+  ...
+# Subtest: memoryContextFor renders every section and ignores garbage
+ok 63 - memoryContextFor renders every section and ignores garbage
+  ---
+  duration_ms: 0.44093
+  type: 'test'
+  ...
+# Subtest: push writes the snapshot under the memory key
+ok 64 - push writes the snapshot under the memory key
+  ---
+  duration_ms: 0.33857
+  type: 'test'
+  ...
+# Subtest: pull adopts newer remotes and reports missing keys
+ok 65 - pull adopts newer remotes and reports missing keys
+  ---
+  duration_ms: 1.71255
+  type: 'test'
+  ...
+# Subtest: clear wipes everything
+ok 66 - clear wipes everything
+  ---
+  duration_ms: 0.413489
+  type: 'test'
+  ...
+# Subtest: keeps receipts inside the window, drops the rest
+ok 67 - keeps receipts inside the window, drops the rest
+  ---
+  duration_ms: 2.573559
+  type: 'test'
+  ...
+# Subtest: steps pass through with shots, notes, and errors
+ok 68 - steps pass through with shots, notes, and errors
+  ---
+  duration_ms: 0.177199
+  type: 'test'
+  ...
+# Subtest: malformed receipts never break the report
+ok 69 - malformed receipts never break the report
+  ---
+  duration_ms: 0.151983
+  type: 'test'
+  ...
+# Subtest: publish/late-subscriber bus delivers the same object
+ok 70 - publish/late-subscriber bus delivers the same object
+  ---
+  duration_ms: 0.160064
+  type: 'test'
+  ...
+# Subtest: parsePlan accepts valid plans and rejects the malformed
+ok 71 - parsePlan accepts valid plans and rejects the malformed
+  ---
+  duration_ms: 1.222054
+  type: 'test'
+  ...
+# Subtest: splitBudget keeps workable minima
+ok 72 - splitBudget keeps workable minima
+  ---
+  duration_ms: 0.723361
+  type: 'test'
+  ...
+# Subtest: runGoal runs independent tasks in parallel
+ok 73 - runGoal runs independent tasks in parallel
+  ---
+  duration_ms: 1.712314
+  type: 'test'
+  ...
+# Subtest: runGoal respects dependencies across waves
+ok 74 - runGoal respects dependencies across waves
+  ---
+  duration_ms: 0.70062
+  type: 'test'
+  ...
+# Subtest: runGoal marks downstream blocked and merges partial results
+ok 75 - runGoal marks downstream blocked and merges partial results
+  ---
+  duration_ms: 0.895202
+  type: 'test'
+  ...
+# Subtest: runGoal cancels pending work when the global budget is exhausted
+ok 76 - runGoal cancels pending work when the global budget is exhausted
+  ---
+  duration_ms: 0.599155
+  type: 'test'
+  ...
+# Subtest: runGoal merges through the critic when asked
+ok 77 - runGoal merges through the critic when asked
+  ---
+  duration_ms: 0.48517
+  type: 'test'
+  ...
+# Subtest: runGoal applies curator ops through the sink
+ok 78 - runGoal applies curator ops through the sink
+  ---
+  duration_ms: 0.540331
+  type: 'test'
+  ...
+# Subtest: runGoal retries a bad plan once, then fails the root
+ok 79 - runGoal retries a bad plan once, then fails the root
+  ---
+  duration_ms: 0.392872
+  type: 'test'
+  ...
+# Subtest: local catalogue covers the known tools, all enabled by default
+ok 80 - local catalogue covers the known tools, all enabled by default
+  ---
+  duration_ms: 0.97449
+  type: 'test'
+  ...
+# Subtest: unknown ids fail open so new tools work before listing
+ok 81 - unknown ids fail open so new tools work before listing
+  ---
+  duration_ms: 0.180004
+  type: 'test'
+  ...
+# Subtest: toggles flip and persist per instance
+ok 82 - toggles flip and persist per instance
+  ---
+  duration_ms: 0.231531
+  type: 'test'
+  ...
+# Subtest: protocol actions are locked on
+ok 83 - protocol actions are locked on
+  ---
+  duration_ms: 0.751613
+  type: 'test'
+  ...
+# Subtest: usage stats accumulate with timestamps
+ok 84 - usage stats accumulate with timestamps
+  ---
+  duration_ms: 0.375538
+  type: 'test'
+  ...
+# Subtest: merge preserves switches, drops stale actions, hides meta
+ok 85 - merge preserves switches, drops stale actions, hides meta
+  ---
+  duration_ms: 0.198403
+  type: 'test'
+  ...
+# Subtest: action labels and categories are sensible
+ok 86 - action labels and categories are sensible
+  ---
+  duration_ms: 0.147774
+  type: 'test'
+  ...
+# Subtest: refreshFromCompanion merges the live daemon list
+ok 87 - refreshFromCompanion merges the live daemon list
+  ---
+  duration_ms: 0.283727
+  type: 'test'
+  ...
+# Subtest: refreshFromCompanion rejects malformed replies
+ok 88 - refreshFromCompanion rejects malformed replies
+  ---
+  duration_ms: 0.32492
+  type: 'test'
+  ...
+# Subtest: presets run Warm Companion → JARVIS with valid dials
+ok 89 - presets run Warm Companion → JARVIS with valid dials
+  ---
+  duration_ms: 2.607342
+  type: 'test'
+  ...
+# Subtest: fresh soul is default and emits no prompt override
+ok 90 - fresh soul is default and emits no prompt override
+  ---
+  duration_ms: 0.317485
+  type: 'test'
+  ...
+# Subtest: setDials clamps to 0–100 and marks the soul custom
+ok 91 - setDials clamps to 0–100 and marks the soul custom
+  ---
+  duration_ms: 0.978629
+  type: 'test'
+  ...
+# Subtest: applyPreset restores the named persona
+ok 92 - applyPreset restores the named persona
+  ---
+  duration_ms: 0.361955
+  type: 'test'
+  ...
+# Subtest: systemPromptFor maps dial extremes to words
+ok 93 - systemPromptFor maps dial extremes to words
+  ---
+  duration_ms: 0.789488
+  type: 'test'
+  ...
+# Subtest: systemPromptFor includes phrases and boundaries
+ok 94 - systemPromptFor includes phrases and boundaries
+  ---
+  duration_ms: 0.263907
+  type: 'test'
+  ...
+# Subtest: systemPromptFor never throws on garbage input
+ok 95 - systemPromptFor never throws on garbage input
+  ---
+  duration_ms: 0.592804
+  type: 'test'
+  ...
+# Subtest: soulDialsFrom falls back per-dial
+ok 96 - soulDialsFrom falls back per-dial
+  ---
+  duration_ms: 0.208929
+  type: 'test'
+  ...
+# Subtest: phrase and boundary lists are capped and de-duplicated
+ok 97 - phrase and boundary lists are capped and de-duplicated
+  ---
+  duration_ms: 0.982636
+  type: 'test'
+  ...
+# Subtest: pushToCompanion writes the snapshot under the soul key
+ok 98 - pushToCompanion writes the snapshot under the soul key
+  ---
+  duration_ms: 0.803692
+  type: 'test'
+  ...
+# Subtest: pullFromCompanion adopts newer remotes, keeps newer locals
+ok 99 - pullFromCompanion adopts newer remotes, keeps newer locals
+  ---
+  duration_ms: 2.149508
+  type: 'test'
+  ...
+# Subtest: pullFromCompanion surfaces transport failures
+ok 100 - pullFromCompanion surfaces transport failures
+  ---
+  duration_ms: 0.419485
+  type: 'test'
+  ...
+# Subtest: creates tasks with owner mapping and zeroed usage
+ok 101 - creates tasks with owner mapping and zeroed usage
+  ---
+  duration_ms: 1.615672
+  type: 'test'
+  ...
+# Subtest: rejects malformed task specs
+ok 102 - rejects malformed task specs
+  ---
+  duration_ms: 0.523595
+  type: 'test'
+  ...
+# Subtest: enforces status transitions
+ok 103 - enforces status transitions
+  ---
+  duration_ms: 0.524069
+  type: 'test'
+  ...
+# Subtest: accumulates usage and clamps negatives
+ok 104 - accumulates usage and clamps negatives
+  ---
+  duration_ms: 0.196452
+  type: 'test'
+  ...
+# Subtest: validates every message payload shape
+ok 105 - validates every message payload shape
+  ---
+  duration_ms: 0.40958
+  type: 'test'
+  ...
+# Subtest: post() scopes messages and rejects the unshaped
+ok 106 - post() scopes messages and rejects the unshaped
+  ---
+  duration_ms: 0.316562
+  type: 'test'
+  ...
+# Subtest: messagesFor and readyTasks scope the schedulable world
+ok 107 - messagesFor and readyTasks scope the schedulable world
+  ---
+  duration_ms: 0.378585
+  type: 'test'
+  ...
+# Subtest: emits task/message/change events
+ok 108 - emits task/message/change events
+  ---
+  duration_ms: 0.461971
+  type: 'test'
+  ...
+# Subtest: clean run: all worked, no cause
+ok 109 - clean run: all worked, no cause
+  ---
+  duration_ms: 1.502903
+  type: 'test'
+  ...
+# Subtest: recovered run: failure recorded, cause extracted
+ok 110 - recovered run: failure recorded, cause extracted
+  ---
+  duration_ms: 0.289554
+  type: 'test'
+  ...
+# Subtest: failed and cancelled verdicts; skips counted; empty run safe
+ok 111 - failed and cancelled verdicts; skips counted; empty run safe
+  ---
+  duration_ms: 0.227544
+  type: 'test'
+  ...
+# Subtest: toShotBounds scales physical bounds into screenshot space
+ok 112 - toShotBounds scales physical bounds into screenshot space
+  ---
+  duration_ms: 1.438025
+  type: 'test'
+  ...
+# Subtest: formatTreeLine renders ids, roles, values and flags
+ok 113 - formatTreeLine renders ids, roles, values and flags
+  ---
+  duration_ms: 0.312538
+  type: 'test'
+  ...
+# Subtest: decidePrompt grounds the goal with shot space + tree + history
+ok 114 - decidePrompt grounds the goal with shot space + tree + history
+  ---
+  duration_ms: 0.387054
+  type: 'test'
+  ...
+# Subtest: decidePrompt degrades without a screenshot and carries failure + memory
+ok 115 - decidePrompt degrades without a screenshot and carries failure + memory
+  ---
+  duration_ms: 0.274612
+  type: 'test'
+  ...
+# Subtest: parseDecision accepts done + target/coords pointer steps
+ok 116 - parseDecision accepts done + target/coords pointer steps
+  ---
+  duration_ms: 1.633666
+  type: 'test'
+  ...
+# Subtest: parseDecision rejects bad shapes, tools, actions and targets
+ok 117 - parseDecision rejects bad shapes, tools, actions and targets
+  ---
+  duration_ms: 0.398284
+  type: 'test'
+  ...
+# Subtest: parseDecision validates per-action args
+ok 118 - parseDecision validates per-action args
+  ---
+  duration_ms: 0.433238
+  type: 'test'
+  ...
+# Subtest: decideWithBrain posts prompt + screenshot and parses
+ok 119 - decideWithBrain posts prompt + screenshot and parses
+  ---
+  duration_ms: 0.414694
+  type: 'test'
+  ...
+# Subtest: decideWithBrain omits the image when the shot is missing; errors are decider_*
+ok 120 - decideWithBrain omits the image when the shot is missing; errors are decider_*
+  ---
+  duration_ms: 1.072086
+  type: 'test'
+  ...
+# Subtest: normalizeObservation coerces daemon shapes defensively
+ok 121 - normalizeObservation coerces daemon shapes defensively
+  ---
+  duration_ms: 0.850286
+  type: 'test'
+  ...
+# Subtest: recallSimilar formats top hits and degrades gracefully
+ok 122 - recallSimilar formats top hits and degrades gracefully
+  ---
+  duration_ms: 0.37631
+  type: 'test'
+  ...
+# Subtest: extractFirstJsonObject salvages objects from chatty prose
+ok 123 - extractFirstJsonObject salvages objects from chatty prose
+  ---
+  duration_ms: 0.131484
+  type: 'test'
+  ...
+# Subtest: parseDecision accepts prose-wrapped JSON from local brains
+ok 124 - parseDecision accepts prose-wrapped JSON from local brains
+  ---
+  duration_ms: 0.209947
+  type: 'test'
+  ...
+# Subtest: decideWithBrain falls back to the local brain when the cloud fails
+ok 125 - decideWithBrain falls back to the local brain when the cloud fails
+  ---
+  duration_ms: 0.279452
+  type: 'test'
+  ...
+# Subtest: decideWithBrain reports cloud health and chains both failures
+ok 126 - decideWithBrain reports cloud health and chains both failures
+  ---
+  duration_ms: 0.321998
+  type: 'test'
+  ...
+# Subtest: decideWithBrain reports empty offline replies distinctly
+ok 127 - decideWithBrain reports empty offline replies distinctly
+  ---
+  duration_ms: 0.283741
+  type: 'test'
+  ...
+# Subtest: decideWithBrain never touches the local brain when the cloud answers
+ok 128 - decideWithBrain never touches the local brain when the cloud answers
+  ---
+  duration_ms: 21.778292
+  type: 'test'
+  ...
+# Subtest: resolveStepTarget prefers element ids, falls back to scaled coords
+ok 129 - resolveStepTarget prefers element ids, falls back to scaled coords
+  ---
+  duration_ms: 2.253285
+  type: 'test'
+  ...
+# Subtest: resolveStepTarget maps drags and clamps to the screen
+ok 130 - resolveStepTarget maps drags and clamps to the screen
+  ---
+  duration_ms: 0.394383
+  type: 'test'
+  ...
+# Subtest: shotToPhysical / clampToScreen handle scales and offsets
+ok 131 - shotToPhysical / clampToScreen handle scales and offsets
+  ---
+  duration_ms: 0.190548
+  type: 'test'
+  ...
+# Subtest: fingerprintObservation keys on window + tree, not pixels
+ok 132 - fingerprintObservation keys on window + tree, not pixels
+  ---
+  duration_ms: 0.227955
+  type: 'test'
+  ...
+# Subtest: verifyExpectation matches window + tree text
+ok 133 - verifyExpectation matches window + tree text
+  ---
+  duration_ms: 0.344039
+  type: 'test'
+  ...
+# Subtest: describeStep prefers notes, then action + target/app/keys
+ok 134 - describeStep prefers notes, then action + target/app/keys
+  ---
+  duration_ms: 0.147411
+  type: 'test'
+  ...
+# Subtest: happy path: observe → decide → act → verify → done, and remembers
+ok 135 - happy path: observe → decide → act → verify → done, and remembers
+  ---
+  duration_ms: 2.560262
+  type: 'test'
+  ...
+# Subtest: resolve failures feed back into the next decide
+ok 136 - resolve failures feed back into the next decide
+  ---
+  duration_ms: 1.030485
+  type: 'test'
+  ...
+# Subtest: unverified step decides fresh with failure context, then succeeds
+ok 137 - unverified step decides fresh with failure context, then succeeds
+  ---
+  duration_ms: 0.696438
+  type: 'test'
+  ...
+# Subtest: exhausted retries fail with the reason
+ok 138 - exhausted retries fail with the reason
+  ---
+  duration_ms: 0.843956
+  type: 'test'
+  ...
+# Subtest: repeated screen states stop the task (no progress)
+ok 139 - repeated screen states stop the task (no progress)
+  ---
+  duration_ms: 1.72281
+  type: 'test'
+  ...
+# Subtest: repeatTolerance 0 stops on the first repeat
+ok 140 - repeatTolerance 0 stops on the first repeat
+  ---
+  duration_ms: 0.642879
+  type: 'test'
+  ...
+# Subtest: needsConfirm pauses; resume(true) executes without model confirm
+ok 141 - needsConfirm pauses; resume(true) executes without model confirm
+  ---
+  duration_ms: 0.620752
+  type: 'test'
+  ...
+# Subtest: resume(false) cancels the task
+ok 142 - resume(false) cancels the task
+  ---
+  duration_ms: 0.362813
+  type: 'test'
+  ...
+# Subtest: daemon confirmation_required pauses, redeems the id, retries once
+ok 143 - daemon confirmation_required pauses, redeems the id, retries once
+  ---
+  duration_ms: 0.397374
+  type: 'test'
+  ...
+# Subtest: daemon gate without a confirm dep fails the step (no self-confirm)
+ok 144 - daemon gate without a confirm dep fails the step (no self-confirm)
+  ---
+  duration_ms: 0.237266
+  type: 'test'
+  ...
+# Subtest: step budget caps decisions
+ok 145 - step budget caps decisions
+  ---
+  duration_ms: 0.278002
+  type: 'test'
+  ...
+# Subtest: cancel mid-run stops after the current step
+ok 146 - cancel mid-run stops after the current step
+  ---
+  duration_ms: 0.258193
+  type: 'test'
+  ...
+# Subtest: observe failure fails closed (never acts blind)
+ok 147 - observe failure fails closed (never acts blind)
+  ---
+  duration_ms: 0.205998
+  type: 'test'
+  ...
+# Subtest: losing observation after acting fails the task
+ok 148 - losing observation after acting fails the task
+  ---
+  duration_ms: 0.292419
+  type: 'test'
+  ...
+# Subtest: run rejects an empty goal
+ok 149 - run rejects an empty goal
+  ---
+  duration_ms: 0.558186
+  type: 'test'
+  ...
+# Subtest: decide maps shot coords to physical pixels end to end
+ok 150 - decide maps shot coords to physical pixels end to end
+  ---
+  duration_ms: 0.338181
+  type: 'test'
+  ...
+# Subtest: step gate rejects feed back as failures, not terminal stops
+ok 151 - step gate rejects feed back as failures, not terminal stops
+  ---
+  duration_ms: 0.420497
+  type: 'test'
+  ...
+# Subtest: judge errors fail open to heuristic behavior
+ok 152 - judge errors fail open to heuristic behavior
+  ---
+  duration_ms: 0.317303
+  type: 'test'
+  ...
+# Subtest: recovery choice retry_same re-executes once, then proceeds
+ok 153 - recovery choice retry_same re-executes once, then proceeds
+  ---
+  duration_ms: 0.358824
+  type: 'test'
+  ...
+# Subtest: recovery choice ask_user pauses; approval continues, denial cancels
+ok 154 - recovery choice ask_user pauses; approval continues, denial cancels
+  ---
+  duration_ms: 1.521166
+  type: 'test'
+  ...
+# Subtest: low-confidence recovery choice decides fresh instead of retrying
+ok 155 - low-confidence recovery choice decides fresh instead of retrying
+  ---
+  duration_ms: 0.4273
+  type: 'test'
+  ...
+# Subtest: judge second-opinion overrides a heuristic miss
+ok 156 - judge second-opinion overrides a heuristic miss
+  ---
+  duration_ms: 0.389571
+  type: 'test'
+  ...
+# Subtest: judge doubt flips an expectation-less pass into recovery
+ok 157 - judge doubt flips an expectation-less pass into recovery
+  ---
+  duration_ms: 0.252802
+  type: 'test'
+  ...
+# Subtest: resolveStepTarget exposes a preview point + element box
+ok 158 - resolveStepTarget exposes a preview point + element box
+  ---
+  duration_ms: 0.244781
+  type: 'test'
+  ...
+# Subtest: step events carry the preview target; pauses raise preview with shot
+ok 159 - step events carry the preview target; pauses raise preview with shot
+  ---
+  duration_ms: 0.372506
+  type: 'test'
+  ...
+# Subtest: approving a pause dismisses the preview overlay
+ok 160 - approving a pause dismisses the preview overlay
+  ---
+  duration_ms: 0.33028
+  type: 'test'
+  ...
+# Subtest: injected steps are rejected before execution and fail closed
+ok 161 - injected steps are rejected before execution and fail closed
+  ---
+  duration_ms: 0.419914
+  type: 'test'
+  ...
+# Subtest: guard echo rule: goal-authorized instructions run normally
+ok 162 - guard echo rule: goal-authorized instructions run normally
+  ---
+  duration_ms: 0.377612
+  type: 'test'
+  ...
+# Subtest: pruneShots keeps first, failed (≤3), and last two — drops the middle
+ok 163 - pruneShots keeps first, failed (≤3), and last two — drops the middle
+  ---
+  duration_ms: 0.453584
+  type: 'test'
+  ...
+# Subtest: pruneShots is a no-op without shots and keeps tiny runs whole
+ok 164 - pruneShots is a no-op without shots and keeps tiny runs whole
+  ---
+  duration_ms: 0.179695
+  type: 'test'
+  ...
+# Subtest: run stamps the window and retains evidence shots on records
+ok 165 - run stamps the window and retains evidence shots on records
+  ---
+  duration_ms: 0.307475
+  type: 'test'
+  ...
+# Subtest: canonical line formats exactly (contract with memory/mirror.mjs)
+ok 166 - canonical line formats exactly (contract with memory/mirror.mjs)
+  ---
+  duration_ms: 0.857803
+  type: 'test'
+  ...
+# Subtest: clean runs omit tools; failed/cancelled encode ok
+ok 167 - clean runs omit tools; failed/cancelled encode ok
+  ---
+  duration_ms: 0.293494
+  type: 'test'
+  ...
+# Subtest: formatter sanitizes hostile tool names and non-integer episodes
+ok 168 - formatter sanitizes hostile tool names and non-integer episodes
+  ---
+  duration_ms: 0.121635
+  type: 'test'
+  ...
+# Subtest: confidence: clean 0.90, recovered degrades per failure, floor holds
+ok 169 - confidence: clean 0.90, recovered degrades per failure, floor holds
+  ---
+  duration_ms: 0.210987
+  type: 'test'
+  ...
+# Subtest: confidence: failed 0.15, cancelled 0.50 with unknown-outcome basis
+ok 170 - confidence: failed 0.15, cancelled 0.50 with unknown-outcome basis
+  ---
+  duration_ms: 0.178899
+  type: 'test'
+  ...
+# Subtest: scores always carry a human-readable basis
+ok 171 - scores always carry a human-readable basis
+  ---
+  duration_ms: 0.131181
+  type: 'test'
+  ...
+# Subtest: store caps at 200 and heals corrupt storage
+ok 172 - store caps at 200 and heals corrupt storage
+  ---
+  duration_ms: 10.58499
+  type: 'test'
+  ...
+# Subtest: matches the canonical phrases
+ok 173 - matches the canonical phrases
+  ---
+  duration_ms: 0.921673
+  type: 'test'
+  ...
+# Subtest: requires word boundaries
+ok 174 - requires word boundaries
+  ---
+  duration_ms: 0.138248
+  type: 'test'
+  ...
+# Subtest: respects punctuation boundaries
+ok 175 - respects punctuation boundaries
+  ---
+  duration_ms: 0.113697
+  type: 'test'
+  ...
+# Subtest: custom wake words override defaults
+ok 176 - custom wake words override defaults
+  ---
+  duration_ms: 0.139758
+  type: 'test'
+  ...
+# Subtest: empty / garbage input never fires
+ok 177 - empty / garbage input never fires
+  ---
+  duration_ms: 0.093922
+  type: 'test'
+  ...
+# Subtest: case-insensitive and trimmed
+ok 178 - case-insensitive and trimmed
+  ---
+  duration_ms: 0.077509
+  type: 'test'
+  ...
+# Subtest: default list contains the Sofia family
+ok 179 - default list contains the Sofia family
+  ---
+  duration_ms: 0.11897
+  type: 'test'
+  ...
+# Subtest: worker allowlists match the spec
+ok 180 - worker allowlists match the spec
+  ---
+  duration_ms: 1.369952
+  type: 'test'
+  ...
+# Subtest: parseWorkerOutput accepts actions and finals, salvages prose
+ok 181 - parseWorkerOutput accepts actions and finals, salvages prose
+  ---
+  duration_ms: 0.435377
+  type: 'test'
+  ...
+# Subtest: runWorkerTask loops tool → final and posts the transcript
+ok 182 - runWorkerTask loops tool → final and posts the transcript
+  ---
+  duration_ms: 2.729118
+  type: 'test'
+  ...
+# Subtest: runWorkerTask denies off-allowlist tools and continues
+ok 183 - runWorkerTask denies off-allowlist tools and continues
+  ---
+  duration_ms: 0.660548
+  type: 'test'
+  ...
+# Subtest: runWorkerTask fails after two unparseable replies
+ok 184 - runWorkerTask fails after two unparseable replies
+  ---
+  duration_ms: 0.723117
+  type: 'test'
+  ...
+# Subtest: runWorkerTask enforces the step budget
+ok 185 - runWorkerTask enforces the step budget
+  ---
+  duration_ms: 0.424953
+  type: 'test'
+  ...
+# Subtest: runWorkerTask enforces the time budget
+ok 186 - runWorkerTask enforces the time budget
+  ---
+  duration_ms: 0.535746
+  type: 'test'
+  ...
+# Subtest: runWorkerTask aborts cooperatively on cancel
+ok 187 - runWorkerTask aborts cooperatively on cancel
+  ---
+  duration_ms: 0.296896
+  type: 'test'
+  ...
+# Subtest: runWorkerTask refuses owners without a worker definition
+ok 188 - runWorkerTask refuses owners without a worker definition
+  ---
+  duration_ms: 0.422992
+  type: 'test'
+  ...
+# (node:6195) ExperimentalWarning: The MockTimers API is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: callTool failure memo
+    # Subtest: replays an identical failure within the memo window without refetching
+    ok 1 - replays an identical failure within the memo window without refetching
+      ---
+      duration_ms: 4.060145
+      type: 'test'
+      ...
+    # Subtest: keys by token identity so a reminted token shares the memo entry
+    ok 2 - keys by token identity so a reminted token shares the memo entry
+      ---
+      duration_ms: 1.071674
+      type: 'test'
+      ...
+    # Subtest: sweeps expired entries on write so unique keys do not accumulate
+    ok 3 - sweeps expired entries on write so unique keys do not accumulate
+      ---
+      duration_ms: 2.028255
+      type: 'test'
+      ...
+    # Subtest: never memoizes login-required 401s
+    ok 4 - never memoizes login-required 401s
+      ---
+      duration_ms: 1.188288
+      type: 'test'
+      ...
+    1..4
+ok 189 - callTool failure memo
+  ---
+  duration_ms: 9.2468
+  type: 'suite'
+  ...
+# Subtest: callTool in the workspace preview vs deployed
+    # Subtest: returns pending (no loginRequired) when the preview has no token yet
+    ok 1 - returns pending (no loginRequired) when the preview has no token yet
+      ---
+      duration_ms: 0.700703
+      type: 'test'
+      ...
+    # Subtest: returns a plain error (no sign-in CTA) when a deployed app has no token
+    ok 2 - returns a plain error (no sign-in CTA) when a deployed app has no token
+      ---
+      duration_ms: 0.461191
+      type: 'test'
+      ...
+    # Subtest: treats a gate 401 in the preview as pending and parks the rejected token
+    ok 3 - treats a gate 401 in the preview as pending and parks the rejected token
+      ---
+      duration_ms: 1.600993
+      type: 'test'
+      ...
+    # Subtest: keeps loginRequired for a gate 401 on a deployed app
+    ok 4 - keeps loginRequired for a gate 401 on a deployed app
+      ---
+      duration_ms: 0.759504
+      type: 'test'
+      ...
+    1..4
+ok 190 - callTool in the workspace preview vs deployed
+  ---
+  duration_ms: 3.900632
+  type: 'suite'
+  ...
+# Subtest: callTool
+    # Subtest: resolves ok:false for non-serializable args instead of rejecting
+    ok 1 - resolves ok:false for non-serializable args instead of rejecting
+      ---
+      duration_ms: 0.531504
+      type: 'test'
+      ...
+    1..1
+ok 191 - callTool
+  ---
+  duration_ms: 0.642444
+  type: 'suite'
+  ...
+# Subtest: isLoginRequired
+    # Subtest: is true only for login-required failures
+    ok 1 - is true only for login-required failures
+      ---
+      duration_ms: 0.22744
+      type: 'test'
+      ...
+    1..1
+ok 192 - isLoginRequired
+  ---
+  duration_ms: 0.29091
+  type: 'suite'
+  ...
+# Subtest: redirectToLoginIfRequired
+    # Subtest: no-ops when login is not required
+    ok 1 - no-ops when login is not required
+      ---
+      duration_ms: 0.202746
+      type: 'test'
+      ...
+    # Subtest: navigates to the server-built loginUrl in the browser
+    ok 2 - navigates to the server-built loginUrl in the browser
+      ---
+      duration_ms: 0.107072
+      type: 'test'
+      ...
+    # Subtest: opens a new tab instead of navigating when framed
+    ok 3 - opens a new tab instead of navigating when framed
+      ---
+      duration_ms: 0.099481
+      type: 'test'
+      ...
+    # Subtest: falls back to navigation when framed and the popup is blocked
+    ok 4 - falls back to navigation when framed and the popup is blocked
+      ---
+      duration_ms: 0.083467
+      type: 'test'
+      ...
+    # Subtest: returns false when the result has no loginUrl
+    ok 5 - returns false when the result has no loginUrl
+      ---
+      duration_ms: 0.088048
+      type: 'test'
+      ...
+    # Subtest: returns false on the server (no window)
+    ok 6 - returns false on the server (no window)
+      ---
+      duration_ms: 0.100649
+      type: 'test'
+      ...
+    1..6
+ok 193 - redirectToLoginIfRequired
+  ---
+  duration_ms: 0.822688
+  type: 'suite'
+  ...
+# Subtest: GoogleCalendarTools
+    # Subtest: does not expose a list_events name
+    ok 1 - does not expose a list_events name
+      ---
+      duration_ms: 0.145676
+      type: 'test'
+      ...
+    1..1
+ok 194 - GoogleCalendarTools
+  ---
+  duration_ms: 0.194382
+  type: 'suite'
+  ...
+# Subtest: classifyCallToolError
+    # Subtest: returns null for successful results
+    ok 1 - returns null for successful results
+      ---
+      duration_ms: 0.204441
+      type: 'test'
+      ...
+    # Subtest: classifies a pending preview token as pending before any other kind
+    ok 2 - classifies a pending preview token as pending before any other kind
+      ---
+      duration_ms: 0.097268
+      type: 'test'
+      ...
+    # Subtest: classifies a deployed missing token as error, not a login CTA
+    ok 3 - classifies a deployed missing token as error, not a login CTA
+      ---
+      duration_ms: 0.122961
+      type: 'test'
+      ...
+    # Subtest: classifies gate loginRequired without a missing-token message as login
+    ok 4 - classifies gate loginRequired without a missing-token message as login
+      ---
+      duration_ms: 0.086342
+      type: 'test'
+      ...
+    # Subtest: classifies not_connected and failed_precondition
+    ok 5 - classifies not_connected and failed_precondition
+      ---
+      duration_ms: 0.149386
+      type: 'test'
+      ...
+    # Subtest: classifies scope_denied without claiming a missing grant
+    ok 6 - classifies scope_denied without claiming a missing grant
+      ---
+      duration_ms: 0.143205
+      type: 'test'
+      ...
+    # Subtest: classifies access_denied
+    ok 7 - classifies access_denied
+      ---
+      duration_ms: 0.065449
+      type: 'test'
+      ...
+    # Subtest: falls back to a generic error with the raw message
+    ok 8 - falls back to a generic error with the raw message
+      ---
+      duration_ms: 0.108659
+      type: 'test'
+      ...
+    1..8
+ok 195 - classifyCallToolError
+  ---
+  duration_ms: 1.140846
+  type: 'suite'
+  ...
+# Subtest: readinessProbeDelayMs
+    # Subtest: backs off through the schedule and then holds the last delay
+    ok 1 - backs off through the schedule and then holds the last delay
+      ---
+      duration_ms: 1.07093
+      type: 'test'
+      ...
+    # Subtest: clamps a negative attempt to the first delay
+    ok 2 - clamps a negative attempt to the first delay
+      ---
+      duration_ms: 0.240439
+      type: 'test'
+      ...
+    1..2
+ok 196 - readinessProbeDelayMs
+  ---
+  duration_ms: 2.133482
+  type: 'suite'
+  ...
+# Subtest: readinessProbeExhausted
+    # Subtest: gives up only once the total wait budget has elapsed
+    ok 1 - gives up only once the total wait budget has elapsed
+      ---
+      duration_ms: 0.178609
+      type: 'test'
+      ...
+    1..1
+ok 197 - readinessProbeExhausted
+  ---
+  duration_ms: 0.300067
+  type: 'suite'
+  ...
+# Subtest: verifyGateIdentityToken
+    # Subtest: returns the identity for a valid token
+    ok 1 - returns the identity for a valid token
+      ---
+      duration_ms: 10.639406
+      type: 'test'
+      ...
+    # Subtest: omits optional claims as nulls
+    ok 2 - omits optional claims as nulls
+      ---
+      duration_ms: 3.982777
+      type: 'test'
+      ...
+    # Subtest: rejects a wrong audience
+    ok 3 - rejects a wrong audience
+      ---
+      duration_ms: 9.756708
+      type: 'test'
+      ...
+    # Subtest: rejects a wrong issuer
+    ok 4 - rejects a wrong issuer
+      ---
+      duration_ms: 2.501935
+      type: 'test'
+      ...
+    # Subtest: rejects an expired token
+    ok 5 - rejects an expired token
+      ---
+      duration_ms: 2.485065
+      type: 'test'
+      ...
+    # Subtest: rejects a token without exp
+    ok 6 - rejects a token without exp
+      ---
+      duration_ms: 1.546315
+      type: 'test'
+      ...
+    # Subtest: rejects a token signed by a different key with the same kid
+    ok 7 - rejects a token signed by a different key with the same kid
+      ---
+      duration_ms: 1.458675
+      type: 'test'
+      ...
+    # Subtest: refetches the JWKS when the kid rotates
+    ok 8 - refetches the JWKS when the kid rotates
+      ---
+      duration_ms: 3.24098
+      type: 'test'
+      ...
+    1..8
+ok 198 - verifyGateIdentityToken
+  ---
+  duration_ms: 37.029852
+  type: 'suite'
+  ...
+# Subtest: gateIdentityFromHeaders
+    # Subtest: verifies the header token end to end and fails closed without it
+    ok 1 - verifies the header token end to end and fails closed without it
+      ---
+      duration_ms: 17.637993
+      type: 'test'
+      ...
+    # Subtest: activates on a deployed-shaped request without GROK_GATE_ORIGIN
+    ok 2 - activates on a deployed-shaped request without GROK_GATE_ORIGIN
+      ---
+      duration_ms: 2.812198
+      type: 'test'
+      ...
+    # Subtest: verifies a preview-audience token with no gate env vars via the loopback default
+    ok 3 - verifies a preview-audience token with no gate env vars via the loopback default
+      ---
+      duration_ms: 2.011587
+      type: 'test'
+      ...
+    # Subtest: rejects a wrong-issuer token in the loopback default mode
+    ok 4 - rejects a wrong-issuer token in the loopback default mode
+      ---
+      duration_ms: 1.640797
+      type: 'test'
+      ...
+    # Subtest: verifies a preview-audience token when only GROK_GATE_ORIGIN is set
+    ok 5 - verifies a preview-audience token when only GROK_GATE_ORIGIN is set
+      ---
+      duration_ms: 1.487162
+      type: 'test'
+      ...
+    # Subtest: rejects a preview-audience token when GROK_PROJECT_ID is set
+    ok 6 - rejects a preview-audience token when GROK_PROJECT_ID is set
+      ---
+      duration_ms: 1.705133
+      type: 'test'
+      ...
+    # Subtest: rejects an app-audience token in preview mode
+    ok 7 - rejects an app-audience token in preview mode
+      ---
+      duration_ms: 1.922247
+      type: 'test'
+      ...
+    1..7
+ok 199 - gateIdentityFromHeaders
+  ---
+  duration_ms: 29.799146
+  type: 'suite'
+  ...
+# Subtest: gateIdentityEnabled
+    # Subtest: is enabled by default with no gate env vars
+    ok 1 - is enabled by default with no gate env vars
+      ---
+      duration_ms: 0.123647
+      type: 'test'
+      ...
+    # Subtest: is disabled when VITE_AUTH_ENABLED is false
+    ok 2 - is disabled when VITE_AUTH_ENABLED is false
+      ---
+      duration_ms: 0.078584
+      type: 'test'
+      ...
+    1..2
+ok 200 - gateIdentityEnabled
+  ---
+  duration_ms: 0.286271
+  type: 'suite'
+  ...
+# Subtest: gateTokenAudience
+    # Subtest: pins app:<id> when GROK_PROJECT_ID is set, even alongside GROK_GATE_ORIGIN
+    ok 1 - pins app:<id> when GROK_PROJECT_ID is set, even alongside GROK_GATE_ORIGIN
+      ---
+      duration_ms: 0.110371
+      type: 'test'
+      ...
+    # Subtest: pins preview when GROK_PROJECT_ID is unset
+    ok 2 - pins preview when GROK_PROJECT_ID is unset
+      ---
+      duration_ms: 0.171816
+      type: 'test'
+      ...
+    1..2
+ok 201 - gateTokenAudience
+  ---
+  duration_ms: 0.362713
+  type: 'suite'
+  ...
+# Subtest: gateIdentityUserInfo
+    # Subtest: falls back to a synthetic email and name for sub-only claims
+    ok 1 - falls back to a synthetic email and name for sub-only claims
+      ---
+      duration_ms: 0.133436
+      type: 'test'
+      ...
+    # Subtest: keeps real claims, lowercasing the email and marking it verified
+    ok 2 - keeps real claims, lowercasing the email and marking it verified
+      ---
+      duration_ms: 0.135011
+      type: 'test'
+      ...
+    1..2
+ok 202 - gateIdentityUserInfo
+  ---
+  duration_ms: 0.346883
+  type: 'suite'
+  ...
+# Subtest: sessionBoundToGateIdentity
+    # Subtest: keeps the session when it is bound to the same gate sub
+    ok 1 - keeps the session when it is bound to the same gate sub
+      ---
+      duration_ms: 0.117779
+      type: 'test'
+      ...
+    # Subtest: rotates when the session belongs to a different gate sub
+    ok 2 - rotates when the session belongs to a different gate sub
+      ---
+      duration_ms: 0.065402
+      type: 'test'
+      ...
+    # Subtest: rotates when the session user has no gate-bound account
+    ok 3 - rotates when the session user has no gate-bound account
+      ---
+      duration_ms: 0.09341
+      type: 'test'
+      ...
+    1..3
+ok 203 - sessionBoundToGateIdentity
+  ---
+  duration_ms: 0.375329
+  type: 'suite'
+  ...
+# Subtest: resolveSignInGateState
+    # Subtest: is pending while the session check is in flight, user or not
+    ok 1 - is pending while the session check is in flight, user or not
+      ---
+      duration_ms: 0.743827
+      type: 'test'
+      ...
+    # Subtest: is signed_in once a user is present
+    ok 2 - is signed_in once a user is present
+      ---
+      duration_ms: 0.126703
+      type: 'test'
+      ...
+    # Subtest: is signed_out only after the check resolved with no user
+    ok 3 - is signed_out only after the check resolved with no user
+      ---
+      duration_ms: 0.092997
+      type: 'test'
+      ...
+    1..3
+ok 204 - resolveSignInGateState
+  ---
+  duration_ms: 1.903474
+  type: 'suite'
+  ...
+# Subtest: validChatImage accepts well-formed attachments
+ok 205 - validChatImage accepts well-formed attachments
+  ---
+  duration_ms: 1.615261
+  type: 'test'
+  ...
+# Subtest: validChatImage rejects absent/malformed/absurd input, defaults mime
+ok 206 - validChatImage rejects absent/malformed/absurd input, defaults mime
+  ---
+  duration_ms: 0.200978
+  type: 'test'
+  ...
+# Subtest: vendor part builders shape the same pixels per API
+ok 207 - vendor part builders shape the same pixels per API
+  ---
+  duration_ms: 0.231986
+  type: 'test'
+  ...
+# Subtest: listRoots returns daemon roots and rejects bad shapes
+ok 208 - listRoots returns daemon roots and rejects bad shapes
+  ---
+  duration_ms: 2.990629
+  type: 'test'
+  ...
+# Subtest: listFiles sorts directories first, then alphabetically
+ok 209 - listFiles sorts directories first, then alphabetically
+  ---
+  duration_ms: 6.236512
+  type: 'test'
+  ...
+# Subtest: findFiles validates the query and clamps the limit
+ok 210 - findFiles validates the query and clamps the limit
+  ---
+  duration_ms: 0.313281
+  type: 'test'
+  ...
+# Subtest: readFile and openFile shape their results
+ok 211 - readFile and openFile shape their results
+  ---
+  duration_ms: 0.186282
+  type: 'test'
+  ...
+# Subtest: renameFile moves within the directory and rejects no-ops
+ok 212 - renameFile moves within the directory and rejects no-ops
+  ---
+  duration_ms: 0.559655
+  type: 'test'
+  ...
+# Subtest: trashFile threads the confirm flag for the two-step flow
+ok 213 - trashFile threads the confirm flag for the two-step flow
+  ---
+  duration_ms: 0.286091
+  type: 'test'
+  ...
+# Subtest: restoreFile validates its trash path
+ok 214 - restoreFile validates its trash path
+  ---
+  duration_ms: 0.285778
+  type: 'test'
+  ...
+# Subtest: joinChild honours both separator flavours
+ok 215 - joinChild honours both separator flavours
+  ---
+  duration_ms: 0.39164
+  type: 'test'
+  ...
+# Subtest: healthSnapshot normalises the full shape
+ok 216 - healthSnapshot normalises the full shape
+  ---
+  duration_ms: 0.558866
+  type: 'test'
+  ...
+# Subtest: healthSnapshot tolerates missing fields
+ok 217 - healthSnapshot tolerates missing fields
+  ---
+  duration_ms: 0.38057
+  type: 'test'
+  ...
+# Subtest: healthProcesses clamps the limit and filters junk
+ok 218 - healthProcesses clamps the limit and filters junk
+  ---
+  duration_ms: 0.428484
+  type: 'test'
+  ...
+# Subtest: mediaControl validates ops and clamps set_volume
+ok 219 - mediaControl validates ops and clamps set_volume
+  ---
+  duration_ms: 0.237205
+  type: 'test'
+  ...
+# Subtest: mediaStatus normalises best-effort nulls
+ok 220 - mediaStatus normalises best-effort nulls
+  ---
+  duration_ms: 0.134609
+  type: 'test'
+  ...
+# Subtest: normalisePhone accepts digits with optional +
+ok 221 - normalisePhone accepts digits with optional +
+  ---
+  duration_ms: 0.288352
+  type: 'test'
+  ...
+# Subtest: whatsappDraft validates recipient and body
+ok 222 - whatsappDraft validates recipient and body
+  ---
+  duration_ms: 0.458249
+  type: 'test'
+  ...
+# Subtest: whatsappSend is draft-first and confirm-gated
+ok 223 - whatsappSend is draft-first and confirm-gated
+  ---
+  duration_ms: 0.373395
+  type: 'test'
+  ...
+# Subtest: whatsappUnread tolerates either list shape
+ok 224 - whatsappUnread tolerates either list shape
+  ---
+  duration_ms: 0.207677
+  type: 'test'
+  ...
+# Subtest: whatsappOpen passes an optional phone
+ok 225 - whatsappOpen passes an optional phone
+  ---
+  duration_ms: 0.18404
+  type: 'test'
+  ...
+# Subtest: daemon failures surface with codes and confirmation flags
+ok 226 - daemon failures surface with codes and confirmation flags
+  ---
+  duration_ms: 0.109362
+  type: 'test'
+  ...
+# Subtest: transport throws become DailyError
+ok 227 - transport throws become DailyError
+  ---
+  duration_ms: 0.12502
+  type: 'test'
+  ...
+# Subtest: formatters behave
+ok 228 - formatters behave
+  ---
+  duration_ms: 0.174287
+  type: 'test'
+  ...
+# Subtest: setup errors are recognised
+ok 229 - setup errors are recognised
+  ---
+  duration_ms: 0.260616
+  type: 'test'
+  ...
+# Subtest: creates a P-256 identity and persists it
+ok 230 - creates a P-256 identity and persists it
+  ---
+  duration_ms: 6.977312
+  type: 'test'
+  ...
+# Subtest: loads the stable identity on repeat calls
+ok 231 - loads the stable identity on repeat calls
+  ---
+  duration_ms: 3.322641
+  type: 'test'
+  ...
+# Subtest: corrupt storage rotates to a fresh identity
+ok 232 - corrupt storage rotates to a fresh identity
+  ---
+  duration_ms: 2.079214
+  type: 'test'
+  ...
+# Subtest: hello block carries id+name+pubkey but never the private key
+ok 233 - hello block carries id+name+pubkey but never the private key
+  ---
+  duration_ms: 1.210786
+  type: 'test'
+  ...
+# Subtest: pair payload is a compact scannable URL
+ok 234 - pair payload is a compact scannable URL
+  ---
+  duration_ms: 0.221192
+  type: 'test'
+  ...
+# Subtest: posts texts and returns validated vectors
+ok 235 - posts texts and returns validated vectors
+  ---
+  duration_ms: 1.505266
+  type: 'test'
+  ...
+# Subtest: unavailable or malformed backends degrade to null
+ok 236 - unavailable or malformed backends degrade to null
+  ---
+  duration_ms: 0.257413
+  type: 'test'
+  ...
+# Subtest: isEmbedding bounds dimensions and values
+ok 237 - isEmbedding bounds dimensions and values
+  ---
+  duration_ms: 0.184859
+  type: 'test'
+  ...
+# Subtest: addEpisode validates and shapes the reply
+ok 238 - addEpisode validates and shapes the reply
+  ---
+  duration_ms: 1.842087
+  type: 'test'
+  ...
+# Subtest: searchEpisodes clamps the limit and filters junk
+ok 239 - searchEpisodes clamps the limit and filters junk
+  ---
+  duration_ms: 0.382468
+  type: 'test'
+  ...
+# Subtest: recentEpisodes tolerates missing lists and roles
+ok 240 - recentEpisodes tolerates missing lists and roles
+  ---
+  duration_ms: 0.211926
+  type: 'test'
+  ...
+# Subtest: daemon and transport failures surface as EpisodeError
+ok 241 - daemon and transport failures surface as EpisodeError
+  ---
+  duration_ms: 1.692353
+  type: 'test'
+  ...
+# Subtest: episodeAge bands
+ok 242 - episodeAge bands
+  ---
+  duration_ms: 11.565937
+  type: 'test'
+  ...
+# Subtest: vectors ride add/search args; hybrid flag surfaces
+ok 243 - vectors ride add/search args; hybrid flag surfaces
+  ---
+  duration_ms: 0.565118
+  type: 'test'
+  ...
+# Subtest: hybrid/enriched helpers degrade gracefully without an embed backend
+ok 244 - hybrid/enriched helpers degrade gracefully without an embed backend
+  ---
+  duration_ms: 0.602885
+  type: 'test'
+  ...
+# Subtest: groundText shapes hits and misses
+ok 245 - groundText shapes hits and misses
+  ---
+  duration_ms: 1.838715
+  type: 'test'
+  ...
+# Subtest: groundScan filters junk words
+ok 246 - groundScan filters junk words
+  ---
+  duration_ms: 0.374072
+  type: 'test'
+  ...
+# Subtest: tesseract absence is recognised as a setup state
+ok 247 - tesseract absence is recognised as a setup state
+  ---
+  duration_ms: 0.322685
+  type: 'test'
+  ...
+# Subtest: transport failures surface as GroundingError
+ok 248 - transport failures surface as GroundingError
+  ---
+  duration_ms: 0.184969
+  type: 'test'
+  ...
+# Subtest: parseHeadlines cleans mixed junk
+ok 249 - parseHeadlines cleans mixed junk
+  ---
+  duration_ms: 2.618683
+  type: 'test'
+  ...
+# Subtest: parseHeadlines rejects junk payloads and honours the limit
+ok 250 - parseHeadlines rejects junk payloads and honours the limit
+  ---
+  duration_ms: 0.515115
+  type: 'test'
+  ...
+# Subtest: headline cache round-trips and rejects corruption
+ok 251 - headline cache round-trips and rejects corruption
+  ---
+  duration_ms: 0.569746
+  type: 'test'
+  ...
+# Subtest: fetchHeadlines resolves clean items and rejects on trouble
+ok 252 - fetchHeadlines resolves clean items and rejects on trouble
+  ---
+  duration_ms: 1.525702
+  type: 'test'
+  ...
+# Subtest: ageLabel bands
+ok 253 - ageLabel bands
+  ---
+  duration_ms: 0.474455
+  type: 'test'
+  ...
+# Subtest: fallback wire is never empty
+ok 254 - fallback wire is never empty
+  ---
+  duration_ms: 0.220999
+  type: 'test'
+  ...
+# Subtest: first model audio after input completes one sample per turn
+ok 255 - first model audio after input completes one sample per turn
+  ---
+  duration_ms: 2.580289
+  type: 'test'
+  ...
+# Subtest: unprompted or stale speech yields no sample
+ok 256 - unprompted or stale speech yields no sample
+  ---
+  duration_ms: 0.221586
+  type: 'test'
+  ...
+# Subtest: alert budget is 1s
+ok 257 - alert budget is 1s
+  ---
+  duration_ms: 0.134571
+  type: 'test'
+  ...
+# Subtest: normalizeBaseUrl trims slashes and validates scheme
+ok 258 - normalizeBaseUrl trims slashes and validates scheme
+  ---
+  duration_ms: 1.345437
+  type: 'test'
+  ...
+# Subtest: settings default to the companion provider
+ok 259 - settings default to the companion provider
+  ---
+  duration_ms: 0.645882
+  type: 'test'
+  ...
+# Subtest: settings round-trip and survive corrupt data
+ok 260 - settings round-trip and survive corrupt data
+  ---
+  duration_ms: 0.195292
+  type: 'test'
+  ...
+# Subtest: transcribeCustom posts multipart audio and trims the transcript
+ok 261 - transcribeCustom posts multipart audio and trims the transcript
+  ---
+  duration_ms: 20.853503
+  type: 'test'
+  ...
+# Subtest: transcribeCustom sends the bearer token and default model
+ok 262 - transcribeCustom sends the bearer token and default model
+  ---
+  duration_ms: 0.686498
+  type: 'test'
+  ...
+# Subtest: transcribeCustom maps network, http and empty failures
+ok 263 - transcribeCustom maps network, http and empty failures
+  ---
+  duration_ms: 1.446963
+  type: 'test'
+  ...
+# Subtest: addMemoryFact validates locally and shapes the reply
+ok 264 - addMemoryFact validates locally and shapes the reply
+  ---
+  duration_ms: 1.77727
+  type: 'test'
+  ...
+# Subtest: addMemoryFact attaches embeddings when available
+ok 265 - addMemoryFact attaches embeddings when available
+  ---
+  duration_ms: 1.099743
+  type: 'test'
+  ...
+# Subtest: addMemoryEpisode returns derived ids; working roundtrips
+ok 266 - addMemoryEpisode returns derived ids; working roundtrips
+  ---
+  duration_ms: 0.916616
+  type: 'test'
+  ...
+# Subtest: recallForTurn never throws and shapes hits
+ok 267 - recallForTurn never throws and shapes hits
+  ---
+  duration_ms: 1.731722
+  type: 'test'
+  ...
+# Subtest: CRUD + export + writes + counts + consolidate pass through
+ok 268 - CRUD + export + writes + counts + consolidate pass through
+  ---
+  duration_ms: 0.719311
+  type: 'test'
+  ...
+# Subtest: posts inputs and validates the embedding matrix
+ok 269 - posts inputs and validates the embedding matrix
+  ---
+  duration_ms: 2.710199
+  type: 'test'
+  ...
+# Subtest: clips texts and characters without calling on empties
+ok 270 - clips texts and characters without calling on empties
+  ---
+  duration_ms: 0.322518
+  type: 'test'
+  ...
+# Subtest: any failure degrades to null
+ok 271 - any failure degrades to null
+  ---
+  duration_ms: 0.495593
+  type: 'test'
+  ...
+# Subtest: parses a good report, preserving null rates
+ok 272 - parses a good report, preserving null rates
+  ---
+  duration_ms: 0.914745
+  type: 'test'
+  ...
+# Subtest: rejects malformed reports outright
+ok 273 - rejects malformed reports outright
+  ---
+  duration_ms: 0.151964
+  type: 'test'
+  ...
+# Subtest: grades break at 95 and 80; null is none
+ok 274 - grades break at 95 and 80; null is none
+  ---
+  duration_ms: 0.135954
+  type: 'test'
+  ...
+# Subtest: defaults to auto with cloud allowed
+ok 275 - defaults to auto with cloud allowed
+  ---
+  duration_ms: 0.954781
+  type: 'test'
+  ...
+# Subtest: persists the mode and reloads it
+ok 276 - persists the mode and reloads it
+  ---
+  duration_ms: 0.185651
+  type: 'test'
+  ...
+# Subtest: ignores corrupt persisted values
+ok 277 - ignores corrupt persisted values
+  ---
+  duration_ms: 0.116125
+  type: 'test'
+  ...
+# Subtest: offline mode is sticky: failures and successes change nothing
+ok 278 - offline mode is sticky: failures and successes change nothing
+  ---
+  duration_ms: 0.169262
+  type: 'test'
+  ...
+# Subtest: cloud mode never trips offline
+ok 279 - cloud mode never trips offline
+  ---
+  duration_ms: 0.168987
+  type: 'test'
+  ...
+# Subtest: auto trips offline after consecutive failures, not before
+ok 280 - auto trips offline after consecutive failures, not before
+  ---
+  duration_ms: 0.099668
+  type: 'test'
+  ...
+# Subtest: a success resets the failure count
+ok 281 - a success resets the failure count
+  ---
+  duration_ms: 0.132152
+  type: 'test'
+  ...
+# Subtest: a tripped session recovers after a success streak
+ok 282 - a tripped session recovers after a success streak
+  ---
+  duration_ms: 0.112248
+  type: 'test'
+  ...
+# Subtest: setMode clears the trip and notifies subscribers
+ok 283 - setMode clears the trip and notifies subscribers
+  ---
+  duration_ms: 0.406586
+  type: 'test'
+  ...
+# Subtest: trip and recovery notify subscribers
+ok 284 - trip and recovery notify subscribers
+  ---
+  duration_ms: 0.323596
+  type: 'test'
+  ...
+# Subtest: resolveBrowserTarget: full http(s) URLs pass through
+ok 285 - resolveBrowserTarget: full http(s) URLs pass through
+  ---
+  duration_ms: 0.974478
+  type: 'test'
+  ...
+# Subtest: resolveBrowserTarget: shell metacharacters stay inside the URL, never a shell
+ok 286 - resolveBrowserTarget: shell metacharacters stay inside the URL, never a shell
+  ---
+  duration_ms: 0.444379
+  type: 'test'
+  ...
+# Subtest: resolveBrowserTarget: non-http schemes never reach the opener as-is
+ok 287 - resolveBrowserTarget: non-http schemes never reach the opener as-is
+  ---
+  duration_ms: 0.227189
+  type: 'test'
+  ...
+# Subtest: resolveBrowserTarget: aliases and bare domains
+ok 288 - resolveBrowserTarget: aliases and bare domains
+  ---
+  duration_ms: 0.260366
+  type: 'test'
+  ...
+# Subtest: resolveBrowserTarget: search and media actions encode the query
+ok 289 - resolveBrowserTarget: search and media actions encode the query
+  ---
+  duration_ms: 0.13065
+  type: 'test'
+  ...
+# Subtest: sanitizeLlmBaseUrl: accepts local http endpoints and strips trailing slash
+ok 290 - sanitizeLlmBaseUrl: accepts local http endpoints and strips trailing slash
+  ---
+  duration_ms: 0.68572
+  type: 'test'
+  ...
+# Subtest: sanitizeLlmBaseUrl: rejects metadata, link-local, credentials and odd schemes
+ok 291 - sanitizeLlmBaseUrl: rejects metadata, link-local, credentials and odd schemes
+  ---
+  duration_ms: 0.203653
+  type: 'test'
+  ...
+# Subtest: isLocalDevRequest / allowLlmUrlOverride policy
+ok 292 - isLocalDevRequest / allowLlmUrlOverride policy
+  ---
+  duration_ms: 18.538183
+  type: 'test'
+  ...
+# Subtest: resolveLlmBaseUrl: override only when allowed, env next, fallback last
+ok 293 - resolveLlmBaseUrl: override only when allowed, env next, fallback last
+  ---
+  duration_ms: 0.5253
+  type: 'test'
+  ...
+# Subtest: four themes with unique ids, labels and valid hex accents
+ok 294 - four themes with unique ids, labels and valid hex accents
+  ---
+  duration_ms: 1.372134
+  type: 'test'
+  ...
+# Subtest: theme guards fall back to Sofia
+ok 295 - theme guards fall back to Sofia
+  ---
+  duration_ms: 0.2044
+  type: 'test'
+  ...
+# Subtest: apply/current round-trip through a stubbed document
+ok 296 - apply/current round-trip through a stubbed document
+  ---
+  duration_ms: 0.147625
+  type: 'test'
+  ...
+# Subtest: styles.css remaps the sky ramp to theme variables
+ok 297 - styles.css remaps the sky ramp to theme variables
+  ---
+  duration_ms: 0.52663
+  type: 'test'
+  ...
+# Subtest: auto with keys: cloud chain first, local follows (both directions)
+ok 298 - auto with keys: cloud chain first, local follows (both directions)
+  ---
+  duration_ms: 1.491658
+  type: 'test'
+  ...
+# Subtest: auto without any keys: local leads the chain
+ok 299 - auto without any keys: local leads the chain
+  ---
+  duration_ms: 0.151555
+  type: 'test'
+  ...
+# Subtest: airplane mode never reaches the cloud
+ok 300 - airplane mode never reaches the cloud
+  ---
+  duration_ms: 0.103382
+  type: 'test'
+  ...
+# Subtest: explicit local mode ignores keys
+ok 301 - explicit local mode ignores keys
+  ---
+  duration_ms: 0.149323
+  type: 'test'
+  ...
+# Subtest: explicit cloud mode keeps browser TTS as last resort only
+ok 302 - explicit cloud mode keeps browser TTS as last resort only
+  ---
+  duration_ms: 0.187699
+  type: 'test'
+  ...
+# Subtest: fallback walks the chain after a failure
+ok 303 - fallback walks the chain after a failure
+  ---
+  duration_ms: 0.146766
+  type: 'test'
+  ...
+# Subtest: local leg reports partial capabilities honestly
+ok 304 - local leg reports partial capabilities honestly
+  ---
+  duration_ms: 0.20911
+  type: 'test'
+  ...
+# Subtest: companion disconnected: local leg absent, chain still non-empty
+ok 305 - companion disconnected: local leg absent, chain still non-empty
+  ---
+  duration_ms: 0.11942
+  type: 'test'
+  ...
+# Subtest: describeChain renders a readable order
+ok 306 - describeChain renders a readable order
+  ---
+  duration_ms: 0.419577
+  type: 'test'
+  ...
+# Subtest: routeInputFrom maps live status + readiness
+ok 307 - routeInputFrom maps live status + readiness
+  ---
+  duration_ms: 0.387724
+  type: 'test'
+  ...
+# Subtest: pcm16ToWav → parseWav round-trip
+ok 308 - pcm16ToWav → parseWav round-trip
+  ---
+  duration_ms: 1.691577
+  type: 'test'
+  ...
+# Subtest: wavToPcm16Mono downmixes stereo to mono
+ok 309 - wavToPcm16Mono downmixes stereo to mono
+  ---
+  duration_ms: 0.378764
+  type: 'test'
+  ...
+# Subtest: parseWav rejects non-WAV input
+ok 310 - parseWav rejects non-WAV input
+  ---
+  duration_ms: 0.38917
+  type: 'test'
+  ...
+# Subtest: base64 round-trip survives the chunked encoder
+ok 311 - base64 round-trip survives the chunked encoder
+  ---
+  duration_ms: 16.92605
+  type: 'test'
+  ...
+# Subtest: mask decodes to 120x60 with an Earth-like land fraction
+ok 312 - mask decodes to 120x60 with an Earth-like land fraction
+  ---
+  duration_ms: 1.798594
+  type: 'test'
+  ...
+# Subtest: known land and ocean probes
+ok 313 - known land and ocean probes
+  ---
+  duration_ms: 0.277197
+  type: 'test'
+  ...
+# Subtest: longitude wraps and latitude clamps without throwing
+ok 314 - longitude wraps and latitude clamps without throwing
+  ---
+  duration_ms: 0.220822
+  type: 'test'
+  ...
+# Subtest: fibonacci sphere is deterministic and spread out
+ok 315 - fibonacci sphere is deterministic and spread out
+  ---
+  duration_ms: 2.663363
+  type: 'test'
+  ...
+# Subtest: orthographic projection faces +z with rotation
+ok 316 - orthographic projection faces +z with rotation
+  ---
+  duration_ms: 0.279477
+  type: 'test'
+  ...
+# Subtest: base tiers: reads auto, visible effects notify, irreversible gate
+ok 317 - base tiers: reads auto, visible effects notify, irreversible gate
+  ---
+  duration_ms: 2.781288
+  type: 'test'
+  ...
+# Subtest: risk words in args escalate any non-memory action to gate
+ok 318 - risk words in args escalate any non-memory action to gate
+  ---
+  duration_ms: 0.323705
+  type: 'test'
+  ...
+# Subtest: credential USE gates; vault storage and diary entries do not
+ok 319 - credential USE gates; vault storage and diary entries do not
+  ---
+  duration_ms: 0.161396
+  type: 'test'
+  ...
+# Subtest: forward rule: shells and installers can never run below gate
+ok 320 - forward rule: shells and installers can never run below gate
+  ---
+  duration_ms: 0.201414
+  type: 'test'
+  ...
+# Subtest: autonomy level moves AUTO↔NOTIFY only — GATE is immutable
+ok 321 - autonomy level moves AUTO↔NOTIFY only — GATE is immutable
+  ---
+  duration_ms: 0.373806
+  type: 'test'
+  ...
+# Subtest: injection law: untrusted text can only escalate, never de-escalate
+ok 322 - injection law: untrusted text can only escalate, never de-escalate
+  ---
+  duration_ms: 0.374219
+  type: 'test'
+  ...
+# Subtest: autonomy store persists valid levels, heals garbage
+ok 323 - autonomy store persists valid levels, heals garbage
+  ---
+  duration_ms: 0.252355
+  type: 'test'
+  ...
+# Subtest: queue: settle needs an explicit UI/voice channel
+ok 324 - queue: settle needs an explicit UI/voice channel
+  ---
+  duration_ms: 0.838741
+  type: 'test'
+  ...
+# Subtest: queue: approve resolves waiters; expiry fails closed
+ok 325 - queue: approve resolves waiters; expiry fails closed
+  ---
+  duration_ms: 1.120168
+  type: 'test'
+  ...
+# Subtest: queue: ids are unguessable and unique
+ok 326 - queue: ids are unguessable and unique
+  ---
+  duration_ms: 0.896416
+  type: 'test'
+  ...
+# Subtest: daemon agreement: tierOf GATE ⟺ classifyRisk risky
+ok 327 - daemon agreement: tierOf GATE ⟺ classifyRisk risky
+  ---
+  duration_ms: 1.887421
+  type: 'test'
+  ...
+# Subtest: level type admits exactly the three levels
+ok 328 - level type admits exactly the three levels
+  ---
+  duration_ms: 0.097191
+  type: 'test'
+  ...
+# Subtest: quiet hours span 22:30–07:45
+ok 329 - quiet hours span 22:30–07:45
+  ---
+  duration_ms: 1.098656
+  type: 'test'
+  ...
+# Subtest: built-ins: health-watch on, briefing off, consolidation dreams at 03:00
+ok 330 - built-ins: health-watch on, briefing off, consolidation dreams at 03:00
+  ---
+  duration_ms: 0.944183
+  type: 'test'
+  ...
+# Subtest: interval rules fire once, then re-arm via lastRunAt
+ok 331 - interval rules fire once, then re-arm via lastRunAt
+  ---
+  duration_ms: 0.821446
+  type: 'test'
+  ...
+# Subtest: daily briefing fires after 08:00, once per day
+ok 332 - daily briefing fires after 08:00, once per day
+  ---
+  duration_ms: 0.633562
+  type: 'test'
+  ...
+# Subtest: quiet hours freeze everything except the opted-in dream
+ok 333 - quiet hours freeze everything except the opted-in dream
+  ---
+  duration_ms: 1.309726
+  type: 'test'
+  ...
+# Subtest: consolidation fires once per night and sleeps when disabled
+ok 334 - consolidation fires once per night and sleeps when disabled
+  ---
+  duration_ms: 0.401467
+  type: 'test'
+  ...
+# Subtest: health alerts are delta-only
+ok 335 - health alerts are delta-only
+  ---
+  duration_ms: 0.414184
+  type: 'test'
+  ...
+# Subtest: healthNow checks immediately and reports whether it alerted
+ok 336 - healthNow checks immediately and reports whether it alerted
+  ---
+  duration_ms: 0.460794
+  type: 'test'
+  ...
+# Subtest: runNow bypasses quiet hours and disabled flags
+ok 337 - runNow bypasses quiet hours and disabled flags
+  ---
+  duration_ms: 0.416112
+  type: 'test'
+  ...
+# Subtest: enable/disable round-trips; unknown ids refuse
+ok 338 - enable/disable round-trips; unknown ids refuse
+  ---
+  duration_ms: 0.384564
+  type: 'test'
+  ...
+# Subtest: state persists across restarts
+ok 339 - state persists across restarts
+  ---
+  duration_ms: 0.505807
+  type: 'test'
+  ...
+# Subtest: failures record an error and back off to the next slot
+ok 340 - failures record an error and back off to the next slot
+  ---
+  duration_ms: 0.298071
+  type: 'test'
+  ...
+# Subtest: change events fire on runs and toggles
+ok 341 - change events fire on runs and toggles
+  ---
+  duration_ms: 0.184192
+  type: 'test'
+  ...
+# Subtest: start/stop controls the timer without hanging
+ok 342 - start/stop controls the timer without hanging
+  ---
+  duration_ms: 0.184538
+  type: 'test'
+  ...
+# Subtest: nextRunAt previews the coming run
+ok 343 - nextRunAt previews the coming run
+  ---
+  duration_ms: 0.109831
+  type: 'test'
+  ...
+# Subtest: tense helpers turn step labels into speech
+ok 344 - tense helpers turn step labels into speech
+  ---
+  duration_ms: 0.908692
+  type: 'test'
+  ...
+# Subtest: steps narrate as "did X, doing Y" — one line per step
+ok 345 - steps narrate as "did X, doing Y" — one line per step
+  ---
+  duration_ms: 1.07896
+  type: 'test'
+  ...
+# Subtest: only the first consecutive retry gets a hint
+ok 346 - only the first consecutive retry gets a hint
+  ---
+  duration_ms: 0.382169
+  type: 'test'
+  ...
+# Subtest: pauses voice the question and arm voice approval; terminal states announce
+ok 347 - pauses voice the question and arm voice approval; terminal states announce
+  ---
+  duration_ms: 0.280823
+  type: 'test'
+  ...
+# Subtest: failed and cancelled tasks announce briefly
+ok 348 - failed and cancelled tasks announce briefly
+  ---
+  duration_ms: 0.235578
+  type: 'test'
+  ...
+# Subtest: silent with no announcer
+ok 349 - silent with no announcer
+  ---
+  duration_ms: 0.160326
+  type: 'test'
+  ...
+# Subtest: barge-in cancel and approval matchers stay narrow
+ok 350 - barge-in cancel and approval matchers stay narrow
+  ---
+  duration_ms: 0.618271
+  type: 'test'
+  ...
+# Subtest: setup carries the voice session config verbatim
+ok 351 - setup carries the voice session config verbatim
+  ---
+  duration_ms: 2.170505
+  type: 'test'
+  ...
+# Subtest: setup always compresses; resumption reuses the banked handle
+ok 352 - setup always compresses; resumption reuses the banked handle
+  ---
+  duration_ms: 0.233021
+  type: 'test'
+  ...
+# Subtest: only resumable updates with a real handle are bankable
+ok 353 - only resumable updates with a real handle are bankable
+  ---
+  duration_ms: 0.134791
+  type: 'test'
+  ...
+# Subtest: coder run requires repo, task and testCmd
+ok 354 - coder run requires repo, task and testCmd
+  ---
+  duration_ms: 0.874601
+  type: 'test'
+  ...
+# Subtest: coder run forwards to the daemon and clamps the timeout
+ok 355 - coder run forwards to the daemon and clamps the timeout
+  ---
+  duration_ms: 0.19696
+  type: 'test'
+  ...
+# Subtest: coder maps daemon failures and transport errors
+ok 356 - coder maps daemon failures and transport errors
+  ---
+  duration_ms: 0.324678
+  type: 'test'
+  ...
+# Subtest: coder probe and merge validate their inputs
+ok 357 - coder probe and merge validate their inputs
+  ---
+  duration_ms: 0.139862
+  type: 'test'
+  ...
+# Subtest: normalizeAppName maps friendly names to allowlist ids
+ok 358 - normalizeAppName maps friendly names to allowlist ids
+  ---
+  duration_ms: 1.143215
+  type: 'test'
+  ...
+# Subtest: open_app normalizes the name before calling the daemon
+ok 359 - open_app normalizes the name before calling the daemon
+  ---
+  duration_ms: 1.119834
+  type: 'test'
+  ...
+# Subtest: click passes coords through; bare click sends no move
+ok 360 - click passes coords through; bare click sends no move
+  ---
+  duration_ms: 0.291028
+  type: 'test'
+  ...
+# Subtest: move_mouse requires coords; scroll defaults down
+ok 361 - move_mouse requires coords; scroll defaults down
+  ---
+  duration_ms: 0.277166
+  type: 'test'
+  ...
+# Subtest: type_text caps length; hotkey passes keys through
+ok 362 - type_text caps length; hotkey passes keys through
+  ---
+  duration_ms: 1.573946
+  type: 'test'
+  ...
+# Subtest: browser actions map onto the same-tab CDP calls
+ok 363 - browser actions map onto the same-tab CDP calls
+  ---
+  duration_ms: 0.45416
+  type: 'test'
+  ...
+# Subtest: active_window passes list:true for enumeration
+ok 364 - active_window passes list:true for enumeration
+  ---
+  duration_ms: 0.202003
+  type: 'test'
+  ...
+# Subtest: find_text maps onto ground_text
+ok 365 - find_text maps onto ground_text
+  ---
+  duration_ms: 0.264148
+  type: 'test'
+  ...
+# Subtest: daemon errors surface with their keys (confirmation, not_connected)
+ok 366 - daemon errors surface with their keys (confirmation, not_connected)
+  ---
+  duration_ms: 0.492693
+  type: 'test'
+  ...
+# Subtest: UI-supplied confirmation_id is forwarded; model confirm is dropped
+ok 367 - UI-supplied confirmation_id is forwarded; model confirm is dropped
+  ---
+  duration_ms: 0.448757
+  type: 'test'
+  ...
+# Subtest: see reports vision flag, window, cursor and a hint
+ok 368 - see reports vision flag, window, cursor and a hint
+  ---
+  duration_ms: 0.267669
+  type: 'test'
+  ...
+# Subtest: see stays useful when vision is off and the link is down
+ok 369 - see stays useful when vision is off and the link is down
+  ---
+  duration_ms: 0.130539
+  type: 'test'
+  ...
+# Subtest: unknown action and bad urls fail cleanly
+ok 370 - unknown action and bad urls fail cleanly
+  ---
+  duration_ms: 0.138715
+  type: 'test'
+  ...
+# Subtest: schema declares the computer tool with action required
+ok 371 - schema declares the computer tool with action required
+  ---
+  duration_ms: 0.12923
+  type: 'test'
+  ...
+# Subtest: observe passes the daemon payload through (loop-only, not in schema)
+ok 372 - observe passes the daemon payload through (loop-only, not in schema)
+  ---
+  duration_ms: 0.279537
+  type: 'test'
+  ...
+# Subtest: open_file maps onto the daemon files_open call
+ok 373 - open_file maps onto the daemon files_open call
+  ---
+  duration_ms: 0.1341
+  type: 'test'
+  ...
+# Subtest: not_connected failures tell the model exactly how to fix it
+ok 374 - not_connected failures tell the model exactly how to fix it
+  ---
+  duration_ms: 0.120545
+  type: 'test'
+  ...
+# Subtest: xdotool-missing failures suggest the Linux fix
+ok 375 - xdotool-missing failures suggest the Linux fix
+  ---
+  duration_ms: 0.092981
+  type: 'test'
+  ...
+# Subtest: dom actions map onto the extension-routed browser_dom calls
+ok 376 - dom actions map onto the extension-routed browser_dom calls
+  ---
+  duration_ms: 0.245533
+  type: 'test'
+  ...
+# Subtest: dom_click/dom_type validate their targets before touching the daemon
+ok 377 - dom_click/dom_type validate their targets before touching the daemon
+  ---
+  duration_ms: 0.124414
+  type: 'test'
+  ...
+# Subtest: on/off toggles airplane mode
+ok 378 - on/off toggles airplane mode
+  ---
+  duration_ms: 1.409518
+  type: 'test'
+  ...
+# Subtest: readiness reports legs, mode and the resolved chain
+ok 379 - readiness reports legs, mode and the resolved chain
+  ---
+  duration_ms: 0.284704
+  type: 'test'
+  ...
+# Subtest: speak and ask validate text and cap length
+ok 380 - speak and ask validate text and cap length
+  ---
+  duration_ms: 0.345638
+  type: 'test'
+  ...
+# Subtest: backend failures surface cleanly
+ok 381 - backend failures surface cleanly
+  ---
+  duration_ms: 0.215335
+  type: 'test'
+  ...
+# Subtest: unknown actions are rejected
+ok 382 - unknown actions are rejected
+  ---
+  duration_ms: 0.192924
+  type: 'test'
+  ...
+# Subtest: schema declares the tool for the LLM
+ok 383 - schema declares the tool for the LLM
+  ---
+  duration_ms: 0.16009
+  type: 'test'
+  ...
+# Subtest: companion observe: metadata in the response, pixels on the frame bus
+ok 384 - companion observe: metadata in the response, pixels on the frame bus
+  ---
+  duration_ms: 3.260488
+  type: 'test'
+  ...
+# Subtest: browser fallback fires when the companion is offline
+ok 385 - browser fallback fires when the companion is offline
+  ---
+  duration_ms: 0.655215
+  type: 'test'
+  ...
+# Subtest: no companion and no capture fails cleanly
+ok 386 - no companion and no capture fails cleanly
+  ---
+  duration_ms: 0.52609
+  type: 'test'
+  ...
+# Subtest: schema declares a parameter-less observe tool
+ok 387 - schema declares a parameter-less observe tool
+  ---
+  duration_ms: 0.262691
+  type: 'test'
+  ...
+# Subtest: orchestrate requires a goal
+ok 388 - orchestrate requires a goal
+  ---
+  duration_ms: 1.356495
+  type: 'test'
+  ...
+# Subtest: orchestrate runs plan → worker → merge end to end
+ok 389 - orchestrate runs plan → worker → merge end to end
+  ---
+  duration_ms: 3.455836
+  type: 'test'
+  ...
+# Subtest: orchestrate reports planning failure without throwing
+ok 390 - orchestrate reports planning failure without throwing
+  ---
+  duration_ms: 0.784708
+  type: 'test'
+  ...
+# Subtest: memoryCurationSink applies valid ops and skips garbage
+ok 391 - memoryCurationSink applies valid ops and skips garbage
+  ---
+  duration_ms: 1.629411
+  type: 'test'
+  ...
+# Subtest: list returns all routines with schedule state
+ok 392 - list returns all routines with schedule state
+  ---
+  duration_ms: 1.991422
+  type: 'test'
+  ...
+# Subtest: enable/disable flip routines and refuse unknown ids
+ok 393 - enable/disable flip routines and refuse unknown ids
+  ---
+  duration_ms: 0.470781
+  type: 'test'
+  ...
+# Subtest: health_now returns a spoken-ready summary
+ok 394 - health_now returns a spoken-ready summary
+  ---
+  duration_ms: 0.533243
+  type: 'test'
+  ...
+# Subtest: health_now failures surface cleanly
+ok 395 - health_now failures surface cleanly
+  ---
+  duration_ms: 0.239055
+  type: 'test'
+  ...
+# Subtest: unknown actions are rejected
+ok 396 - unknown actions are rejected
+  ---
+  duration_ms: 0.140493
+  type: 'test'
+  ...
+# Subtest: schema declares the tool for the LLM
+ok 397 - schema declares the tool for the LLM
+  ---
+  duration_ms: 0.212164
+  type: 'test'
+  ...
+# Subtest: missing goal and cancel-with-nothing fail/empty cleanly
+ok 398 - missing goal and cancel-with-nothing fail/empty cleanly
+  ---
+  duration_ms: 1.447709
+  type: 'test'
+  ...
+# Subtest: invoke returns started:true immediately; the run settles in background
+ok 399 - invoke returns started:true immediately; the run settles in background
+  ---
+  duration_ms: 7.541341
+  type: 'test'
+  ...
+# Subtest: a new goal supersedes the running task (redirect, not refusal)
+ok 400 - a new goal supersedes the running task (redirect, not refusal)
+  ---
+  duration_ms: 3.202521
+  type: 'test'
+  ...
+# Subtest: cancel orphans the run; its late completion is ignored
+ok 401 - cancel orphans the run; its late completion is ignored
+  ---
+  duration_ms: 1.67871
+  type: 'test'
+  ...
+# Subtest: a throwing runner never rejects the tool call
+ok 402 - a throwing runner never rejects the tool call
+  ---
+  duration_ms: 1.636003
+  type: 'test'
+  ...
+# Subtest: schema declares goal/cancel only (no model confirm)
+ok 403 - schema declares goal/cancel only (no model confirm)
+  ---
+  duration_ms: 0.367414
+  type: 'test'
+  ...
+# Subtest: episodeTrail compacts the step tools for skill induction
+ok 404 - episodeTrail compacts the step tools for skill induction
+  ---
+  duration_ms: 0.334016
+  type: 'test'
+  ...
+# Subtest: episodeMoves banks tool@target pairs for induction params
+ok 405 - episodeMoves banks tool@target pairs for induction params
+  ---
+  duration_ms: 0.217579
+  type: 'test'
+  ...
+1..405
+# tests 451
+# suites 17
+# pass 451
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6038.142759

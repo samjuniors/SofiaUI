@@ -138,20 +138,6 @@ export const LOCAL_SKILLS: SkillDef[] = [
     category: 'system',
     source: 'local',
   },
-  {
-    id: 'coder',
-    label: 'Coder',
-    description: 'Headless coding CLI in a git worktree. Tests must pass.',
-    category: 'system',
-    source: 'local',
-  },
-  {
-    id: 'mcp',
-    label: 'MCP connectors',
-    description: 'Search, propose and use MCP servers. You approve each one.',
-    category: 'system',
-    source: 'local',
-  },
 ];
 
 async function defaultCaller<T>(

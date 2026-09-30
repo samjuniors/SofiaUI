@@ -28,8 +28,6 @@ import { computerTool, COMPUTER_SCHEMA } from './computer-tool';
 import { taskTool, TASK_SCHEMA } from './task-tool';
 import { observeTool, OBSERVE_SCHEMA } from './observe-tool';
 import { orchestrateTool, ORCHESTRATE_SCHEMA } from './orchestrate-tool';
-import { coderTool, CODER_SCHEMA } from './coder-tool';
-import { mcpTool, MCP_SCHEMA } from './mcp-tool';
 import { ALL_SHAPES } from '../sophia/control';
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
@@ -385,6 +383,4 @@ toolRegistry.register(computerTool, COMPUTER_SCHEMA);
 toolRegistry.register(taskTool, TASK_SCHEMA);
 toolRegistry.register(observeTool, OBSERVE_SCHEMA);
 toolRegistry.register(orchestrateTool, ORCHESTRATE_SCHEMA);
-toolRegistry.register(coderTool, CODER_SCHEMA);
-toolRegistry.register(mcpTool, MCP_SCHEMA);
 

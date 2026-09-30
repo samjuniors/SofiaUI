@@ -49,8 +49,6 @@ export const ACTIONS = new Set([
   "actions_recent",
   // headless coding CLI in git worktrees (Phase 34)
   "coder_probe", "coder_run", "coder_merge",
-  // MCP connectors (Phase 35)
-  "connector_search", "connector_propose", "connector_list", "connector_call", "connector_revoke",
   // long-term memory (Phase 24): working + episodic + semantic + procedural
   "memory_working_put", "memory_working_get", "memory_working_clear",
   "memory_episode_add", "memory_fact_add", "memory_skill_add", "memory_skill_use", "memory_derive",
@@ -281,7 +279,7 @@ export class SafetyPolicy {
   }
 
   isMutating(action) {
-    return /^(click|double_click|right_click|type_text|hotkey|scroll|drag|move_mouse|files_move|files_trash|files_restore|whatsapp_|browser_click|browser_type|browser_navigate|browser_dom_click|browser_dom_type|open_app|set_volume|media_control|coder_run|coder_merge|connector_call)/.test(action);
+    return /^(click|double_click|right_click|type_text|hotkey|scroll|drag|move_mouse|files_move|files_trash|files_restore|whatsapp_|browser_click|browser_type|browser_navigate|browser_dom_click|browser_dom_type|open_app|set_volume|media_control|coder_run|coder_merge)/.test(action);
   }
 
   async log(entry) {

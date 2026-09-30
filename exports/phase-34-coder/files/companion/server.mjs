@@ -47,7 +47,6 @@ import { mediaAction } from "./media.mjs";
 import { systemAction, targetTextAt } from "./system.mjs";
 import { browserAction } from "./browser.mjs";
 import { coderAction } from "./coder.mjs";
-import { connectorAction, connectorsHttp, defaultStore } from "./connectors.mjs";
 import { memoryAction } from "../memory/actions.mjs";
 
 const PORT = Number(process.env.SOPHIA_COMPANION_PORT || 7788);
@@ -148,11 +147,6 @@ async function perform(action, a = {}) {
     // headless coding CLI in git worktrees (Phase 34)
     case "coder_probe": case "coder_run": case "coder_merge":
       return coderAction(action, a);
-
-    // MCP connectors (Phase 35)
-    case "connector_search": case "connector_propose": case "connector_list":
-    case "connector_call": case "connector_revoke":
-      return connectorAction(action, a, { store: defaultStore, baseUrl: `http://127.0.0.1:${PORT}` });
 
     default: throw new Error(`No handler for action ${action}`);
   }
@@ -387,43 +381,6 @@ async function acceptHello(msg, ip) {
 
 /* ── server (HTTP + WS, one loopback port) ────────────────────────────────── */
 
-function consentCtx() {
-  return { store: defaultStore, baseUrl: `http://127.0.0.1:${PORT}` };
-}
-
-/** Loopback-only consent page (GET form, POST approve). Bodies capped at 64KB. */
-function serveConsent(req, res, url) {
-  if (req.method === "GET") {
-    connectorsHttp("GET", Object.fromEntries(url.searchParams), {}, consentCtx()).then(
-      (r) => { res.writeHead(r.status, { "content-type": r.contentType }); res.end(r.body); },
-      () => { res.writeHead(500); res.end("consent failed"); },
-    );
-    return;
-  }
-  let size = 0;
-  const chunks = [];
-  req.on("data", (c) => {
-    size += c.length;
-    if (size > 65536) {
-      res.writeHead(413);
-      res.end("too large");
-      req.destroy();
-    } else {
-      chunks.push(c);
-    }
-  });
-  req.on("end", () => {
-    let params = {};
-    try {
-      params = Object.fromEntries(new URLSearchParams(Buffer.concat(chunks).toString("utf8")));
-    } catch { /* fall through with empty params */ }
-    connectorsHttp("POST", {}, params, consentCtx()).then(
-      (r) => { res.writeHead(r.status, { "content-type": r.contentType }); res.end(r.body); },
-      () => { res.writeHead(500); res.end("approve failed"); },
-    );
-  });
-}
-
 const httpServer = createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
   const json = (code, obj, origin) => {
@@ -460,15 +417,6 @@ const httpServer = createServer((req, res) => {
     }
     const code = trust.issueCode();
     json(200, { code: code.value, expires_at: code.expires_at, daemon_id: trust.daemonId, daemon_pubkey: trust.daemonPubkey() }, origin);
-    return;
-  }
-  if (url.pathname === "/connectors/approve" && (req.method === "GET" || req.method === "POST")) {
-    if (!loopback(req)) {
-      res.writeHead(403);
-      res.end("loopback only");
-      return;
-    }
-    serveConsent(req, res, url);
     return;
   }
   res.writeHead(404);

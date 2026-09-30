@@ -637,40 +637,6 @@ routines accordion. 20 new unit tests; eval stays 100%:
 - Gates: typecheck clean, tests 447 pass · 0 fail (+30 new segments),
   eval 100% (32 pass · 0 fail · 21 skip headless).
 
-## Phase 34 — Coder worker: headless CLI in a git worktree (✅)
-- `companion/coder.mjs`: `coder_probe` (which CLIs answer), `coder_run`
-  (clean-repo check → worktree on `sofia-coder/*` → CLI → REQUIRED tests →
-  diff; worktree always removed, branch kept), `coder_merge` (refused
-  unless that job's tests passed; policy ALWAYS_CONFIRM on top).
-- CLI flags verified 2026-09-30: Codex `exec --sandbox workspace-write
-  --json -C … --ephemeral` (official reference; `--full-auto` deprecated),
-  Claude `claude -p … --output-format json --max-turns … --allowedTools …`.
-- Safety: no shell anywhere (execFile + argv), test command must start with
-  a known runner and hold no metacharacters, timeouts on every leg, dirty
-  repos refused, control-scope only, mutating-step budgeted.
-- `src/tools/coder-tool.ts`: `coder` registry tool + skill + schema
-  (probe/run/merge) — the Coder worker's allowlisted tool, now live.
-- Gates: typecheck clean, tests 672 pass · 0 fail (221 JS + 451 TS, +17 new),
-  eval 100% (32 pass · 0 fail · 21 skip headless).
-
-## Phase 35 — MCP connectors with consent links + OS keychain (✅)
-- `companion/connectors.mjs`: curated registry (filesystem, github,
-  brave-search, memory, postgres — packages verified live on npm),
-  minimal MCP stdio client (initialize/list/call), session-scoped store.
-- Flow: `connector_search` → `connector_propose` (one-click loopback
-  consent link, single-use, 10-min expiry, scopes shown) → consent-page
-  submit stores secrets in the OS keychain, spawns the server, verifies
-  tools/list → active; failures roll secrets back.
-- `companion/keychain.mjs`: macOS Keychain, libsecret, Windows DPAPI via
-  PowerShell; secrets on stdin (except `security -w`); NO plaintext
-  fallback — missing backends refuse. Least-scope notes per entry.
-- `connector_call` (capped output, step-budgeted) and `connector_revoke`
-  (kills server + deletes secrets); `mcp` registry tool + skill + schema;
-  Dashboard MCP board is live (search/propose/link/revoke).
-- `AGENTS.md` documents the P33–P35 agent team, verified CLI flags, flows.
-- Gates: typecheck clean, tests 693 pass · 0 fail (239 JS + 454 TS, +21 new),
-  eval 100% (32 pass · 0 fail · 21 skip headless), vite build ok.
-
 ## Eval
 `npm run eval` — self-contained battery (32 pass · 0 fail · 21 skip on a headless box):
 core, memory (store + FTS5 episodes + 8 long-term-memory tasks: fact lifecycle/trust rules,
