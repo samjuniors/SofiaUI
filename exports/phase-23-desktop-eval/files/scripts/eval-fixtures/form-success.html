@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Application received</title>
+</head>
+<body>
+<main>
+  <h1>Application received</h1>
+  <p id="echo">Thank you.</p>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const first = (q.get('first') || '').slice(0, 60);
+    const last = (q.get('last') || '').slice(0, 60);
+    if (first || last) {
+      document.getElementById('echo').textContent = `Thank you, ${first} ${last}!`.trim();
+    }
+  </script>
+</main>
+</body>
+</html>

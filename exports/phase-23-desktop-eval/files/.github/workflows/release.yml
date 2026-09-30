@@ -1,0 +1,77 @@
+# Phase 23: releases are blocked unless BOTH eval suites pass at or above
+# the checked-in baseline. Tag a commit v* to cut a release.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  gate-core:
+    name: gate / core suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run eval:core -- --baseline=scripts/eval-baseline.json --json=eval-core.json --markdown=$GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-eval-core
+          path: eval-core.json
+
+  gate-desktop:
+    name: gate / desktop suite
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      EVAL_DESKTOP: "1"
+      SOPHIA_CHROME_PATH: 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: launch debug-port Chrome (CDP for browser_* actions)
+        shell: pwsh
+        run: |
+          $chrome = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+          if (-not (Test-Path $chrome)) { Write-Error 'Chrome not found on runner'; exit 1 }
+          Start-Process $chrome "--remote-debugging-port=9222 --no-first-run --no-default-browser-check --disable-fre --user-data-dir=$env:TEMP\sofia-debug-chrome about:blank"
+          for ($i = 0; $i -lt 30; $i++) {
+            try {
+              if (Invoke-RestMethod http://127.0.0.1:9222/json/version -TimeoutSec 2) { break }
+            } catch { Start-Sleep 1 }
+          }
+          Invoke-RestMethod http://127.0.0.1:9222/json/version -TimeoutSec 5 | Out-Null
+      - run: npm run eval:desktop -- --baseline=scripts/eval-baseline.json --json=eval-desktop.json --markdown=$GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-eval-desktop
+          path: eval-desktop.json
+
+  publish:
+    name: publish release
+    needs: [gate-core, gate-desktop]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-eval-*
+          merge-multiple: true
+      - name: create GitHub release with eval reports
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" --generate-notes eval-core.json eval-desktop.json
