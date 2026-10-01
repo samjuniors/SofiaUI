@@ -1,0 +1,63 @@
+# Phase 23: the eval battery as CI. Core (daemon) suite on Ubuntu, real
+# desktop suite on a Windows runner with a GUI session + debug-port Chrome.
+# Reports pass rate, steps, time, and cost per task; fails on any failure
+# or any regression below scripts/eval-baseline.json.
+name: eval
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core:
+    name: core suite (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run eval:core -- --baseline=scripts/eval-baseline.json --json=eval-core.json --markdown=$GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-core
+          path: eval-core.json
+
+  desktop:
+    name: desktop suite (windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      EVAL_DESKTOP: "1"
+      SOPHIA_CHROME_PATH: 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: launch debug-port Chrome (CDP for browser_* actions)
+        shell: pwsh
+        run: |
+          $chrome = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+          if (-not (Test-Path $chrome)) { Write-Error 'Chrome not found on runner'; exit 1 }
+          Start-Process $chrome "--remote-debugging-port=9222 --no-first-run --no-default-browser-check --disable-fre --user-data-dir=$env:TEMP\sofia-debug-chrome about:blank"
+          for ($i = 0; $i -lt 30; $i++) {
+            try {
+              if (Invoke-RestMethod http://127.0.0.1:9222/json/version -TimeoutSec 2) { break }
+            } catch { Start-Sleep 1 }
+          }
+          Invoke-RestMethod http://127.0.0.1:9222/json/version -TimeoutSec 5 | Out-Null
+      - run: npm run eval:desktop -- --baseline=scripts/eval-baseline.json --json=eval-desktop.json --markdown=$GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-desktop
+          path: eval-desktop.json

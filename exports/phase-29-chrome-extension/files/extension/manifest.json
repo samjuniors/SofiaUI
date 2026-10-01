@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Sofia Hands — DOM control",
+  "version": "1.0.0",
+  "description": "Lets your local Sofia Companion read and operate web pages via the DOM. Talks to 127.0.0.1 only; page content never leaves your machine except through your own daemon.",
+  "minimum_chrome_version": "116",
+  "permissions": ["tabs", "activeTab", "scripting", "storage", "alarms"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "options_page": "options.html",
+  "action": { "default_title": "Sofia Hands (click to reconnect to the daemon)" }
+}

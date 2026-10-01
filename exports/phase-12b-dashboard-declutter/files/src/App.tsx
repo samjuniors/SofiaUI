@@ -1,0 +1,527 @@
+/**
+ * SamJuniors OS — Sophia.
+ * An operating environment, not a page: the substance is the interface.
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { dockLayout, stageLayout, type StageLayout } from './sophia/layout';
+import { getSophiaOS, type OSStatus } from './sophia/SophiaOS';
+import type { SophiaStateName } from './sophia/types';
+import { ChatPanel } from './ui/ChatPanel';
+import { DailyPanel } from './ui/DailyPanel';
+import { TheatrePanel } from './ui/TheatrePanel';
+import { Brand, Dock, Identity, OrbDock, SofiaStatusPill, StatusCluster } from './ui/Hud';
+import { BootScreen } from './ui/BootScreen';
+import { BrowserPanel } from './ui/BrowserPanel';
+import { DiagnosticsModal } from './ui/DiagnosticsModal';
+import { MicPermissionModal } from './ui/MicPermissionModal';
+import { SettingsSheet } from './ui/SettingsSheet';
+import { Terminal } from './ui/Terminal';
+import { controlLayer } from './sophia/control';
+import { navigateBrowserTo } from './lib/browser-bridge';
+import { ToolStatusBadge } from './ui/ToolStatusBadge';
+import { scoreEngine } from './sophia/audio/ScoreEngine';
+import { DynamicContentModal, type InfoPanelType } from './ui/DynamicContentModal';
+import { OrbOverlay } from './ui/OrbOverlay';
+import { VisionGlow } from './ui/VisionGlow';
+import { TaskPanel } from './ui/TaskPanel';
+import { CompanionBanner } from './ui/CompanionBanner';
+import { ViewRail, type AppView } from './ui/ViewRail';
+import { DashboardView } from './ui/DashboardView';
+import { backgroundKeepAlive } from './core/BackgroundKeepAlive';
+import { wireMind } from './core/mind-wiring';
+import { wireProactive } from './lib/proactive-wiring';
+
+function isTyping(): boolean {
+  const el = document.activeElement;
+  return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+}
+
+const STATE_ANNOUNCE: Record<SophiaStateName, string> = {
+  idle: 'Sophia is here. Calm and stable presence.',
+  listening: 'Sophia is listening. Receiving your voice.',
+  thinking: 'Sophia is thinking. Reorganizing information.',
+  rendering: 'Sophia is rendering. Assembling and building.',
+  speaking: 'Sophia is speaking. Sharing voice with you.',
+  pause: 'Sophia is paused. Taking a moment.',
+  paused: 'Sophia is paused. Taking a moment.',
+  completed: 'Task completed successfully. Returning to calm.',
+  blocked: 'Sophia needs your help or permission to continue.',
+  ambient: 'Sophia is present.',
+  wakeup: 'Sophia is waking up.',
+  focusing: 'Sophia is focusing.',
+  transforming: 'Sophia is transforming.',
+};
+
+export default function App() {
+  const os = useMemo(getSophiaOS, []);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const micRef = useRef<HTMLButtonElement>(null);
+  const [state, setState] = useState<SophiaStateName>(os.state.current);
+  const [status, setStatus] = useState<OSStatus>(os.status);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [view, setView] = useState<AppView>('sofia');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [terminalOpen, setTerminalOpen] = useState(false);
+  const [browserOpen, setBrowserOpen] = useState(false);
+  const [dailyOpen, setDailyOpen] = useState(false);
+  const [theatreOpen, setTheatreOpen] = useState(false);
+  const [infoCardOpen, setInfoCardOpen] = useState(false);
+  const [infoCardData, setInfoCardData] = useState<{ title: string; content: string; type: InfoPanelType }>({
+    title: 'Information Review',
+    content: '',
+    type: 'info',
+  });
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [micModalOpen, setMicModalOpen] = useState(false);
+  const [glFailed, setGlFailed] = useState(false);
+  const [booted, setBooted] = useState(false);
+  const [layout, setLayout] = useState<StageLayout>(() => stageLayout(window.innerWidth, window.innerHeight));
+
+  const docked = browserOpen || infoCardOpen;
+  const paused = state === 'paused';
+  // Desktop shell: `?orb=1` renders the compact always-on-top overlay instead.
+  const orbMode = useMemo(() => new URLSearchParams(window.location.search).has('orb'), []);
+
+  useEffect(() => {
+    backgroundKeepAlive.start();
+    wireMind();
+    wireProactive();
+    return () => backgroundKeepAlive.stop();
+  }, []);
+
+  useEffect(() => {
+    os.setDocked(docked);
+  }, [docked, os]);
+
+  useEffect(() => {
+    const onBrowserCmd = (e: Event) => {
+      const open = Boolean((e as CustomEvent).detail?.open);
+      setBrowserOpen(open);
+    };
+    controlLayer.addEventListener('command:browser', onBrowserCmd);
+
+    const onInfoCardCmd = (e: Event) => {
+      const detail = (e as CustomEvent).detail as {
+        open?: boolean;
+        title?: string;
+        content?: string;
+        type?: InfoPanelType;
+      };
+      if (detail.open !== false) {
+        setInfoCardData({
+          title: detail.title || 'Information Review',
+          content: detail.content || '',
+          type: detail.type || 'info',
+        });
+        setInfoCardOpen(true);
+      } else {
+        setInfoCardOpen(false);
+      }
+    };
+    controlLayer.addEventListener('command:info_card', onInfoCardCmd);
+
+    // Voice-driven panel control (control_ui tool)
+    const onUiCmd = (e: Event) => {
+      const { target, action } = (e as CustomEvent).detail as { target: string; action: string };
+      const open = action === 'open';
+      const close = action === 'close';
+      const toggle = action === 'toggle' || action === 'minimize';
+
+      const apply = (setter: Dispatch<SetStateAction<boolean>>) => {
+        if (toggle) setter((v) => !v);
+        else if (open) setter(true);
+        else if (close) setter(false);
+      };
+
+      if (target === 'browser') apply(setBrowserOpen);
+      else if (target === 'chat') apply(setChatOpen);
+      else if (target === 'settings') apply(setSettingsOpen);
+      else if (target === 'diagnostics') apply(setDiagnosticsOpen);
+      else if (target === 'terminal') apply(setTerminalOpen);
+      else if (target === 'info_card') apply(setInfoCardOpen);
+      else if (target === 'daily') apply(setDailyOpen);
+      else if (target === 'theatre') apply(setTheatreOpen);
+      else if (target === 'dashboard') {
+        if (toggle) setView((v) => (v === 'sofia' ? 'dashboard' : 'sofia'));
+        else if (open) setView('dashboard');
+        else if (close) setView('sofia');
+      }
+      else if (target === 'all' && (close || toggle)) {
+        setBrowserOpen(false);
+        setChatOpen(false);
+        setSettingsOpen(false);
+        setDiagnosticsOpen(false);
+        setTerminalOpen(false);
+        setInfoCardOpen(false);
+        setDailyOpen(false);
+        setTheatreOpen(false);
+      }
+    };
+    controlLayer.addEventListener('command:ui', onUiCmd);
+
+    // Music commands
+    const onMusicCmd = (e: Event) => {
+      const { action } = (e as CustomEvent).detail as { action: string };
+      if (action === 'play' || action === 'resume') {
+        os.audio.unlockAudio().then(() => {
+          // scoreEngine is available via os internally
+          os.dispatchEvent(new CustomEvent('music:play'));
+        }).catch(() => undefined);
+      } else if (action === 'stop' || action === 'pause') {
+        os.dispatchEvent(new CustomEvent('music:stop'));
+      }
+    };
+    controlLayer.addEventListener('command:music', onMusicCmd);
+
+    // Rendering state when image generation starts (from GeminiLiveProvider tool_call)
+    const onImageGen = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.url) {
+        // Image complete — show in chat
+        setChatOpen(true);
+      }
+    };
+    controlLayer.addEventListener('image:generated', onImageGen);
+
+    // Web navigation commands (web_search, open_url, play_music)
+    const onNavCmd = (e: Event) => {
+      const { url, query, title } = (e as CustomEvent).detail as { url?: string; query?: string; title?: string };
+      const target = url || (query ? `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}` : '');
+      if (target) {
+        setBrowserOpen(true);
+        navigateBrowserTo(target, title);
+      }
+    };
+    controlLayer.addEventListener('command:navigate', onNavCmd);
+
+    // Volume control command
+    const onVolCmd = (e: Event) => {
+      const { level } = (e as CustomEvent).detail as { level?: number };
+      if (typeof level === 'number') {
+        scoreEngine.setMasterVolume(level / 100);
+      }
+    };
+    controlLayer.addEventListener('command:volume', onVolCmd);
+
+    return () => {
+      controlLayer.removeEventListener('command:browser', onBrowserCmd);
+      controlLayer.removeEventListener('command:info_card', onInfoCardCmd);
+      controlLayer.removeEventListener('command:ui', onUiCmd);
+      controlLayer.removeEventListener('command:music', onMusicCmd);
+      controlLayer.removeEventListener('image:generated', onImageGen);
+      controlLayer.removeEventListener('command:navigate', onNavCmd);
+      controlLayer.removeEventListener('command:volume', onVolCmd);
+    };
+  }, [os]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas) os.attach(canvas);
+    const onState = (e: Event) => setState((e as CustomEvent).detail.state);
+    const onStatus = (e: Event) => setStatus((e as CustomEvent).detail);
+    const onMicStatus = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.status === 'denied') {
+        setMicModalOpen(true);
+      }
+    };
+    const onFail = () => setGlFailed(true);
+    const onEntered = () => setBooted(true);
+
+    os.addEventListener('state', onState);
+    os.addEventListener('status', onStatus);
+    os.addEventListener('mic-status', onMicStatus);
+    os.addEventListener('renderer-failed', onFail);
+    os.addEventListener('entered', onEntered);
+
+    const measure = () => {
+      const w = canvas?.clientWidth || window.innerWidth;
+      const h = canvas?.clientHeight || window.innerHeight;
+      setLayout(stageLayout(w, h));
+      const r = micRef.current?.getBoundingClientRect();
+      os.setFocusPoint(r ? r.left + r.width / 2 : w * 0.92, r ? r.top + r.height / 2 : h * 0.92, w, h);
+    };
+    measure();
+    const ro = canvas ? new ResizeObserver(measure) : null;
+    if (canvas) ro!.observe(canvas);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', measure);
+      os.removeEventListener('state', onState);
+      os.removeEventListener('status', onStatus);
+      os.removeEventListener('mic-status', onMicStatus);
+      os.removeEventListener('renderer-failed', onFail);
+      os.removeEventListener('entered', onEntered);
+      os.detach();
+    };
+  }, [os]);
+
+  useEffect(() => {
+    const unlock = () => {
+      void os.audio.unlockAudio();
+    };
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, [os]);
+
+  const onMic = useCallback(() => {
+    void os.audio.unlockAudio();
+    if (os.rendererFailed) return;
+    if (os.audio.micStatus === 'denied') {
+      setMicModalOpen(true);
+      return;
+    }
+    if (os.isPaused || paused || os.state.is('ambient', 'idle', 'completed')) {
+      if (os.isPaused || paused) os.resume();
+      void os.enterSession('mic-button');
+    } else {
+      os.pause();
+    }
+  }, [os, paused]);
+
+  const toggleShapePause = useCallback(() => {
+    void os.audio.unlockAudio();
+    if (os.rendererFailed) return;
+    if (os.audio.micStatus === 'denied' || os.isMicDisabledError) {
+      setMicModalOpen(true);
+      return;
+    }
+    if (os.isPaused || paused || os.state.is('ambient', 'idle', 'completed')) {
+      if (os.isPaused || paused) os.resume();
+      void os.enterSession('mic-button');
+    } else {
+      os.pause();
+    }
+  }, [os, paused]);
+
+  // Desktop shell relay: publish state for the orb window, obey its commands.
+  useEffect(() => {
+    try {
+      window.sophiaDesktop?.sendMainState({ state, status });
+    } catch {
+      /* bridge absent (plain browser) — nothing to publish to */
+    }
+  }, [state, status]);
+
+  useEffect(() => {
+    let off: (() => void) | undefined;
+    try {
+      off = window.sophiaDesktop?.onMainCommand((cmd) => {
+        if (cmd?.action === 'mic') onMic();
+        else if (cmd?.action === 'show-chat') setChatOpen(true);
+      });
+    } catch {
+      /* bridge absent (plain browser) — nothing to obey */
+    }
+    return () => {
+      try {
+        off?.();
+      } catch {
+        /* noop */
+      }
+    };
+  }, [onMic]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (diagnosticsOpen) setDiagnosticsOpen(false);
+        else if (browserOpen) setBrowserOpen(false);
+        else if (settingsOpen) setSettingsOpen(false);
+        else if (terminalOpen) setTerminalOpen(false);
+        else if (chatOpen) setChatOpen(false);
+        else if (dailyOpen) setDailyOpen(false);
+        else if (theatreOpen) setTheatreOpen(false);
+        else if (view === 'dashboard') setView('sofia');
+        else if (os.state.current !== 'ambient') os.deactivate('escape');
+        return;
+      }
+      if (isTyping()) return;
+      if (e.key === 'm' || e.key === 'M' || e.key === ' ') {
+        e.preventDefault();
+        onMic();
+      }
+      if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        if (os.isPaused) os.resume();
+        else os.pause();
+      }
+      if (e.key === 't' || e.key === 'T' || e.key === '/') {
+        e.preventDefault();
+        setChatOpen((v) => !v);
+      }
+      if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        setDiagnosticsOpen((v) => !v);
+      }
+      if (e.key === '`' || e.key === '~') {
+        e.preventDefault();
+        setTerminalOpen((v) => !v);
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        setDailyOpen((v) => !v);
+      }
+      if (e.key === 'w' || e.key === 'W') {
+        e.preventDefault();
+        setTheatreOpen((v) => !v);
+      }
+      if (e.key === 'v' || e.key === 'V') {
+        e.preventDefault();
+        setView((cur) => (cur === 'sofia' ? 'dashboard' : 'sofia'));
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onMic, browserOpen, chatOpen, settingsOpen, terminalOpen, diagnosticsOpen, dailyOpen, theatreOpen, view, os]);
+
+  // Orb window branch — after every hook, so hook order never changes.
+  if (orbMode) {
+    return (
+      <div className="fixed inset-0 overflow-hidden bg-transparent">
+        <OrbOverlay />
+      </div>
+    );
+  }
+
+  const health = glFailed ? 'error' : os.health;
+
+  const stageStyle = {
+    left: layout.cx - layout.R,
+    top: layout.cy - layout.R,
+    width: layout.R * 2,
+    height: layout.R * 2,
+  } as const;
+  const hitLayout = docked ? dockLayout(window.innerWidth, window.innerHeight) : layout;
+  const hitRadius = docked ? 40 : hitLayout.R * 1.08;
+  const shapeHitStyle = {
+    left: hitLayout.cx - hitRadius,
+    top: hitLayout.cy - hitRadius,
+    width: hitRadius * 2,
+    height: hitRadius * 2,
+  } as const;
+
+  return (
+    <div
+      className={`font-sophia fixed inset-0 select-none overflow-hidden bg-[#04060f] text-white antialiased transition-all duration-700 ease-out ${
+        paused ? 'sophia-paused' : ''
+      }`}
+    >
+      <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" aria-hidden="true" />
+      {glFailed && <div className="sophia-fallback" style={stageStyle} aria-hidden="true" />}
+
+      {/* The substance itself is a control: click to pause, click again to resume. */}
+      {!glFailed && (
+        <button
+          type="button"
+          aria-label={paused ? 'Resume Sophia' : 'Pause Sophia'}
+          title={paused ? 'Resume Sophia' : 'Pause Sophia'}
+          onClick={toggleShapePause}
+          className="absolute z-[4] rounded-full bg-transparent outline-none focus-visible:ring-1 focus-visible:ring-sky-300/40"
+          style={shapeHitStyle}
+        />
+      )}
+
+      <Brand />
+      <CompanionBanner />
+      <VisionGlow />
+      {view === 'sofia' && <TaskPanel />}
+      <StatusCluster
+        health={health}
+        active={state !== 'ambient' || status === 'live'}
+        settingsOpen={settingsOpen}
+        onSettings={() => setSettingsOpen((v) => !v)}
+        onDiagnostics={() => setDiagnosticsOpen(true)}
+        os={os}
+      />
+      <Identity layout={layout} state={state} docked={docked} />
+      <OrbDock visible={docked && !glFailed} state={state} />
+
+      {chatOpen && (
+        <ChatPanel status={status} onClose={() => setChatOpen(false)} onSend={(t) => os.sendText(t)} />
+      )}
+      {dailyOpen && <DailyPanel onClose={() => setDailyOpen(false)} />}
+      {theatreOpen && <TheatrePanel onClose={() => setTheatreOpen(false)} />}
+      {!booted && (
+        <div className="absolute inset-0 z-50">
+          <BootScreen os={os} onEnter={() => setBooted(true)} />
+        </div>
+      )}
+      {booted && settingsOpen && <SettingsSheet os={os} status={status} onClose={() => setSettingsOpen(false)} />}
+      {booted && <Terminal os={os} open={terminalOpen} onToggle={() => setTerminalOpen((v) => !v)} hideButton />}
+      {browserOpen && <BrowserPanel onClose={() => setBrowserOpen(false)} />}
+      {infoCardOpen && (
+        <DynamicContentModal
+          onClose={() => setInfoCardOpen(false)}
+          initialTitle={infoCardData.title}
+          initialContent={infoCardData.content}
+          initialType={infoCardData.type}
+        />
+      )}
+      {diagnosticsOpen && <DiagnosticsModal os={os} onClose={() => setDiagnosticsOpen(false)} />}
+      {micModalOpen && (
+        <MicPermissionModal
+          os={os}
+          onClose={() => setMicModalOpen(false)}
+          onOpenChat={() => setChatOpen(true)}
+        />
+      )}
+
+      {/* Bottom-left corner: Sofia real-time Status Pill (terminal lives in dashboard quick actions) */}
+      <div className="fixed bottom-[44px] left-7 z-10 flex items-center gap-2.5 transition-all duration-500 sm:bottom-[52px] sm:left-11">
+        <SofiaStatusPill
+          state={state}
+          paused={paused}
+          onClick={toggleShapePause}
+          os={os}
+          onDiagnostics={() => setDiagnosticsOpen(true)}
+        />
+      </div>
+
+      {/* Voice-first subtle Tool status badge & notification HUD */}
+      <ToolStatusBadge />
+
+      {booted && <ViewRail view={view} onChange={setView} />}
+      {booted && view === 'dashboard' && (
+        <DashboardView
+          state={state}
+          status={status}
+          health={health}
+          onMic={onMic}
+          onOpenChat={() => setChatOpen((v) => !v)}
+          onOpenTerminal={() => setTerminalOpen((v) => !v)}
+          onOpenDiagnostics={() => setDiagnosticsOpen(true)}
+          onOpenSettings={() => setSettingsOpen((v) => !v)}
+          onBackToSofia={() => setView('sofia')}
+        />
+      )}
+
+      <Dock
+        state={state}
+        micRef={micRef}
+        onMic={onMic}
+        onChat={() => setChatOpen((v) => !v)}
+        chatOpen={chatOpen}
+        paused={paused}
+        browserOpen={browserOpen}
+        onToggleBrowser={() => setBrowserOpen((v) => !v)}
+        dailyOpen={dailyOpen}
+        onToggleDaily={() => setDailyOpen((v) => !v)}
+        theatreOpen={theatreOpen}
+        onToggleTheatre={() => setTheatreOpen((v) => !v)}
+      />
+
+      <p className="sr-only" role="status" aria-live="polite">
+        {STATE_ANNOUNCE[state]} Voice transport {status}. System health {health}.
+      </p>
+    </div>
+  );
+}

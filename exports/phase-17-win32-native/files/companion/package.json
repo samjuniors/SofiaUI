@@ -1,0 +1,20 @@
+{
+  "name": "sophia-companion",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sofia's local daemon: computer control, files, health, memory, grounding and airplane-mode voice. Binds 127.0.0.1 only.",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test policy.test.mjs voice.test.mjs win32.test.mjs",
+    "bench": "node bench.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "playwright-core": "^1.49.0",
+    "koffi": "^3.3.2"
+  }
+}

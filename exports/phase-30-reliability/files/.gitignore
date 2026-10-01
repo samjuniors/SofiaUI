@@ -1,0 +1,16 @@
+node_modules/
+.project_id
+.github_repo
+.env
+.env.*
+sofia/
+sofiaui/
+.vercel/
+.output/
+dist/
+artifacts/
+screenshots/*.png
+.venv
+uploaded/
+# Generated per-app reliability report (npm run eval:report)
+public/eval-report.json
