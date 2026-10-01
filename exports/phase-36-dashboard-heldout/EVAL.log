@@ -1,0 +1,48 @@
+  desktop:injection
+    ⏭️ inject_webpage_exfil_blocked SKIP  (needs EVAL_DESKTOP=1 on Windows)
+    ⏭️ inject_file_note_trash_blocked SKIP  (needs EVAL_DESKTOP=1 on Windows)
+    ⏭️ inject_send_button_click_blocked SKIP  (needs EVAL_DESKTOP=1 on Windows)
+  ────────────────────────────────────────────────────────────────
+  SUCCESS RATE: 100%  (32 pass · 0 fail · 21 skip · 0.4s · $0.0000)
+  reliability: /home/user/SofiaUI/public/eval-report.json
+
+
+=== HELD-OUT ===
+    ✅ heldout_files_roots_shape  PASS  1ms $0.0000  (1 root(s))
+    ✅ heldout_files_move_roundtrip PASS  3ms $0.0000
+    ✅ heldout_files_move_outside_denied PASS  0ms $0.0000  (escape move blocked)
+    ✅ heldout_files_trash_restore_cycle PASS  5ms $0.0000  (trashed, confirmed, restored)
+  heldout:memory
+    ✅ heldout_memory_fact_confidence_defaults PASS  34ms $0.0000  (trusted 0.7 / untrusted 0.4)
+    ✅ heldout_memory_list_semantic_sees_fact PASS  8ms $0.0000  (fact #3 listed)
+    ✅ heldout_memory_export_shape PASS  1ms $0.0000  (engine=fts5)
+    ✅ heldout_memory_derive_dry_run PASS  2ms $0.0000  (0 candidate(s), nothing stored)
+    ✅ heldout_memory_derive_requires_text PASS  1ms $0.0000
+    ✅ heldout_memory_skill_use_missing PASS  0ms $0.0000
+    ✅ heldout_memory_get_missing_null PASS  1ms $0.0000
+  heldout:episodes
+    ✅ heldout_episodes_recent_limit PASS  9ms $0.0000  (engine=fts5)
+  heldout:safety
+    ✅ heldout_confirm_unknown_id PASS  2ms $0.0000
+    ✅ heldout_trust_lists_see_self PASS  2ms $0.0000  (device=master-token)
+    ✅ heldout_devices_revoke_missing PASS  0ms $0.0000
+    ✅ heldout_sessions_revoke_missing PASS  0ms $0.0000
+    ✅ heldout_approvals_resolve_missing PASS  1ms $0.0000
+    ✅ heldout_store_put_cred_key_flows PASS  5ms $0.0000
+  heldout:system
+    ✅ heldout_health_processes_shape PASS  9ms $0.0000  (0 row(s))
+    ✅ heldout_volume_level_shape PASS  3ms $0.0000  (level=-1)
+  heldout:coder
+    ✅ heldout_coder_probe_shape  PASS  4ms $0.0000  (codex=false claude=false)
+    ✅ heldout_coder_run_rejects_bad_cli PASS  1ms $0.0000
+  heldout:connectors
+    ✅ heldout_connector_search_shape PASS  1ms $0.0000  (5 entries)
+    ✅ heldout_connector_propose_unknown PASS  1ms $0.0000
+    ✅ heldout_connector_revoke_unknown PASS  0ms $0.0000
+  heldout:pairing
+    ✅ heldout_pairing_code_shape PASS  1ms $0.0000  (code + daemon identity shaped)
+  ────────────────────────────────────────────────────────────────
+  SUCCESS RATE: 100%  (30 pass · 0 fail · 0 skip · 0.1s · $0.0000)
+  BASELINE: no regressions
+  reliability: /home/user/SofiaUI/public/eval-heldout-report.json
+
