@@ -53,7 +53,7 @@ function parseArgs(argv) {
   }
   // The held-out battery reports separately — never into eval-report.json,
   // which the self-improvement loop is allowed to read.
-  if (out.suite === "heldout" && !argv.some((a) => a.startsWith("--report"))) {
+  if (out.suite === "heldout" && !argv.some((a) => a.startsWith("--report") || a === "--no-report")) {
     out.report = join(ROOT, "public", "eval-heldout-report.json");
   }
   return out;
